@@ -1,0 +1,30 @@
+name: WIP 1.19.0 compiler diagnostic (no distribution)
+
+on:
+  push:
+    branches:
+      - integration/stable-1-19-0-wip-20261022
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  compile-only:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    name: Compile only (Ubuntu diagnostic)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Compile without publishing
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew compileKotlin --no-daemon
