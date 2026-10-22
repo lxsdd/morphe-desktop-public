@@ -898,7 +898,7 @@ class HomeViewModel(
                 if (entries == null) continue
                 if (names.isEmpty()) continue
 
-                if (ChangelogParser.hasChangesFor(entries, version, names)) {
+                if (hasConfirmedScopedPatchChange(version, latest, entries, names)) {
                     add(sourceName)
                 } else {
                     Logger.debug(
@@ -1283,6 +1283,19 @@ enum class PatchedAppState {
     MODIFIED_EXTERNALLY,
     APK_MISSING,
 }
+
+/** A repository version bump is not proof of an update for this app.
+ *  A verified newer release and an available, matching scoped changelog are required.
+ */
+internal fun hasConfirmedScopedPatchChange(
+    usedVersion: String,
+    latestVersion: String?,
+    entries: List<app.morphe.gui.util.ChangelogEntry>?,
+    appNames: Set<String>,
+): Boolean = latestVersion != null &&
+    isNewerVersion(latestVersion, usedVersion) &&
+    !entries.isNullOrEmpty() &&
+    ChangelogParser.hasChangesFor(entries, usedVersion, appNames)
 
 /** Update guidance for a patched app comparing against resolved patch sources and app versions. */
 data class RecallUpdateInfo(
