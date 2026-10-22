@@ -43,6 +43,7 @@ import app.morphe.gui.ui.screens.home.components.HomeAppSortMode
 import app.morphe.gui.util.ChangelogParser
 import app.morphe.gui.util.ChecksumStatus
 import app.morphe.gui.util.DeviceMonitor
+import app.morphe.gui.util.captureOperationTarget
 import app.morphe.gui.util.AppUpdateClassification
 import app.morphe.gui.util.SupportedTargetChannel
 import app.morphe.gui.util.selectSupportedAppTarget
@@ -212,18 +213,18 @@ class HomeViewModel(
     /** Installs the existing output APK for [packageName] onto the selected device. */
     fun installPatchedApp(packageName: String) {
         val record = patchedRecordsByPackage[packageName] ?: return
-        val device = DeviceMonitor.state.value.selectedDevice ?: return
-        if (!device.isReady || _uiState.value.installingPackage != null) return
+        val target = DeviceMonitor.state.value.captureOperationTarget() ?: return
+        if (_uiState.value.installingPackage != null) return
         _uiState.value = _uiState.value.copy(installingPackage = packageName)
         viewModelScope.launch {
-            val result = adbManager.installApk(record.outputApkPath, device.id)
+            val result = adbManager.installApk(record.outputApkPath, target.serial)
 
             // Configure app link routing if enabled.
             if (result.isSuccess) {
                 val engineConfig = engineConfigRepository.loadConfig()
                 if (engineConfig.autoRouteLinksAfterInstall) {
                     adbManager.setLinkHandling(
-                        deviceId = device.id,
+                        deviceId = target.serial,
                         patchedPackage = record.installedPackageName,
                         stockPackage = if (engineConfig.disableStockLinksAfterInstall) record.packageName else null,
                         enable = true,
@@ -248,11 +249,11 @@ class HomeViewModel(
      */
     fun uninstallPatchedApp(packageName: String, alsoForget: Boolean) {
         val record = patchedRecordsByPackage[packageName] ?: return
-        val device = DeviceMonitor.state.value.selectedDevice ?: return
-        if (!device.isReady || _uiState.value.uninstallingPackage != null) return
+        val target = DeviceMonitor.state.value.captureOperationTarget() ?: return
+        if (_uiState.value.uninstallingPackage != null) return
         _uiState.value = _uiState.value.copy(uninstallingPackage = packageName)
         viewModelScope.launch {
-            val result = adbManager.uninstallApk(record.installedPackageName, device.id)
+            val result = adbManager.uninstallApk(record.installedPackageName, target.serial)
             if (result.isSuccess && alsoForget) {
                 patchedAppStore.delete(packageName)
             }
