@@ -19,8 +19,8 @@ import picocli.CommandLine.Help.Visibility.ALWAYS
 )
 internal object UninstallCommand : Runnable {
     @Parameters(
-        description = ["Serial of ADB devices. If not supplied, the first connected device will be used."],
-        arity = "0..*",
+        description = ["Exact ADB device serial(s); at least one must be specified."],
+        arity = "1..*",
     )
     private var deviceSerials: Array<String>? = null
 
@@ -39,9 +39,13 @@ internal object UninstallCommand : Runnable {
     private var unmount: Boolean = false
 
     override fun run() {
+        val requestedSerials = validatedDeviceSerials(deviceSerials) ?: run {
+            Logger.error("Supply unique, nonblank ADB device serials.")
+            return
+        }
         val adbManager = AdbManager()
 
-        suspend fun uninstall(deviceSerial: String? = null) {
+        suspend fun uninstall(deviceSerial: String) {
             val targetDevice = adbManager.resolveTargetDevice(deviceSerial).getOrElse { e ->
                 Logger.error(e.message ?: e.toString())
                 return
@@ -60,7 +64,7 @@ internal object UninstallCommand : Runnable {
                 return@runBlocking
             }
             try {
-                deviceSerials?.takeIf { it.isNotEmpty() }?.map { async { uninstall(it) } }?.awaitAll() ?: uninstall()
+                requestedSerials.map { async { uninstall(it) } }.awaitAll()
             } finally {
                 adbManager.killServerIfOwned()
             }

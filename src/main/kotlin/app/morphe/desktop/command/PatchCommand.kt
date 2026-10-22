@@ -164,10 +164,8 @@ internal object PatchCommand : Callable<Int> {
 
     @CommandLine.Option(
         names = ["-i", "--install"],
-        description = ["Serial of the ADB device to install to. If not specified, the first connected device will be used."],
-        // Empty string to indicate that the first connected device should be used.
-        fallbackValue = "",
-        arity = "0..1",
+        description = ["Exact ADB serial to install to. A serial is required; no automatic device selection."],
+        arity = "1",
     )
     private var deviceSerial: String? = null
 
@@ -382,9 +380,17 @@ internal object PatchCommand : Callable<Int> {
         // Check for any newer version
         UpdateChecker.check()?.let { Logger.info(it) }
 
+        if (mount && deviceSerial == null) {
+            Logger.error("--mount requires --install <exact ADB serial>.")
+            return EXIT_CODE_ERROR
+        }
+        if (deviceSerial != null && deviceSerial!!.isBlank()) {
+            Logger.error("--install requires a nonempty exact ADB serial.")
+            return EXIT_CODE_ERROR
+        }
         val adbManager = if (deviceSerial != null) AdbManager() else null
         val targetDeviceId = if (deviceSerial != null) {
-            val requestedSerial = deviceSerial!!.ifEmpty { null }
+            val requestedSerial = deviceSerial!!
             val verifiedDevice = runBlocking {
                 adbManager!!.startServer().onFailure { e ->
                     Logger.error(e.message ?: "Failed to start ADB server.")

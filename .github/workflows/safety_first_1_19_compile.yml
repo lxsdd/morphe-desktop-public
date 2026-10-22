@@ -1,0 +1,38 @@
+name: Custom 1.19 source tests (no artifacts)
+
+on:
+  push:
+    branches:
+      - integration/stable-1-19-safety-first-20261022
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: safety-first-1-19-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    name: Test Custom 1.19 source (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Build and test only, never publish
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew test --no-daemon

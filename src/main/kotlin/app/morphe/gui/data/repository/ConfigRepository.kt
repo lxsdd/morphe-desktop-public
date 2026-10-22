@@ -248,8 +248,9 @@ open class ConfigRepository {
     /** Adds a new patch source to the configuration. */
     suspend fun addPatchSource(source: PatchSource) {
         val current = loadConfig()
-        val updated = current.copy(patchSource = current.patchSource + source)
-        saveConfig(updated)
+        val deduplicated = PatchSourceDuplicateGuard.addIfUnique(current.patchSource, source)
+        if (!deduplicated.added) return
+        saveConfig(current.copy(patchSource = deduplicated.sources))
     }
 
     /** Updates an existing patch source. */

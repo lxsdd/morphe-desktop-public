@@ -15,6 +15,10 @@ import kotlin.system.exitProcess
 import picocli.CommandLine
 
 fun main(args: Array<String>) {
+    // Apply Windows-only rendering policy before initializing AWT, Compose or Skiko.
+    // This executes in the bootstrapped GUI child process as well.
+    configureStableWindowsRenderer()
+
     System.setProperty("awt.app.className", "Morphe")
     System.setProperty("APP_NAME", "Morphe")
 

@@ -20,8 +20,8 @@ import picocli.CommandLine.*
 )
 internal object InstallCommand : Runnable {
     @Parameters(
-        description = ["Serial of ADB devices. If not supplied, the first connected device will be used."],
-        arity = "0..*",
+        description = ["Exact ADB device serial(s); at least one must be specified."],
+        arity = "1..*",
     )
     private var deviceSerials: Array<String>? = null
 
@@ -51,9 +51,13 @@ internal object InstallCommand : Runnable {
     private var stockPackage: String? = null
 
     override fun run() {
+        val requestedSerials = validatedDeviceSerials(deviceSerials) ?: run {
+            Logger.error("Supply unique, nonblank ADB device serials.")
+            return
+        }
         val adbManager = AdbManager()
 
-        suspend fun install(deviceSerial: String? = null) {
+        suspend fun install(deviceSerial: String) {
             val targetDevice = adbManager.resolveTargetDevice(deviceSerial).getOrElse { e ->
                 Logger.error(e.message ?: e.toString())
                 return
@@ -92,10 +96,17 @@ internal object InstallCommand : Runnable {
                 return@runBlocking
             }
             try {
-                deviceSerials?.takeIf { it.isNotEmpty() }?.map { async { install(it) } }?.awaitAll() ?: install()
+                requestedSerials.map { async { install(it) } }.awaitAll()
             } finally {
                 adbManager.killServerIfOwned()
             }
         }
     }
+}
+
+/** Returns a stable, unique target set or null; the CLI must reject null before ADB startup. */
+internal fun validatedDeviceSerials(serials: Array<String>?): List<String>? {
+    val result = serials?.toList().orEmpty()
+    return result.takeIf { it.isNotEmpty() && it.all(String::isNotBlank) &&
+        it.all { id -> id == id.trim() } && it.distinct().size == it.size }
 }

@@ -35,6 +35,9 @@ object MorpheData {
     /** Configuration file path. */
     val configFile: File get() = File(root, "config.json")
 
+    /** Per-serial patch installation receipts; these never replace fresh APK verification. */
+    val devicePatchDeploymentsFile: File get() = File(root, DevicePatchDeploymentStore.FILE_NAME)
+
     /** Default signing keystore file. */
     val defaultKeystoreFile: File get() = File(root, "morphe.keystore")
 
