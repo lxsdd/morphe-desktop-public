@@ -4,6 +4,7 @@ import app.morphe.gui.ui.screens.home.RecallUpdateInfo
 import app.morphe.gui.util.UpdateMetadataResolution
 import kotlin.test.Test
 import kotlin.test.assertFalse
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class HomeUpdateCategoriesTest {
@@ -66,4 +67,18 @@ class HomeUpdateCategoriesTest {
         assertFalse(hasConfirmedAppUpdate(null))
         assertFalse(hasConfirmedPatchUpdate(null))
     }
+
+    @Test
+    fun `unknown device state must not show a fabricated zero count`() {
+        assertEquals(null, verifiedDeviceInventoryCount(0, null))
+        assertEquals(null, verifiedDeviceInventoryCount(17, null))
+        assertEquals("?", deviceInventoryCountText(verifiedDeviceInventoryCount(0, null)))
+    }
+
+    @Test
+    fun `verified empty and populated device inventories show exact counts`() {
+        assertEquals("0", deviceInventoryCountText(verifiedDeviceInventoryCount(0, "synthetic-device")))
+        assertEquals("17", deviceInventoryCountText(verifiedDeviceInventoryCount(17, "synthetic-device")))
+    }
+
 }
