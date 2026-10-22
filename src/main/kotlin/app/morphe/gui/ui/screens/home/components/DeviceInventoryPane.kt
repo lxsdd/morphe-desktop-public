@@ -61,8 +61,7 @@ internal fun DeviceInventoryPane(
             searchQuery.isBlank() ||
                 pkg.contains(searchQuery, ignoreCase = true) ||
                 title.contains(searchQuery, ignoreCase = true)
-        }.sortedWith(compareBy<Pair<String, String>>(String.CASE_INSENSITIVE_ORDER) { it.second }
-            .thenBy(String.CASE_INSENSITIVE_ORDER) { it.first }).toList()
+        }.sortedWith(compareBy<Pair<String, String>>({ it.second.lowercase() }, { it.first.lowercase() })).toList()
     }
     if (visible.isEmpty()) {
         YourAppsEmptyHint(
