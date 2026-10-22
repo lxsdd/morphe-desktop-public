@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,7 +46,17 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** Which list the home pane is showing: all supported apps, or only patched ("yours"). */
-enum class AppListFilter { ALL, YOURS }
+enum class AppListFilter { ALL, YOURS, APP_UPDATES, PATCH_UPDATES, ON_DEVICE }
+
+/** Separate update dimensions: a newer patch version does not imply a newer app APK. */
+internal fun isPatchUpdateCandidate(info: RecallUpdateInfo?): Boolean =
+    info?.metadataResolution == app.morphe.gui.util.UpdateMetadataResolution.READY &&
+        info.sources.any { it.outdated || it.hasRelevantChanges }
+
+internal fun isAppUpdateCandidate(info: RecallUpdateInfo?): Boolean =
+    info?.metadataResolution == app.morphe.gui.util.UpdateMetadataResolution.READY &&
+        (info.appOutdated || info.stableUpdateAvailable)
+
 
 /** Filter chips for toggling between all supported applications and user patched apps. */
 @Composable
@@ -54,11 +65,14 @@ fun AppListFilterChips(
     onSelect: (AppListFilter) -> Unit,
     allCount: Int,
     yourCount: Int,
+    appUpdateCount: Int = 0,
+    patchUpdateCount: Int = 0,
+    onDeviceCount: Int = 0,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = modifier,
     ) {
         val allLabel = stringResource(Res.string.home_filter_all_apps)
@@ -72,6 +86,21 @@ fun AppListFilterChips(
             text = if (yourCount > 0) "$yourLabel $yourCount" else yourLabel,
             active = filter == AppListFilter.YOURS,
             onClick = { onSelect(AppListFilter.YOURS) },
+        )
+        MorpheChoiceChip(
+            text = "App-Updates $appUpdateCount",
+            active = filter == AppListFilter.APP_UPDATES,
+            onClick = { onSelect(AppListFilter.APP_UPDATES) },
+        )
+        MorpheChoiceChip(
+            text = "Patch-Updates $patchUpdateCount",
+            active = filter == AppListFilter.PATCH_UPDATES,
+            onClick = { onSelect(AppListFilter.PATCH_UPDATES) },
+        )
+        MorpheChoiceChip(
+            text = "Auf Gerät $onDeviceCount",
+            active = filter == AppListFilter.ON_DEVICE,
+            onClick = { onSelect(AppListFilter.ON_DEVICE) },
         )
     }
 }
