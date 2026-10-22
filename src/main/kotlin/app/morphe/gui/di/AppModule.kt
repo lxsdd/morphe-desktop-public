@@ -138,6 +138,12 @@ val appModule = module {
             params.get(),
             params.get(),
             params.get(),
+            params.get(),
+            params.get(),
+            params.get(),
+            params.get(),
+            params.get(),
+            params.get(),
             sourceIdsByName = psm.getEnabledSourcesSync().associate { it.name to it.id },
         )
     }
