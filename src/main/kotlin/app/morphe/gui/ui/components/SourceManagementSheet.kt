@@ -34,6 +34,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -43,6 +44,7 @@ import app.morphe.engine.config.EngineConfigRepository
 import app.morphe.engine.patches.PatchResolver.Channel
 import app.morphe.gui.data.model.PatchSource
 import app.morphe.gui.data.model.PatchSourceType
+import app.morphe.gui.util.RepositoryLinks
 import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.theme.MorpheMotion
 import app.morphe.gui.ui.theme.MorpheTheme
@@ -317,6 +319,8 @@ private fun SourceRow(
     val isHovered by hoverInteraction.collectIsHoveredAsState()
     val isEnabled = source.enabled
     val isDefault = !source.deletable
+    val repoLink = remember(source.id, source.url, source.type) { RepositoryLinks.resolve(source) }
+    val uriHandler = LocalUriHandler.current
     val canInteract = enabled
     // Highlight enabled sources in multi-mode or active source in single-select mode.
     val isHighlighted = if (mode == SourceSheetMode.SINGLE_SELECT) isActiveSelection else isEnabled
@@ -402,6 +406,16 @@ private fun SourceRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
+                    if (repoLink != null) {
+                        Text(
+                            text = "↗",
+                            style = MorpheTheme.typography.bodyMedium,
+                            color = colors.primary,
+                            modifier = Modifier.handCursor().clickable {
+                                RepositoryLinks.open(repoLink, uriHandler::openUri)
+                            }
+                        )
+                    }
                     MorpheBadge(
                         text = when (source.type) {
                             PatchSourceType.DEFAULT -> stringResource(Res.string.source_sheet_type_preinstalled)

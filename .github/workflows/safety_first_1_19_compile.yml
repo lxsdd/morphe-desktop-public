@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integration/stable-1-19-safety-first-20261022
+      - integration/1-19-source-links-20261022
 
 permissions:
   contents: read
