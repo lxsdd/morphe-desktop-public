@@ -829,4 +829,17 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="changelog_show_older_button">Ältere Versionen anzeigen</string>
     <string name="changelog_view_on_github_button">Auf GitHub ansehen</string>
     <string name="home_detail_relink_verified_output">Gepatchte APK sicher neu zuordnen</string>
+    <string name="home_filter_app_updates">App-Updates</string>
+    <string name="home_filter_patch_updates">Patch-Updates</string>
+    <string name="home_filter_device_apps">Auf Gerät</string>
+    <string name="home_version_patched">Gepatchte App: %1$s</string>
+    <string name="home_version_patch_source">Patchquelle: %1$s</string>
+    <string name="home_version_app_upgrade">App-Update: %1$s → %2$s</string>
+    <string name="home_version_patch_upgrade">Patch-Update: %1$s → %2$s</string>
+    <string name="home_device_inventory_empty">Auf dem ausgewählten Gerät wurden keine Apps gefunden</string>
+    <string name="home_device_inventory_unavailable">Verbinde und wähle ein bereites Gerät, um dessen Apps zu sehen</string>
+    <string name="home_device_inventory_title">Auf ausgewähltem Gerät installiert (nur Lesen)</string>
+    <string name="home_update_unknown">Update-Status noch nicht verifiziert</string>
+    <string name="home_version_patch_only">Verwendete Patchquelle: %1$s</string>
+    <string name="home_update_view_empty">Keine bestätigten Updates in dieser Kategorie</string>
 </resources>
