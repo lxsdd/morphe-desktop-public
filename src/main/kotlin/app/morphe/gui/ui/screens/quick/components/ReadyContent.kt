@@ -71,15 +71,15 @@ internal fun ReadyContent(
     val borderColor = MaterialTheme.colorScheme.outlineVariant
 
     val statusColorType = resolveStatusColorType(apkInfo.versionStatus, apkInfo.checksumStatus)
-    val isWarningState = apkInfo.versionStatus != VersionStatus.LATEST_STABLE && 
+    val isWarningState = apkInfo.versionStatus != VersionStatus.LATEST_STABLE &&
                          apkInfo.versionStatus != VersionStatus.UNKNOWN
-                          
+
     val accentColor = when {
         isWarningState -> if (statusColorType == StatusColorType.PRIMARY) accents.warning else statusColorType.toColor()
         statusColorType == StatusColorType.PRIMARY -> accents.primary
         else -> statusColorType.toColor()
     }
-    
+
     val showWarning = apkInfo.versionStatus != VersionStatus.LATEST_STABLE &&
                       apkInfo.versionStatus != VersionStatus.UNKNOWN
     val buttonColors = when {
@@ -293,7 +293,7 @@ internal fun ReadyContent(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                        
+
                             FlowRow(
                                 verticalArrangement = Arrangement.spacedBy(6.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)

@@ -19,6 +19,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,10 +31,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.morphe.engine.DevicePatchDeploymentStore
 import app.morphe.engine.PatchedAppStore
+import app.morphe.engine.model.PatchedAppRecord
+import app.morphe.engine.util.ApkManifestReader
 import app.morphe.gui.LocalAdbPreference
 import app.morphe.gui.data.model.Patch
 import app.morphe.gui.data.repository.ConfigRepository
+import app.morphe.gui.ui.components.DeviceInstallConfirmationDialog
+import app.morphe.gui.ui.components.MorpheTooltip
+import app.morphe.gui.ui.components.TooltipText
+import app.morphe.gui.ui.components.UpdateOwnerMigrationDialog
 import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.screens.quick.QuickApkInfo
 import app.morphe.gui.ui.screens.quick.formatFileSize
@@ -41,10 +49,21 @@ import app.morphe.gui.ui.theme.*
 import app.morphe.gui.util.AdbException
 import app.morphe.gui.util.AdbManager
 import app.morphe.gui.util.DeviceMonitor
+import app.morphe.gui.util.DeviceDeploymentState
+import app.morphe.gui.util.DeviceOperationTarget
+import app.morphe.gui.util.DevicePackageMutations
+import app.morphe.gui.util.UpdateOwnerMigrationCoordinator
+import app.morphe.gui.util.UpdateOwnerMigrationRequest
+import app.morphe.gui.util.UpdateOwnerMigrationResult
+import app.morphe.gui.util.captureOperationTarget
+import app.morphe.gui.util.forSerial
+import app.morphe.gui.util.migrationRequestOrNull
 import app.morphe.morphe_desktop.generated.resources.*
 import java.awt.Desktop
 import java.io.File
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 
@@ -69,10 +88,123 @@ internal fun CompletedContent(
     val monitorState by DeviceMonitor.state.collectAsState()
     val adbPreference = LocalAdbPreference.current
     val isAdbDisabledByUser = !adbPreference.enabled
-    var isInstalling by remember { mutableStateOf(false) }
-    var installError by remember { mutableStateOf<String?>(null) }
-    var installSuccess by remember { mutableStateOf(false) }
+    var deployments by remember(outputPath) { mutableStateOf<Map<String, DeviceDeploymentState>>(emptyMap()) }
+    var installTarget by remember { mutableStateOf<DeviceOperationTarget?>(null) }
+    var migrationRequest by remember { mutableStateOf<UpdateOwnerMigrationRequest?>(null) }
+    var showMigrationConfirm by remember { mutableStateOf(false) }
+    var migrationBusy by remember { mutableStateOf(false) }
+    var migrationError by remember { mutableStateOf<String?>(null) }
+    var outputPackage by remember(outputPath) { mutableStateOf<String?>(null) }
+    var patchedRecord by remember(outputPath) { mutableStateOf<PatchedAppRecord?>(null) }
+    var pendingInstallTarget by remember { mutableStateOf<DeviceOperationTarget?>(null) }
     val completedScroll = rememberScrollState()
+
+    LaunchedEffect(outputPath) {
+        val record = withContext(Dispatchers.IO) {
+            PatchedAppStore.shared.getAll().firstOrNull { it.outputApkPath == outputPath }
+        }
+        patchedRecord = record
+        outputPackage = record?.installedPackageName ?: withContext(Dispatchers.IO) {
+            ApkManifestReader.read(outputFile)?.packageName
+        }
+    }
+
+    val readySerialsKey = monitorState.devices.filter { it.isReady }.joinToString("|") { it.id }
+    LaunchedEffect(readySerialsKey, outputPackage, patchedRecord?.outputApkSha256) {
+        val pkg = outputPackage ?: return@LaunchedEffect
+        val currentHash = patchedRecord?.outputApkSha256?.takeIf { it.length == 64 }
+        monitorState.devices.filter { it.isReady }.forEach { device ->
+            val current = deployments.forSerial(device.id)
+            if (current.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING) return@forEach
+            deployments = deployments + (device.id to current.checking())
+            val installed = adbManager.listInstalledPackages(device.id).getOrNull()?.contains(pkg)
+                ?: return@forEach
+            val snapshot = if (installed) adbManager.getInstalledPackageSnapshot(device.id, pkg) else null
+            val installedHash = if (installed && currentHash != null) adbManager.getInstalledBaseApkSha256(device.id, pkg) else null
+            val matchesCurrent = if (currentHash != null && installedHash != null) {
+                currentHash.equals(installedHash, ignoreCase = true)
+            } else null
+            if (DeviceMonitor.state.value.devices.any { it.id == device.id && it.isReady }) {
+                deployments = deployments + (device.id to deployments.forSerial(device.id).observed(
+                    isInstalled = installed,
+                    version = snapshot?.versionName,
+                    outputMatchesCurrent = matchesCurrent,
+                ))
+            }
+        }
+    }
+
+    suspend fun runPostInstall(deviceId: String, notifyMutation: Boolean = true) {
+        val config = configRepository.loadConfig()
+        val record = PatchedAppStore.shared.getAll().firstOrNull { it.outputApkPath == outputPath }
+        record?.let { DevicePatchDeploymentStore.shared.recordSuccessfulInstall(deviceId, it) }
+        if (notifyMutation) {
+            val affectedPackage = record?.installedPackageName ?: withContext(Dispatchers.IO) {
+                runCatching { ApkManifestReader.read(outputFile)?.packageName }.getOrNull()
+            } ?: apkInfo.packageName
+            DevicePackageMutations.notify(deviceId, affectedPackage)
+        }
+        if (config.autoRouteLinksAfterInstall) {
+            record?.let {
+                deployments = deployments + (deviceId to deployments.forSerial(deviceId).applyingLinks())
+                val result = adbManager.setLinkHandling(
+                    deviceId = deviceId,
+                    patchedPackage = it.installedPackageName,
+                    stockPackage = if (config.disableStockLinksAfterInstall) it.packageName else null,
+                    enable = true,
+                )
+                deployments = deployments + (deviceId to result.fold(
+                    onSuccess = { deployments.forSerial(deviceId).linksConfigured("Links routed to patched app") },
+                    onFailure = { deployments.forSerial(deviceId).linksFailed(it.message ?: "Link handling failed") },
+                ))
+            }
+        }
+    }
+
+    fun installViaAdb(target: DeviceOperationTarget) {
+        if (deployments.values.any { it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING }) return
+        if (DeviceMonitor.state.value.devices.none { it.id == target.serial && it.isReady }) {
+            installTarget = target
+            deployments = deployments + (target.serial to deployments.forSerial(target.serial).installFailed(
+                "${target.displayName} is no longer connected and ready. Installation was not started.",
+            ))
+            return
+        }
+        val wasAlreadyInstalled = deployments.forSerial(target.serial).installed == true
+        scope.launch {
+            migrationRequest = null
+            installTarget = target
+            deployments = deployments + (target.serial to deployments.forSerial(target.serial).installing(
+                "${if (wasAlreadyInstalled) "Updating" else "Installing"} on ${target.displayName}…",
+            ))
+            val installer = adbManager.resolveSpoofInstaller(target.serial)
+            val result = adbManager.installApk(
+                apkPath = outputPath,
+                deviceId = target.serial,
+                installerPackage = installer,
+                onProgress = { progress ->
+                    deployments = deployments + (target.serial to deployments.forSerial(target.serial).installing(
+                        "$progress (${target.displayName})",
+                    ))
+                },
+            )
+            result.fold(
+                onSuccess = {
+                    deployments = deployments + (target.serial to deployments.forSerial(target.serial).installed(
+                        "${if (wasAlreadyInstalled) "Updated" else "Installed"} on ${target.displayName}",
+                        apkInfo.versionName,
+                    ))
+                    runPostInstall(target.serial)
+                },
+                onFailure = { error ->
+                    migrationRequest = migrationRequestOrNull(error, target.serial, outputPath)
+                    deployments = deployments + (target.serial to deployments.forSerial(target.serial).installFailed(
+                        "Installation failed on ${target.displayName}: ${error.message ?: "Unknown error"}",
+                    ))
+                },
+            )
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -234,26 +366,31 @@ internal fun CompletedContent(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 val readyDevices = monitorState.devices.filter { it.isReady }
-                val selectedDevice = monitorState.selectedDevice
+                val selectedTarget = monitorState.captureOperationTarget()
+                val selectedState = selectedTarget?.let { deployments.forSerial(it.serial) }
 
                 when {
-                    installSuccess -> {
+                    selectedState?.installPhase == DeviceDeploymentState.InstallPhase.CHECKING -> {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                            CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = accents.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Checking installed APK on ${selectedTarget.displayName}…",
+                                fontSize = 11.sp,
+                                fontFamily = font,
+                                color = accents.primary,
+                            )
+                        }
+                    }
+                    selectedState?.installPhase == DeviceDeploymentState.InstallPhase.INSTALLED -> {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            Icon(
-                                imageVector = MorpheIcons.CheckCircle,
-                                contentDescription = null,
-                                tint = accents.secondary,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Box(modifier = Modifier.size(6.dp).background(accents.secondary, CircleShape))
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = stringResource(
-                                    Res.string.installed_on,
-                                    selectedDevice?.displayName ?: stringResource(Res.string.device_default)
-                                ),
+                                text = selectedState.installMessage ?: "Installed on ${selectedTarget.displayName}",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Normal,
                                 fontFamily = font,
@@ -261,7 +398,7 @@ internal fun CompletedContent(
                             )
                         }
                     }
-                    isInstalling -> {
+                    selectedState?.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING -> {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
@@ -273,7 +410,7 @@ internal fun CompletedContent(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = stringResource(Res.string.installing),
+                                text = selectedState.installMessage ?: "Installing on ${selectedTarget.displayName}…",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Normal,
                                 fontFamily = font,
@@ -281,45 +418,38 @@ internal fun CompletedContent(
                             )
                         }
                     }
-                    readyDevices.isNotEmpty() -> {
-                        val device = selectedDevice ?: readyDevices.first()
+                    deployments.values.any { it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING } -> {
+                        Text(
+                            text = "Another device installation is still running.",
+                            fontSize = 11.sp,
+                            fontFamily = font,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    selectedTarget != null -> {
+                        val target = selectedTarget
                         MorpheActionButton(
-                            label = stringResource(Res.string.adb_install_on_button, device.displayName),
+                            label = if (selectedState?.installed == true) {
+                                stringResource(Res.string.result_adb_update_button, target.displayName)
+                            } else {
+                                stringResource(Res.string.adb_install_on_button, target.displayName)
+                            },
                             modifier = Modifier
                                 .widthIn(max = 480.dp)
                                 .fillMaxWidth(),
                             onClick = {
-                                scope.launch {
-                                    isInstalling = true
-                                    installError = null
-                                    val result = adbManager.installApk(
-                                        apkPath = outputPath,
-                                        deviceId = device.id
-                                    )
-                                    result.fold(
-                                        onSuccess = {
-                                            installSuccess = true
-                                            val config = configRepository.loadConfig()
-                                            if (config.autoRouteLinksAfterInstall) {
-                                                val record = PatchedAppStore.shared.getAll()
-                                                    .firstOrNull { it.outputApkPath == outputPath }
-                                                record?.let {
-                                                    adbManager.setLinkHandling(
-                                                        deviceId = device.id,
-                                                        patchedPackage = it.installedPackageName,
-                                                        stockPackage = if (config.disableStockLinksAfterInstall) it.packageName else null,
-                                                        enable = true,
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        onFailure = { installError = (it as? AdbException)?.getUserMessage() ?: it.message }
-                                    )
-                                    isInstalling = false
+                                if (deployments.values.none { it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING }) {
+                                    pendingInstallTarget = DeviceMonitor.state.value.captureOperationTarget()
                                 }
-                            }
+                            },
                         )
                     }
+                    readyDevices.isNotEmpty() -> Text(
+                        text = "Select a device before installing",
+                        fontSize = 11.sp,
+                        fontFamily = font,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     else -> {
                         Text(
                             text = stringResource(Res.string.quick_patch_completed_adb_connect_device),
@@ -331,7 +461,7 @@ internal fun CompletedContent(
                     }
                 }
 
-                installError?.let { error ->
+                selectedState?.installError?.let { error ->
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = error,
@@ -341,6 +471,17 @@ internal fun CompletedContent(
                         color = MaterialTheme.colorScheme.error,
                         textAlign = TextAlign.Center
                     )
+                    if (migrationRequest != null) {
+                        Spacer(Modifier.height(8.dp))
+                        MorpheTooltip(TooltipText.MIGRATE) {
+                            Button(
+                                onClick = { showMigrationConfirm = true },
+                                enabled = !migrationBusy,
+                            ) {
+                                Text("Uninstall & retry", fontFamily = font, fontSize = 11.sp)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -372,6 +513,69 @@ internal fun CompletedContent(
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
             adapter = rememberScrollbarAdapter(completedScroll),
             style = morpheScrollbarStyle(),
+        )
+    }
+
+    pendingInstallTarget?.let { target ->
+        val deployment = deployments.forSerial(target.serial)
+        DeviceInstallConfirmationDialog(
+            appName = apkInfo.displayName,
+            packageName = outputPackage ?: apkInfo.packageName,
+            apkVersion = apkInfo.versionName,
+            deviceName = target.displayName,
+            deviceSerial = target.serial,
+            installedVersion = deployment.installedVersion,
+            replacingExisting = deployment.installed == true,
+            onDismiss = { pendingInstallTarget = null },
+            onConfirm = {
+                pendingInstallTarget = null
+                installViaAdb(target)
+            },
+        )
+    }
+
+    if (showMigrationConfirm && migrationRequest != null) {
+        UpdateOwnerMigrationDialog(
+            isBusy = migrationBusy,
+            error = migrationError,
+            deviceName = installTarget?.displayName,
+            onCancel = {
+                if (!migrationBusy) {
+                    showMigrationConfirm = false
+                    migrationError = null
+                }
+            },
+            onConfirm = {
+                if (!migrationBusy) {
+                    migrationBusy = true
+                    migrationError = null
+                    scope.launch {
+                        val request = migrationRequest!!
+                        when (val result = UpdateOwnerMigrationCoordinator.using(adbManager).execute(request)) {
+                            UpdateOwnerMigrationResult.Success -> {
+                                deployments = deployments + (request.deviceSerial to deployments.forSerial(request.deviceSerial).installed(
+                                    "Installed on ${installTarget?.displayName ?: request.deviceSerial}",
+                                ))
+                                migrationRequest = null
+                                showMigrationConfirm = false
+                                runPostInstall(request.deviceSerial, notifyMutation = false)
+                            }
+                            UpdateOwnerMigrationResult.DeviceUnavailable ->
+                                migrationError = "${installTarget?.displayName ?: "The original device"} is no longer connected and ready. Nothing was uninstalled."
+                            is UpdateOwnerMigrationResult.UninstallFailed ->
+                                migrationError = "Uninstall failed on ${installTarget?.displayName ?: request.deviceSerial}. The patched APK was not reinstalled: ${result.message}"
+                            is UpdateOwnerMigrationResult.ReinstallFailed -> {
+                                deployments = deployments + (request.deviceSerial to deployments.forSerial(request.deviceSerial).installFailed(
+                                    "The existing app was uninstalled from ${installTarget?.displayName ?: request.deviceSerial}, but reinstalling the patched APK failed: ${result.message}. The patched APK remains at $outputPath",
+                                ))
+                                migrationRequest = null
+                                showMigrationConfirm = false
+                            }
+                        }
+                        migrationBusy = false
+                    }
+                }
+            },
         )
     }
 }
