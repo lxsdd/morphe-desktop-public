@@ -50,6 +50,14 @@ class HomeUpdateCategoriesTest {
     }
 
     @Test
+    fun `unresolved patch metadata cannot confirm a per-app patch update`() {
+        val change = RecallUpdateInfo.SourceUpdate("synthetic-source", "1.0", "1.1", "1.1",
+            outdated = true, hasRelevantChanges = true)
+        assertFalse(hasConfirmedPatchUpdate(info(sources = listOf(change),
+            resolution = UpdateMetadataResolution.UNAVAILABLE)))
+    }
+
+    @Test
     fun `both update types can apply simultaneously`() {
         val x = info(appOutdated = true, sources = listOf(
             RecallUpdateInfo.SourceUpdate("source", "1.0", "1.1", "1.1",
