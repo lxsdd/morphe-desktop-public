@@ -104,7 +104,7 @@ val LocalMorpheCorners = compositionLocalOf { MorpheCornerStyle() }
  * - [controlHorizontalPadding]: standard horizontal padding inside a control.
  */
 data class MorpheDimens(
-    val controlHeight: Dp = 36.dp,
+    val controlHeight: Dp = 40.dp,
     val chipHeight: Dp = 28.dp,
     val iconInControl: Dp = 14.dp,
     val controlHorizontalPadding: Dp = 12.dp,

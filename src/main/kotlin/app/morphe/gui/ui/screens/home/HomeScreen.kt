@@ -23,8 +23,11 @@ import app.morphe.gui.data.repository.PatchSourceManager
 import app.morphe.gui.navigateComplex
 import app.morphe.gui.ui.components.AddPatchSourceDialog
 import app.morphe.gui.ui.components.MorpheErrorBar
+import app.morphe.gui.ui.components.MorpheSuccessBar
+import app.morphe.gui.ui.components.DeviceInstallConfirmationDialog
 import app.morphe.gui.ui.components.SourceLedState
 import app.morphe.gui.ui.components.SourceManagementSheet
+import app.morphe.gui.ui.components.UpdateOwnerMigrationDialog
 import app.morphe.gui.ui.components.sourceLedState
 import app.morphe.gui.ui.screens.home.components.ForgetConfirmDialog
 import app.morphe.gui.ui.screens.home.components.FullScreenDropZone
@@ -32,15 +35,17 @@ import app.morphe.gui.ui.screens.home.components.HeaderBar
 import app.morphe.gui.ui.screens.home.components.HomeBanners
 import app.morphe.gui.ui.screens.home.components.HomeSplitLayout
 import app.morphe.gui.ui.screens.home.components.PatchedAppDetailDialog
+import app.morphe.gui.ui.screens.home.components.PatchedApkInstallProgressDialog
 import app.morphe.gui.ui.screens.home.components.RepatchMissingApkDialog
 import app.morphe.gui.ui.screens.home.components.UninstallConfirmDialog
 import app.morphe.gui.ui.screens.home.components.VersionWarningDialog
 import app.morphe.gui.ui.screens.home.components.handleContinue
 import app.morphe.gui.ui.screens.home.components.openFilePicker
-import app.morphe.gui.ui.screens.patches.PatchSelectionScreen
-import app.morphe.gui.ui.screens.patches.PatchesScreen
 import app.morphe.gui.util.AdbException
 import app.morphe.gui.util.EnabledSourcesLoader
+import app.morphe.gui.util.DeviceMonitor
+import app.morphe.gui.util.DeviceOperationTarget
+import app.morphe.gui.util.captureOperationTarget
 import app.morphe.gui.util.PatchException
 import app.morphe.gui.util.humanizePatchLoadError
 import app.morphe.gui.util.sourceChannelMap
@@ -70,9 +75,109 @@ fun HomeScreenContent(
 ) {
     val navController = LocalNavController.current
     val uiState by viewModel.uiState.collectAsState()
+    val deviceMonitorState by DeviceMonitor.state.collectAsState()
+    val selectedTarget = deviceMonitorState.captureOperationTarget()
+    val selectedDiscovery = selectedTarget?.serial?.let { uiState.deviceDiscoveries[it] }
+    val selectedDeviceAppInfo = uiState.deviceAppInfo.takeIf {
+        uiState.deviceInfoDeviceSerial == selectedTarget?.serial
+    }.orEmpty()
+    val unifiedAppStates = remember(
+        uiState.patchedRecords,
+        uiState.patchedStates,
+        uiState.updateInfoByPackage,
+        uiState.deviceAppInfo,
+        uiState.supportedApps,
+        selectedTarget?.serial,
+        selectedDiscovery,
+    ) {
+        buildUnifiedHomeAppStateIndex(
+            records = uiState.patchedRecords,
+            patchedStates = uiState.patchedStates,
+            updateInfoByPackage = uiState.updateInfoByPackage,
+            deviceAppInfo = selectedDeviceAppInfo,
+            supportedApps = uiState.supportedApps,
+            selectedDeviceSerial = selectedTarget?.serial,
+            deviceDiscovery = selectedDiscovery,
+        )
+    }
+    var primaryModal by remember { mutableStateOf<HomePrimaryModal>(HomePrimaryModal.None) }
+
+    (primaryModal as? HomePrimaryModal.InstallConfirmation)?.let { modal ->
+        val record = viewModel.getPatchedRecord(modal.packageName) ?: return@let
+        val target = modal.target
+        val deviceInfo = uiState.deviceAppInfo[record.packageName]
+            ?.takeIf { uiState.deviceInfoDeviceSerial == target.serial }
+        DeviceInstallConfirmationDialog(
+            appName = record.displayName,
+            packageName = record.installedPackageName,
+            apkVersion = record.apkVersion,
+            deviceName = target.displayName,
+            deviceSerial = target.serial,
+            installedVersion = deviceInfo?.installedVersion,
+            replacingExisting = deviceInfo?.installed == true,
+            onDismiss = { primaryModal = HomePrimaryModal.None },
+            onConfirm = {
+                primaryModal = HomePrimaryModal.None
+                viewModel.installPatchedApp(record.packageName, requestedTarget = target)
+            },
+        )
+    }
+
+    uiState.installingPackage?.let { packageName ->
+        val record = uiState.patchedRecords.firstOrNull { it.packageName == packageName }
+        val target = uiState.deviceOperationTarget
+        if (record != null && target != null) {
+            PatchedApkInstallProgressDialog(
+                appName = record.displayName,
+                deviceName = target.displayName,
+                progress = uiState.installProgress,
+            )
+        }
+    }
+
+    uiState.migrationRequest?.let {
+        UpdateOwnerMigrationDialog(
+            isBusy = uiState.migrationBusy,
+            error = uiState.migrationError,
+            deviceName = uiState.deviceOperationTarget?.displayName,
+            onCancel = viewModel::dismissMigration,
+            onConfirm = viewModel::confirmMigration,
+        )
+    }
+
+    fun requestPatchedInstall(packageName: String) {
+        val record = viewModel.getPatchedRecord(packageName) ?: return
+        val target = DeviceMonitor.state.value.captureOperationTarget() ?: return
+        primaryModal = primaryModal.requestInstall(record.packageName, target)
+    }
 
     // Device install-state is polled (adb), not streamed.
     LaunchedEffect(Unit) { viewModel.refreshDeviceInfo() }
+
+    LaunchedEffect(uiState.deviceImportReady) {
+        val ready = uiState.deviceImportReady ?: return@LaunchedEffect
+        val patchFiles = viewModel.getAllResolvedPatchFiles()
+        if (patchFiles.isEmpty()) return@LaunchedEffect
+        navController.navigateComplex(
+            PatchSelectionScreenRoute,
+            PatchSelectionParams(
+                apkPath = ready.input.file.absolutePath,
+                apkName = ready.app.displayName,
+                patchesFilePath = patchFiles.first().absolutePath,
+                packageName = ready.app.packageName,
+                apkArchitectures = ready.architectures,
+                patchesFilePaths = patchFiles.map { it.absolutePath },
+                patchSourceNames = viewModel.getAllResolvedPatchSourceNames(),
+                patchSourceIds = viewModel.getAllResolvedPatchSourceIds(),
+                patchSourceHashes = viewModel.getAllResolvedPatchSourceHashes(),
+                temporaryInputRoot = ready.input.cleanupRoot?.absolutePath,
+                sourceDeviceSerial = ready.input.sourceDeviceSerial,
+                deviceSpecificInput = ready.input.deviceSpecificSplitSet,
+                validatedDeviceImport = true,
+            )
+        )
+        viewModel.consumeDeviceImport()
+    }
 
     val coroutineScope = rememberCoroutineScope()
     val patchSourceManager: PatchSourceManager = koinInject()
@@ -84,7 +189,6 @@ fun HomeScreenContent(
     // One-click repatch: a patched-app row's "Re-patch" action. Jump straight to
     // patch selection with the input APK + the record's saved selection, using
     // the CURRENT resolved sources (so it repatches against current bundle versions).
-    var repatchMissingRecord by remember { mutableStateOf<PatchedAppRecord?>(null) }
     // Launch patch selection for a record with explicit patch files (re-patch uses
     // the current resolved set. Update passes freshly-resolved latest files).
     fun launchPatch(
@@ -92,6 +196,8 @@ fun HomeScreenContent(
         apkPath: String,
         patchFilePaths: List<String>,
         sourceNames: List<String>,
+        sourceIds: List<String> = viewModel.getAllResolvedPatchSourceIds(),
+        sourceHashes: List<String?> = viewModel.getAllResolvedPatchSourceHashes(),
     ) {
         if (patchFilePaths.isEmpty()) return // patches not loaded yet
         navController.navigateComplex(
@@ -103,6 +209,8 @@ fun HomeScreenContent(
                 packageName = record.packageName,
                 patchesFilePaths = patchFilePaths,
                 patchSourceNames = sourceNames,
+                patchSourceIds = sourceIds,
+                patchSourceHashes = sourceHashes,
                 initialSelectionByBundle = record.patchSelectionByBundle,
                 initialPatchOptions = record.patchOptionValues,
                 apkVersion = record.apkVersion,
@@ -120,58 +228,69 @@ fun HomeScreenContent(
     val onRepatch: (String) -> Unit = onRepatch@{ pkg ->
         val record = viewModel.getPatchedRecord(pkg) ?: return@onRepatch
         if (File(record.inputApkPath).exists()) {
+            primaryModal = HomePrimaryModal.None
             repatchWithApk(record, record.inputApkPath)
         } else {
-            repatchMissingRecord = record
+            primaryModal = primaryModal.requestMissingInput(record.packageName)
         }
     }
 
     // Explicit "Forget" recovery action. Removes a record from the history.
-    var forgetConfirm by remember { mutableStateOf<PatchedAppRecord?>(null) }
-    val onForget: (String) -> Unit = { pkg -> forgetConfirm = viewModel.getPatchedRecord(pkg) }
-    forgetConfirm?.let { record ->
+    val onForget: (String) -> Unit = { pkg ->
+        if (viewModel.getPatchedRecord(pkg) != null) primaryModal = primaryModal.requestForget(pkg)
+    }
+    (primaryModal as? HomePrimaryModal.ForgetConfirmation)?.let { modal ->
+        val record = viewModel.getPatchedRecord(modal.packageName) ?: return@let
         ForgetConfirmDialog(
             record = record,
-            onDismiss = { forgetConfirm = null },
+            onDismiss = { primaryModal = HomePrimaryModal.None },
             onConfirm = {
                 viewModel.forgetPatchedApp(record.packageName)
-                forgetConfirm = null
+                primaryModal = HomePrimaryModal.None
             },
         )
     }
 
     // "Uninstall" removes the patched app from the connected device. The dialog
     // offers the keep-history vs delete-history choice via a checkbox.
-    var uninstallConfirm by remember { mutableStateOf<PatchedAppRecord?>(null) }
     var uninstallAlsoForget by remember { mutableStateOf(false) }
     val onUninstall: (String) -> Unit = { pkg ->
         uninstallAlsoForget = false
-        uninstallConfirm = viewModel.getPatchedRecord(pkg)
+        if (viewModel.getPatchedRecord(pkg) != null) primaryModal = primaryModal.requestUninstall(pkg)
     }
-    uninstallConfirm?.let { record ->
+    (primaryModal as? HomePrimaryModal.UninstallConfirmation)?.let { modal ->
+        val record = viewModel.getPatchedRecord(modal.packageName) ?: return@let
         UninstallConfirmDialog(
             record = record,
             alsoForget = uninstallAlsoForget,
             onAlsoForgetChange = { uninstallAlsoForget = it },
-            onDismiss = { uninstallConfirm = null },
+            onDismiss = { primaryModal = HomePrimaryModal.None },
             onConfirm = {
                 viewModel.uninstallPatchedApp(record.packageName, alsoForget = uninstallAlsoForget)
-                uninstallConfirm = null
+                primaryModal = HomePrimaryModal.None
             },
         )
     }
 
-    repatchMissingRecord?.let { record ->
+    (primaryModal as? HomePrimaryModal.RepatchMissingInput)?.let { modal ->
+        val record = viewModel.getPatchedRecord(modal.packageName) ?: return@let
         RepatchMissingApkDialog(
             record = record,
-            onDismiss = { repatchMissingRecord = null },
-            onApkPicked = { path -> repatchWithApk(record, path) },
+            onDismiss = { primaryModal = HomePrimaryModal.None },
+            onApkPicked = { path ->
+                primaryModal = HomePrimaryModal.None
+                repatchWithApk(record, path)
+            },
         )
     }
 
     // Phase 7. Tap a "Your apps" row to see the full recall breakdown.
-    var detailRecord by remember { mutableStateOf<PatchedAppRecord?>(null) }
-    val onShowDetail: (PatchedAppRecord) -> Unit = { detailRecord = it }
+    val detailRecord = (primaryModal as? HomePrimaryModal.Detail)
+        ?.packageName
+        ?.let(viewModel::getPatchedRecord)
+    val onShowDetail: (PatchedAppRecord) -> Unit = {
+        primaryModal = HomePrimaryModal.Detail(it.packageName)
+    }
     var bundleVersionsBySource by remember { mutableStateOf(emptyMap<String, List<BundleRelease>>()) }
     var showAddSourceDialog by remember { mutableStateOf(false) }
     var preparingPatch by remember { mutableStateOf(false) }
@@ -186,6 +305,7 @@ fun HomeScreenContent(
     if (showAddSourceDialog) {
         AddPatchSourceDialog(
             isQuickMode = false,
+            existingSources = patchSourceManager.getEnabledSourcesSync(),
             onDismiss = { showAddSourceDialog = false },
             onAdd = { source ->
                 showAddSourceDialog = false
@@ -197,12 +317,11 @@ fun HomeScreenContent(
         )
     }
     detailRecord?.let { record ->
-        val updateInfo = remember(record) { viewModel.recallUpdateInfo(record) }
         PatchedAppDetailDialog(
             record = record,
             state = uiState.patchedStates[record.packageName] ?: PatchedAppState.PATCHED,
-            deviceInfo = uiState.deviceAppInfo[record.packageName],
-            updateInfo = updateInfo,
+            deviceInfo = selectedDeviceAppInfo[record.packageName],
+            unifiedState = unifiedAppStates.forOriginalPackage(record.packageName),
             supportedApp = uiState.supportedApps.find { it.packageName == record.packageName },
             activeSources = activeSources,
             allSources = allSources,
@@ -231,7 +350,7 @@ fun HomeScreenContent(
             onIsBundleCached = { name, tag -> viewModel.isBundleCached(name, tag) },
             onSupportedAppFor = { pkg, overrides -> viewModel.supportedAppFor(pkg, overrides) },
             onDownloadBundle = { name, tag, onProgress -> viewModel.downloadBundle(name, tag, onProgress) },
-            onDismiss = { detailRecord = null },
+            onDismiss = { primaryModal = HomePrimaryModal.None },
             onRepatch = { onRepatch(record.packageName) },
             preparingPatch = preparingPatch,
             patchPrepProgress = patchPrepProgress,
@@ -244,7 +363,7 @@ fun HomeScreenContent(
                             patchPrepProgress = name to pct
                         }
                             .onSuccess { (files, names) ->
-                                detailRecord = null
+                                primaryModal = HomePrimaryModal.None
                                 launchPatch(record, apkPath, files, names)
                             }
                             .onFailure {
@@ -266,7 +385,7 @@ fun HomeScreenContent(
                     if (parent != null && parent.exists()) Desktop.getDesktop().open(parent)
                 }
             },
-            onInstall = { viewModel.installPatchedApp(record.packageName) },
+            onInstall = { requestPatchedInstall(record.packageName) },
             onUninstall = { onUninstall(record.packageName) },
             installing = uiState.installingPackage == record.packageName,
             uninstalling = uiState.uninstallingPackage == record.packageName,
@@ -379,6 +498,8 @@ fun HomeScreenContent(
                                     apkVersion = uiState.apkInfo!!.versionName,
                                     patchesFilePaths = viewModel.getAllResolvedPatchFiles().map { it.absolutePath },
                                     patchSourceNames = viewModel.getAllResolvedPatchSourceNames(),
+                                    patchSourceIds = viewModel.getAllResolvedPatchSourceIds(),
+                                    patchSourceHashes = viewModel.getAllResolvedPatchSourceHashes(),
                                 )
                             )
                         }
@@ -471,13 +592,23 @@ fun HomeScreenContent(
                         )
                         HomeSplitLayout(
                             uiState = uiState,
+                            deviceAppInfo = selectedDeviceAppInfo,
+                            unifiedAppStates = unifiedAppStates,
                             padding = padding,
                             sourceNamesByPackage = sourceNamesByPackage,
                             patchSourcesForSelectedApk = patchSourcesForSelectedApk,
                             patchesLoaded = patchesLoaded,
-                            onSortModeChange = { viewModel.setSortMode(it) },
+                            onSortPreferenceChange = viewModel::setAppSortPreference,
                             onShowDetail = onShowDetail,
+                            onInstallPatchedApp = ::requestPatchedInstall,
                             onFilterChange = { viewModel.setAppListFilter(it) },
+                            deviceDiscovery = selectedDiscovery,
+                            deviceDisplayName = uiState.selectedDiscoveryDevice?.let { serial ->
+                                deviceMonitorState.devices.firstOrNull { it.id == serial }?.displayName
+                            },
+                            onRefreshDeviceApps = viewModel::refreshDeviceApps,
+                            onVisibleDevicePackages = viewModel::setVisibleDevicePackages,
+                            onImportDeviceApp = viewModel::importDeviceApp,
                             onRetry = onRetry,
                             onManageSources = { showSourceManagementSheet = true },
                             onClearClick = onClearClick,
@@ -500,6 +631,21 @@ fun HomeScreenContent(
                             .align(Alignment.BottomCenter)
                             .padding(horizontal = 24.dp, vertical = 20.dp)
                     )
+                }
+
+                if (uiState.error == null) {
+                    uiState.deviceSuccess?.takeIf {
+                        uiState.deviceSuccessSerial == null ||
+                            uiState.deviceSuccessSerial == uiState.deviceInfoDeviceSerial
+                    }?.let { message ->
+                        MorpheSuccessBar(
+                            message = message,
+                            onDismiss = viewModel::clearDeviceSuccess,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(horizontal = 24.dp, vertical = 20.dp),
+                        )
+                    }
                 }
 
             }

@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_ALIAS
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_PASSWORD
+import app.morphe.engine.MorpheData
 import app.morphe.engine.model.PatchedAppRecord.PatchedSourceSnapshot
 import app.morphe.engine.util.ApkOutputNaming
 import app.morphe.gui.data.model.Patch
@@ -20,6 +21,8 @@ import app.morphe.gui.data.repository.SeenPatchesRepository
 import app.morphe.gui.util.FileUtils
 import app.morphe.gui.util.FileUtils.ANDROID_ARCHITECTURES
 import app.morphe.gui.util.Logger
+import app.morphe.gui.util.cleanupDeviceImportRoot
+import app.morphe.gui.util.resolvePatchOutputBaseDirectory
 import app.morphe.gui.util.PatchService
 import app.morphe.gui.util.optionValueFromJson
 import app.morphe.gui.util.optionValueOrNull
@@ -76,6 +79,8 @@ class PatchSelectionViewModel(
     /** Parallel to [patchesFilePaths]. Display name of each source. Used as the
      *  per-bundle label AND persistence key. */
     private val patchSourceNames: List<String> = emptyList(),
+    private val patchSourceIds: List<String> = emptyList(),
+    private val patchSourceHashes: List<String?> = emptyList(),
     /** One-click repatch seed: source/bundle name → set of patch uniqueIds to
      *  pre-select. Empty = normal flow (saved prefs / .mpp defaults). */
     private val initialSelectionByBundle: Map<String, Set<String>> = emptyMap(),
@@ -86,10 +91,21 @@ class PatchSelectionViewModel(
      *  re-read a version from. Blank falls back to the engine's manifest/filename resolution.
      *  Non-null (rather than String?) so no null flows through the Koin parametersOf chain. */
     private val apkVersion: String = "",
+    private val temporaryInputRoot: String? = null,
+    private val sourceDeviceSerial: String? = null,
+    private val deviceSpecificInput: Boolean = false,
+    private val validatedDeviceImport: Boolean = false,
     private val seenPatchesRepository: SeenPatchesRepository = SeenPatchesRepository(),
     /** Configured source name to its stable id, so a record can store the id rather than a label. */
     private val sourceIdsByName: Map<String, String> = emptyMap(),
 ) : ViewModel() {
+
+    private var temporaryInputHandedOff = false
+
+    override fun onCleared() {
+        if (!temporaryInputHandedOff) cleanupTemporaryInput()
+        super.onCleared()
+    }
 
     // Actual path to use for the primary file. May differ from patchesFilePath
     // if we had to re-download (cache cleared, etc.)
@@ -337,7 +353,10 @@ class PatchSelectionViewModel(
         }.awaitAll()
 
         val bundles: List<BundlePatches> = perFile.mapNotNull { (idx, path, result) ->
-            val patches = result.getOrNull() ?: return@mapNotNull null
+            val loadedPatches = result.getOrNull() ?: return@mapNotNull null
+            val patches = if (validatedDeviceImport) {
+                loadedPatches.filter { it.isCompatibleWith(packageName, apkVersion.takeIf(String::isNotBlank)) }
+            } else loadedPatches
             val displayName = patchSourceNames.getOrNull(idx)
                 ?: File(path).nameWithoutExtension
             BundlePatches(
@@ -598,15 +617,21 @@ class PatchSelectionViewModel(
 
     fun createPatchConfig(continueOnError: Boolean = false): PatchConfig {
         saveCurrentSelection()
+        temporaryInputHandedOff = true
 
         // Delegate to the shared engine helper. Same path the CLI computes.
         // Passing apkName as the display name preserves the friendly label
         // (e.g. "Youtube") instead of falling back to the filename.
         val inputFile = File(apkPath)
+        val outputBaseDirectory = resolvePatchOutputBaseDirectory(
+            configuredOutputDirectory = defaultOutputDirectory?.let(::File),
+            temporaryInputRoot = temporaryInputRoot?.let(::File),
+            persistentFallback = MorpheData.bundleRoot ?: MorpheData.root,
+        )
         val outputPath = ApkOutputNaming.outputApkPath(
             inputApk = inputFile,
             patchesFile = File(actualPatchesFilePath),
-            baseOutputDir = defaultOutputDirectory?.let { File(it) },
+            baseOutputDir = outputBaseDirectory,
             appDisplayName = apkName,
             appVersion = apkVersion,
         ).absolutePath
@@ -631,9 +656,10 @@ class PatchSelectionViewModel(
         val fullSourcesSnapshot = actualPatchesFilePaths.mapIndexed { i, path ->
             val name = patchSourceNames.getOrNull(i) ?: File(path).nameWithoutExtension
             PatchedSourceSnapshot(
-                sourceId = sourceIdsByName[name] ?: name,
+                sourceId = patchSourceIds.getOrNull(i) ?: sourceIdsByName[name] ?: name,
                 sourceName = name,
                 version = extractPatchesVersion(File(path).name) ?: "unknown",
+                artifactSha256 = patchSourceHashes.getOrNull(i),
             )
         }
 
@@ -653,14 +679,27 @@ class PatchSelectionViewModel(
             useExclusiveMode = true,
             keepArchitectures = keepArches,
             continueOnError = continueOnError,
+            forceCompatibility = !validatedDeviceImport,
             packageName = packageName,
             appDisplayName = apkName,
             patchSelectionByBundle = selectionByBundle,
             sourcesSnapshot = activeSources,
             appVersion = apkVersion.takeIf { it.isNotBlank() },
             patchesSourceName = displaySources.joinToString(", ") { it.sourceName },
-            patchesVersion = displaySources.joinToString(", ") { it.version }
+            patchesVersion = displaySources.joinToString(", ") { it.version },
+            temporaryInputRoot = temporaryInputRoot,
+            sourceDeviceSerial = sourceDeviceSerial,
+            deviceSpecificInput = deviceSpecificInput,
         )
+    }
+
+    private fun cleanupTemporaryInput() {
+        temporaryInputRoot?.let { root ->
+            java.util.concurrent.CompletableFuture.runAsync {
+                runCatching { cleanupDeviceImportRoot(File(root)) }
+                    .onFailure { Logger.warn("Could not remove temporary device import: ${it.message}") }
+            }
+        }
     }
 
     /**

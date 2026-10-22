@@ -5,8 +5,8 @@
 
 package app.morphe.gui.util
 
-import app.morphe.engine.model.Release
 import app.morphe.gui.data.model.SupportedApp
+import app.morphe.engine.model.Release
 
 /**
  * The "bucket" an APK's version falls into relative to a [SupportedApp]'s
@@ -34,6 +34,7 @@ enum class VersionStatus {
     /** Between supported versions but not in either list. */
     UNSUPPORTED_BETWEEN,
 
+    /** The app version is recognized, but its build code is excluded by patch metadata. */
     BUILD_UNSUPPORTED,
 
     /** No patch metadata, can't determine. */
@@ -45,7 +46,7 @@ enum class VersionStatus {
  *
  * @param status which bucket the current version falls into.
  * @param suggestedVersion the version most relevant to surface in UI for this
- *   status, e.g. the latest stable for [VersionStatus.OLDER_STABLE], the
+ *   status — e.g. the latest stable for [VersionStatus.OLDER_STABLE], the
  *   latest experimental for [VersionStatus.OLDER_EXPERIMENTAL], the newest
  *   known version for [VersionStatus.TOO_NEW], etc.
  */
@@ -55,87 +56,75 @@ data class VersionResolution(
 )
 
 /**
- * Strips a leading `v` and surrounding whitespace. GitHub tags, JSON metadata
- * and APK manifests MUST compare equal after this.
+ * Numeric comparator for dotted version strings (e.g. "20.40.45" vs "21.01.23").
+ * Returns negative if v1 < v2, 0 if equal, positive if v1 > v2.
+ * Returns 0 if either string can't be parsed.
  */
+fun compareVersionStrings(v1: String, v2: String): Int {
+    return compareVersions(v1, v2)
+}
+
 fun String.normalizeVersion(): String = removePrefix("v").removePrefix("V").trim()
 
-/**
- * Compare two version strings. Returns -1 if v1 < v2, 0 if equal, 1 if v1 > v2.
- * Handles dotted app versions ("20.40.45") and semver-ish tags ("v1.39.0-dev.10").
- * Stable outranks a pre-release of the same base. Pre-release ordinals compare
- * numerically, so dev.9 sorts below dev.10.
- *
- * Ported from morphe-manager's VersionUtils. Both projects MUST rank alike.
- */
+/** Compare dotted app versions and semver-like release tags, including prereleases. */
 fun compareVersions(v1: String?, v2: String?): Int {
     if (v1 == null && v2 == null) return 0
     if (v1 == null) return -1
     if (v2 == null) return 1
-
-    val version1 = v1.normalizeVersion()
-    val version2 = v2.normalizeVersion()
-    if (version1 == version2) return 0
-
-    data class VersionParts(val base: String, val preRelease: String?)
-
-    fun extractParts(version: String): VersionParts {
-        val preReleasePattern =
-            """^([\d.]+)[-._]?(dev|beta|rc|alpha|preview)""".toRegex(RegexOption.IGNORE_CASE)
-        val match = preReleasePattern.find(version)
-        return if (match != null) {
-            VersionParts(match.groupValues[1], match.groupValues[2])
-        } else {
-            val numMatch = """^([\d.]+)(.*)$""".toRegex().find(version)
-            if (numMatch != null && numMatch.groupValues[2].isNotEmpty()) {
-                VersionParts(numMatch.groupValues[1], numMatch.groupValues[2])
-            } else {
-                VersionParts(version, null)
-            }
-        }
+    val first = v1.normalizeVersion()
+    val second = v2.normalizeVersion()
+    if (first == second) return 0
+    data class Parts(val base: String, val prerelease: String?)
+    fun parts(value: String): Parts {
+        val prerelease = Regex("""^([\d.]+)[-._]?(dev|beta|rc|alpha|preview)""", RegexOption.IGNORE_CASE).find(value)
+        if (prerelease != null) return Parts(prerelease.groupValues[1], prerelease.groupValues[2])
+        val numeric = Regex("""^([\d.]+)(.*)$""").find(value)
+        return if (numeric != null && numeric.groupValues[2].isNotEmpty()) {
+            Parts(numeric.groupValues[1], numeric.groupValues[2])
+        } else Parts(value, null)
     }
-
-    val parts1 = extractParts(version1)
-    val parts2 = extractParts(version2)
-
-    val base1 = parts1.base.split(".").map { it.toIntOrNull() ?: 0 }
-    val base2 = parts2.base.split(".").map { it.toIntOrNull() ?: 0 }
-    for (i in 0 until maxOf(base1.size, base2.size)) {
-        val a = base1.getOrNull(i) ?: 0
-        val b = base2.getOrNull(i) ?: 0
-        when {
-            a < b -> return -1
-            a > b -> return 1
-        }
+    val a = parts(first)
+    val b = parts(second)
+    val baseA = a.base.split(".").map { it.toIntOrNull() ?: 0 }
+    val baseB = b.base.split(".").map { it.toIntOrNull() ?: 0 }
+    for (i in 0 until maxOf(baseA.size, baseB.size)) {
+        val left = baseA.getOrElse(i) { 0 }
+        val right = baseB.getOrElse(i) { 0 }
+        if (left != right) return left.compareTo(right)
     }
-
     return when {
-        parts1.preRelease == null && parts2.preRelease == null -> 0
-        parts1.preRelease == null && parts2.preRelease != null -> 1  // stable beats pre-release
-        parts1.preRelease != null && parts2.preRelease == null -> -1
+        a.prerelease == null && b.prerelease == null -> 0
+        a.prerelease == null -> 1
+        b.prerelease == null -> -1
         else -> {
-            val num1 = version1.substringAfterLast('.').toLongOrNull()
-            val num2 = version2.substringAfterLast('.').toLongOrNull()
-            if (num1 != null && num2 != null) num1.compareTo(num2) else version1.compareTo(version2)
+            val ordinalA = first.substringAfterLast('.').toLongOrNull()
+            val ordinalB = second.substringAfterLast('.').toLongOrNull()
+            if (ordinalA != null && ordinalB != null) ordinalA.compareTo(ordinalB) else first.compareTo(second)
         }
     }
 }
 
-fun isNewerVersion(current: String?, baseline: String?): Boolean {
-    if (current.isNullOrBlank() || baseline.isNullOrBlank()) return false
-    if (current.equals("unknown", true) || baseline.equals("unknown", true)) return false
-    return compareVersions(current, baseline) > 0
+fun isNewerVersion(current: String?, baseline: String?): Boolean =
+    !current.isNullOrBlank() && !baseline.isNullOrBlank() &&
+        !current.equals("unknown", true) && !baseline.equals("unknown", true) &&
+        compareVersions(current, baseline) > 0
+
+fun String?.isDevTag(): Boolean = this?.let {
+    it.contains("dev", true) || it.contains("alpha", true) || it.contains("beta", true)
+} ?: false
+
+fun newerRelease(dev: Release?, stable: Release?): Release? = when {
+    dev == null -> stable
+    stable == null -> dev
+    compareVersions(dev.tagName, stable.tagName) >= 0 -> dev
+    else -> stable
 }
 
 /**
  * Determine the status of [currentVersion] relative to the stable and
  * experimental versions known for [app].
  */
-fun resolveVersionStatus(
-    currentVersion: String,
-    app: SupportedApp,
-    versionCode: Int? = null,
-): VersionResolution {
+fun resolveVersionStatus(currentVersion: String, app: SupportedApp, versionCode: Int? = null): VersionResolution {
     val stableList = app.supportedVersions
     val experimentalList = app.experimentalVersions
 
@@ -147,8 +136,8 @@ fun resolveVersionStatus(
         return VersionResolution(VersionStatus.UNKNOWN, null)
     }
 
-    val versionIsKnown = currentVersion in stableList || currentVersion in experimentalList
-    if (versionIsKnown && !app.buildCodeSupported(currentVersion, versionCode)) {
+    val knownVersion = currentVersion in stableList || currentVersion in experimentalList
+    if (knownVersion && !app.buildCodeSupported(currentVersion, versionCode)) {
         return VersionResolution(VersionStatus.BUILD_UNSUPPORTED, currentVersion)
     }
 
@@ -166,6 +155,7 @@ fun resolveVersionStatus(
         return VersionResolution(VersionStatus.OLDER_EXPERIMENTAL, latestExperimental)
     }
 
+    // Not in either list — figure out where it sits relative to known range.
     val newestKnown = when {
         latestStable == null -> latestExperimental
         latestExperimental == null -> latestStable
@@ -173,7 +163,7 @@ fun resolveVersionStatus(
         else -> latestExperimental
     }
 
-    if (compareVersions(currentVersion, newestKnown) > 0) {
+    if (newestKnown != null && compareVersions(currentVersion, newestKnown) > 0) {
         return VersionResolution(VersionStatus.TOO_NEW, newestKnown)
     }
     if (oldestStable != null && compareVersions(currentVersion, oldestStable) < 0) {
@@ -184,18 +174,4 @@ fun resolveVersionStatus(
         VersionStatus.UNSUPPORTED_BETWEEN,
         latestStable ?: latestExperimental
     )
-}
-
-fun String?.isDevTag(): Boolean {
-    val tag = this ?: return false
-    return tag.contains("dev", ignoreCase = true) ||
-        tag.contains("alpha", ignoreCase = true) ||
-        tag.contains("beta", ignoreCase = true)
-}
-
-fun newerRelease(dev: Release?, stable: Release?): Release? = when {
-    dev == null -> stable
-    stable == null -> dev
-    compareVersions(dev.tagName, stable.tagName) >= 0 -> dev
-    else -> stable
 }

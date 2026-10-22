@@ -12,22 +12,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
-import app.morphe.gui.ui.screens.home.RecallUpdateInfo
 import app.morphe.gui.util.FormatUtils
 import app.morphe.gui.util.currentLocale
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
-
-/**
- * App-version advice for a patched app, or null if current. Returns (message,
- * recommended): recommended=true (amber) when the version is unsupported or a newer
- * stable is out. False (blue) for an optional experimental bump.
- */
-@Composable
-internal fun appAdvice(u: RecallUpdateInfo): Pair<String, Boolean>? {
-    if (u.appUsedSupported) return null
-    return stringResource(Res.string.home_advice_unsupported_by_patches, u.appUsedVersion.removePrefix("v")) to true
-}
 
 /** GitLab nests releases under `/-/`, GitHub does not. */
 internal fun releaseUrl(sourceUrl: String, tag: String): String =

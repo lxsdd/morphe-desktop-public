@@ -28,15 +28,13 @@ val DEFAULT_PATCH_SOURCE = PatchSource(
 /**
  * How a patch source decides which release to load.
  *
+ * - [FOLLOW_STABLE]: ride the newest **stable** (non-pre-release) — auto-updates
+ *   as new stables ship. The default for an untouched source.
+ * - [FOLLOW_DEV]: ride the newest release **overall**, pre-releases included
+ *   ("bleeding edge"). When a dev is newest you get the dev; when a stable is the
+ *   newest thing out, you get that stable — without losing the dev track.
  * - [PINNED]: stay frozen on one exact tag (chosen deliberately), ignoring newer
  *   releases. The version lives in [SourceVersionPref.pinnedTag].
- * - [FOLLOW_STABLE] / [FOLLOW_DEV]: not pinned, so the channel comes from
- *   [PatchSource.usePreRelease] instead. These two are still written, and they seed
- *   that flag once (see [ConfigRepository.migrateSourceChannelFlags]), but they no
- *   longer decide which release resolves. Read the flag, not the mode.
- *
- * A source that is not pinned resolves through [app.morphe.gui.util.newerRelease],
- * which is why following dev never strands anyone on a stale pre-release.
  */
 @Serializable
 enum class FollowMode { FOLLOW_STABLE, FOLLOW_DEV, PINNED }
@@ -51,6 +49,13 @@ data class SourceVersionPref(
     val pinnedTag: String? = null,
 )
 
+/** Persisted sort choice for one home app-list view. */
+@Serializable
+data class AppSortPreference(
+    val criterion: String = "NAME",
+    val direction: String = "ASCENDING",
+)
+
 @Serializable
 data class AppConfig(
     val language: String = "system",
@@ -62,14 +67,14 @@ data class AppConfig(
     /**
      * LEGACY single-source version pin. Kept only so it can be migrated (via
      * [lastPatchesVersionBySource]) into [sourceVersionPrefs]. Do not read directly
-     * anywhere new. Go through [ConfigRepository.getSourceVersionPrefs].
+     * anywhere new — go through [ConfigRepository.getSourceVersionPrefs].
      */
     val lastPatchesVersion: String? = null,
     /**
      * LEGACY per-source version pin: sourceId → release tag. Superseded by
-     * [sourceVersionPrefs]. Kept only so existing configs can migrate (every old
+     * [sourceVersionPrefs]; kept only so existing configs can migrate (every old
      * tag becomes a follow-track based on whether it was a dev tag). Do not read
-     * directly. Go through [ConfigRepository.getSourceVersionPrefs].
+     * directly — go through [ConfigRepository.getSourceVersionPrefs].
      */
     val lastPatchesVersionBySource: Map<String, String> = emptyMap(),
     /**
@@ -106,8 +111,11 @@ data class AppConfig(
     // Keyed by section title (e.g. "STRIP LIBS"). Missing key = section starts collapsed.
     val collapsibleSectionStates: Map<String, Boolean> = emptyMap(),
     // Latest CLI version the user dismissed the update banner for. The banner stays
-    // hidden while the available update equals this. Reappears when a newer version drops.
+    // hidden while the available update equals this; reappears when a newer version drops.
     val dismissedUpdateVersion: String? = null,
+    // Which release channel the user wants update checks to follow. Null = not yet set;
+    // resolved at first read to STABLE/DEV based on the running build's version (so an
+    // existing dev user upgrading isn't silently flipped to stable).
     val updateChannelPreference: String? = null,
     // Whether the user explicitly picked the update channel via Settings. When false,
     // the channel is re-derived from the running build's version on each read so a
@@ -119,9 +127,9 @@ data class AppConfig(
     // the banner, never resets.
     val multiSourceHintDismissed: Boolean = false,
     // Whether Morphe should auto-start the ADB daemon at GUI launch to monitor
-    // connected devices. Default OFF. Many users never push patched APKs to a
+    // connected devices. Default OFF — many users never push patched APKs to a
     // device, so spawning a long-lived adb server unprompted is unwanted noise.
-    // When ON, DeviceMonitor polls devices. If Morphe was the one that started
+    // When ON, DeviceMonitor polls devices; if Morphe was the one that started
     // the daemon, it's killed on toggle-OFF and on window close.
     val autoStartAdb: Boolean = false,
     // Patch-developer options. Enables a suite of developers options that patch developers
@@ -137,13 +145,16 @@ data class AppConfig(
     // Which home apps tab the user last viewed ("ALL" or "YOURS"), restored on
     // next launch. Stored as a string so this data layer stays free of UI enums.
     val homeAppListFilter: String = "ALL",
+    // Per-home-view app sorting. Missing or invalid entries resolve to Name ascending.
+    // Keys and enum values stay as strings so this data layer remains UI-independent.
+    val homeAppSortPreferences: Map<String, AppSortPreference> = emptyMap(),
     // After an ADB install, automatically route the patched app's web links to it
-    // ("open with"). Default OFF. It changes how the device opens links, so it's
+    // ("open with"). Default OFF — it changes how the device opens links, so it's
     // opt-in. See AppLinkCommands / AdbManager.setLinkHandling.
     val autoRouteLinksAfterInstall: Boolean = false,
     // When auto-routing links, also stop the stock app from opening those links
     // (only applies when a rename patch was used and stock is installed). Default
-    // OFF. It reaches into a stock app's behavior.
+    // OFF — it reaches into a stock app's behavior.
     val disableStockLinksAfterInstall: Boolean = false,
     val gitHubPat: String = "",
 ) {
@@ -162,6 +173,14 @@ data class AppConfig(
             ThemePreference.valueOf(themePreference)
         } catch (e: Exception) {
             ThemePreference.SYSTEM
+        }
+    }
+
+    fun getPatchChannel(): PatchChannel {
+        return try {
+            PatchChannel.valueOf(preferredPatchChannel)
+        } catch (e: Exception) {
+            PatchChannel.STABLE
         }
     }
 
@@ -191,7 +210,7 @@ data class PatchSource (
     val filePath: String? = null, // For local files
     val deletable: Boolean = true,
     // Multi-source enablement. Default true so old configs migrate to "all enabled"
-    // on first load (per user choice, see project memory).
+    // on first load (per user choice — see project memory).
     val enabled: Boolean = true,
     val usePreRelease: Boolean = false,
     val useExperimentalVersions: Boolean = false,
@@ -209,11 +228,13 @@ enum class PatchChannel {
 
 /**
  * Tracks which CLI release channel the user wants update notifications for.
- * No `AUTO` value. The smart default is computed once at first launch based
+ * No `AUTO` value — the smart default is computed once at first launch based
  * on the running build's version, then persisted as a concrete choice.
  */
 enum class UpdateChannelPreference {
+    /** Probe the `main` branch — only stable releases trigger the banner. */
     STABLE,
+    /** Probe the `dev` branch — both newer dev and newer stable releases trigger the banner. */
     DEV,
     /** No update check, no banner. Re-enable from Settings. */
     OFF,

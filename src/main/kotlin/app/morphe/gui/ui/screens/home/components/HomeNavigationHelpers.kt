@@ -40,6 +40,8 @@ internal fun handleContinue(
                     apkVersion = info.versionName,
                     patchesFilePaths = viewModel.getAllResolvedPatchFiles().map { it.absolutePath },
                     patchSourceNames = viewModel.getAllResolvedPatchSourceNames(),
+                    patchSourceIds = viewModel.getAllResolvedPatchSourceIds(),
+                    patchSourceHashes = viewModel.getAllResolvedPatchSourceHashes(),
                 )
             )
         }

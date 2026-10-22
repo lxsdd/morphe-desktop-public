@@ -170,3 +170,32 @@ internal fun RepatchMissingApkDialog(
         }
     }
 }
+
+/** Non-dismissible progress for a target-bound ADB install. */
+@Composable
+internal fun PatchedApkInstallProgressDialog(
+    appName: String,
+    deviceName: String,
+    progress: String?,
+) {
+    MorpheDialogCard(onDismiss = {}, title = "Installing $appName…") {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+                color = LocalMorpheAccents.current.primary,
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                MorpheDialogText(progress ?: "Preparing installation…")
+                Text(
+                    text = "Target: $deviceName",
+                    fontFamily = LocalMorpheFont.current,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        MorpheDialogText("Keep the device connected. This dialog closes when Android confirms success or failure.")
+    }
+}

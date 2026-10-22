@@ -53,6 +53,7 @@ import app.morphe.gui.ui.theme.LocalMorpheCorners
 import app.morphe.gui.ui.theme.LocalMorpheFont
 import app.morphe.gui.ui.theme.channelColor
 import app.morphe.gui.util.EnabledSourcesLoader
+import app.morphe.gui.util.RepositoryLinks
 import app.morphe.morphe_desktop.generated.resources.*
 import java.awt.Cursor
 import java.io.File
@@ -172,13 +173,15 @@ fun SourceManagementSheet(
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp,
                 )
-                IconButton(onClick = onRefresh, enabled = enabled, modifier = Modifier.size(28.dp).handCursor(enabled)) {
-                    Icon(
-                        imageVector = MorpheIcons.Refresh,
-                        contentDescription = stringResource(Res.string.source_sheet_reload_description),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 0.7f else 0.3f),
-                        modifier = Modifier.size(16.dp),
-                    )
+                MorpheTooltip(TooltipText.SOURCE_REFRESH) {
+                    IconButton(onClick = onRefresh, enabled = enabled, modifier = Modifier.size(28.dp).handCursor(enabled)) {
+                        Icon(
+                            imageVector = MorpheIcons.Refresh,
+                            contentDescription = stringResource(Res.string.source_sheet_reload_description),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 0.7f else 0.3f),
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
                 }
             }
         },
@@ -332,6 +335,7 @@ fun SourceManagementSheet(
     if (showAddDialog) {
         AddPatchSourceDialog(
             isQuickMode = mode == SourceSheetMode.SINGLE_SELECT,
+            existingSources = sources,
             onDismiss = { showAddDialog = false },
             onAdd = {
                 onAdd(it)
@@ -514,17 +518,18 @@ private fun SourceRow(
                 val githubLabel = stringResource(Res.string.github_label)
                 val gitlabLabel = stringResource(Res.string.source_sheet_gitlab_label)
                 val localFileLabel = stringResource(Res.string.patch_source_dialog_local_file_label)
-                Text(
+                RepositoryLinkText(
                     text = when (source.type) {
                         PatchSourceType.DEFAULT -> source.url?.removePrefix("https://github.com/") ?: builtinLabel
                         PatchSourceType.GITHUB -> source.url?.removePrefix("https://github.com/") ?: githubLabel
                         PatchSourceType.GITLAB -> source.url?.removePrefix("https://gitlab.com/") ?: gitlabLabel
                         PatchSourceType.LOCAL -> source.filePath?.let { File(it).name } ?: localFileLabel
                     },
+                    link = RepositoryLinks.resolve(source),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Normal,
                     fontFamily = font,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -632,7 +637,7 @@ private fun SourceRow(
                 ) {
                     val containerColor = if (isActiveSelection) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
                     val contentColor = if (isActiveSelection) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    
+
                     StatusCircleIcon(
                         icon = MorpheIcons.Check,
                         containerColor = containerColor,

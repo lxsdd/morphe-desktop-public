@@ -156,7 +156,7 @@ internal fun StartBannerCard(
             thickness = 1.dp,
             modifier = Modifier.padding(vertical = 4.dp)
         )
-        
+
         // Environment Section (Bottom)
         // Row 4: DESKTOP, PATCHER
         Row(

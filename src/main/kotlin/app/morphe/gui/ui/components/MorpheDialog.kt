@@ -8,6 +8,7 @@ package app.morphe.gui.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,12 +28,25 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -43,6 +58,90 @@ import app.morphe.gui.ui.theme.shiftLightness
 import app.morphe.gui.ui.theme.contrastingForeground
 import app.morphe.gui.ui.theme.LocalMorpheCorners
 import app.morphe.gui.ui.theme.LocalMorpheFont
+
+internal data class HostedMorpheDialog(
+    val id: Any,
+    val onDismiss: () -> Unit,
+    val content: @Composable () -> Unit,
+)
+
+@Stable
+class MorpheDialogHostState {
+    private val dialogs = mutableStateListOf<HostedMorpheDialog>()
+    internal val current: HostedMorpheDialog? get() = dialogs.lastOrNull()
+    internal fun show(dialog: HostedMorpheDialog) {
+        dialogs.removeAll { it.id === dialog.id }
+        dialogs += dialog
+    }
+    internal fun hide(id: Any) {
+        dialogs.removeAll { it.id === id }
+    }
+}
+
+val LocalMorpheDialogHostState = staticCompositionLocalOf<MorpheDialogHostState?> { null }
+
+/** Renders Morphe dialogs inside the existing window, avoiding a second native Skia surface. */
+@Composable
+fun MorpheDialogHost(state: MorpheDialogHostState) {
+    val dialog = state.current ?: return
+    val focusRequester = remember(dialog.id) { FocusRequester() }
+    val dismissInteraction = remember(dialog.id) { MutableInteractionSource() }
+    val consumeInteraction = remember(dialog.id) { MutableInteractionSource() }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.58f))
+            .focusRequester(focusRequester)
+            .focusable()
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyUp && event.key == Key.Escape) {
+                    dialog.onDismiss()
+                    true
+                } else false
+            }
+            .clickable(interactionSource = dismissInteraction, indication = null, onClick = dialog.onDismiss),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier.clickable(
+                interactionSource = consumeInteraction,
+                indication = null,
+                onClick = {},
+            ),
+        ) { dialog.content() }
+    }
+    LaunchedEffect(dialog.id) { focusRequester.requestFocus() }
+}
+
+@Composable
+private fun MorpheDialogContainer(
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val hostState = LocalMorpheDialogHostState.current
+    if (hostState == null) {
+        Dialog(
+            onDismissRequest = onDismiss,
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            content = content,
+        )
+        return
+    }
+    val id = remember { Any() }
+    val latestDismiss = rememberUpdatedState(onDismiss)
+    val latestContent = rememberUpdatedState(content)
+    val hosted = remember(id, hostState) {
+        HostedMorpheDialog(
+            id = id,
+            onDismiss = { latestDismiss.value() },
+            content = { latestContent.value() },
+        )
+    }
+    DisposableEffect(hostState, hosted) {
+        hostState.show(hosted)
+        onDispose { hostState.hide(id) }
+    }
+}
 
 /**
  * Dialog chrome alone: shape, surface colour, padding, spacing.
@@ -94,10 +193,7 @@ fun MorpheAlertDialog(
     minWidth: Dp = MorpheDialogMinWidth,
     maxWidth: Dp = MorpheDialogMaxWidth,
 ) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
+    MorpheDialogContainer(onDismiss = onDismiss) {
         MorpheDialogSurface(
             modifier = modifier.widthIn(min = minWidth, max = maxWidth),
             horizontalAlignment = horizontalAlignment,
@@ -129,7 +225,7 @@ fun MorpheDialogCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val font = LocalMorpheFont.current
-    Dialog(onDismissRequest = onDismiss) {
+    MorpheDialogContainer(onDismiss = onDismiss) {
         MorpheDialogSurface(modifier = Modifier.widthIn(max = maxWidth)) {
             Text(
                 text = title,

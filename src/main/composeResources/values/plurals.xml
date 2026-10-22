@@ -5,8 +5,8 @@
         <item quantity="other">%1$d patch sources failed to load. Using the ones that loaded successfully</item>
     </plurals>
     <plurals name="home_banner_update_available">
-        <item quantity="one">%1$d patched app has an update available</item>
-        <item quantity="other">%1$d patched apps have updates available</item>
+        <item quantity="one">%1$d patched app requires an action</item>
+        <item quantity="other">%1$d patched apps require an action</item>
     </plurals>
     <plurals name="settings_runtime_logs_saved_success">
         <item quantity="one">Saved %1$d line to %2$s</item>

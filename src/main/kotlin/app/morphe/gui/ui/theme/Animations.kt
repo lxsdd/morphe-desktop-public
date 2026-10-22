@@ -8,6 +8,14 @@ package app.morphe.gui.ui.theme
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 
+/**
+ * Full-window alpha/scale transitions can expose an unpainted swap-chain frame
+ * with Skia's Windows renderer. Other platforms keep the intended animation.
+ */
+internal fun useAnimatedScreenTransitions(osName: String?): Boolean =
+    osName?.startsWith("Windows", ignoreCase = true) != true
+
+
 object Defaults {
     /** Duration used for screen exit transitions. */
     const val ANIMATION_DURATION = 220

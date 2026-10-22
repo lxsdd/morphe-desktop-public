@@ -7,13 +7,14 @@ package app.morphe.gui.data.repository
 
 import app.morphe.engine.util.PortablePaths
 import app.morphe.gui.data.model.AppConfig
+import app.morphe.gui.data.model.AppSortPreference
 import app.morphe.gui.data.model.DEFAULT_PATCH_SOURCE
 import app.morphe.gui.data.model.FollowMode
+import app.morphe.gui.data.model.MorpheFill
 import app.morphe.gui.data.model.SourceVersionPref
 import app.morphe.gui.data.model.PatchChannel
 import app.morphe.gui.data.model.PatchSource
 import app.morphe.gui.data.model.UpdateChannelPreference
-import app.morphe.gui.data.model.MorpheFill
 import app.morphe.gui.ui.theme.ThemePreference
 import app.morphe.gui.util.FileUtils
 import app.morphe.gui.util.Logger
@@ -31,7 +32,6 @@ open class ConfigRepository {
         prettyPrint = true
         ignoreUnknownKeys = true
         encodeDefaults = true
-        classDiscriminator = "#kind"
     }
 
     private var cachedConfig: AppConfig? = null
@@ -103,6 +103,7 @@ open class ConfigRepository {
         saveConfig(current.copy(useSharpCorners = enabled))
     }
 
+    /** Legacy migration input until all Home call sites use per-view preferences. */
     suspend fun setHomeAppSortMode(mode: String) {
         val current = loadConfig()
         saveConfig(current.copy(homeAppSortMode = mode))
@@ -185,22 +186,25 @@ open class ConfigRepository {
     }
 
     /**
-     * Returns the per-source version preferences, migrating the legacy tag-only
-     * fields ([AppConfig.lastPatchesVersionBySource] and the even-older single
-     * [AppConfig.lastPatchesVersion]) on first read.
+     * Returns the per-source version preferences, with a one-time migration from
+     * the legacy tag-only fields ([AppConfig.lastPatchesVersionBySource] and the
+     * even-older single [AppConfig.lastPatchesVersion]).
      *
-     * Those tags were auto-saved on every selection, not deliberate freezes, so a
-     * real pin cannot be told apart from "just used the latest". Each old tag
-     * therefore becomes a *follow track* based on whether it names a pre-release.
-     * Everyone shifts onto the latest of their channel (the fix), at the cost of
-     * un-freezing anyone who had deliberately pinned an old version (they can
+     * Migration intent: those legacy tags were auto-saved on every selection, not
+     * deliberate freezes, so we can't tell a real pin from "just used the latest."
+     * We therefore convert each old tag to a *follow track* based on whether it was
+     * a dev tag — `-dev` ⇒ [FollowMode.FOLLOW_DEV], else [FollowMode.FOLLOW_STABLE].
+     * Net effect: everyone shifts onto the latest of their channel (the fix), at the
+     * cost of un-freezing anyone who had deliberately pinned an old version (they can
      * re-pin). A dev user parked on a stable tag at migration looks like a stable
-     * user and is migrated as such, an accepted one-time loss.
+     * user and is migrated as such — an accepted, self-healing one-time loss.
      */
     suspend fun getSourceVersionPrefs(): Map<String, SourceVersionPref> {
         val current = loadConfig()
         if (current.sourceVersionPrefs.isNotEmpty()) return current.sourceVersionPrefs
 
+        // Build the legacy tag map (per-source map, or the single legacy field
+        // mapped onto the default source).
         val legacyTags: Map<String, String> = when {
             current.lastPatchesVersionBySource.isNotEmpty() -> current.lastPatchesVersionBySource
             current.lastPatchesVersion != null -> mapOf(DEFAULT_PATCH_SOURCE.id to current.lastPatchesVersion)
@@ -209,13 +213,19 @@ open class ConfigRepository {
         if (legacyTags.isEmpty()) return emptyMap()
 
         val migrated = legacyTags.mapValues { (_, tag) ->
-            val mode = if (tag.isDevTag()) FollowMode.FOLLOW_DEV else FollowMode.FOLLOW_STABLE
+            val mode = if (tag.isDevTag()) FollowMode.FOLLOW_DEV
+                       else FollowMode.FOLLOW_STABLE
             SourceVersionPref(mode = mode)
         }
         saveConfig(current.copy(sourceVersionPrefs = migrated))
         return migrated
     }
 
+    /**
+     * One-time compatibility bridge for older source consumers that still read
+     * PatchSource.usePreRelease. The structured per-source preference remains
+     * authoritative; this mirrors it for the upstream release-selection API.
+     */
     suspend fun migrateSourceChannelFlags() {
         val prefs = getSourceVersionPrefs()
         val config = loadConfig()
@@ -241,8 +251,8 @@ open class ConfigRepository {
     /**
      * Persist the user's chosen update channel. Marks the choice as explicit
      * so subsequent reads respect it even if the running build's channel
-     * differs. Also clears any prior [AppConfig.dismissedUpdateVersion]. That
-     * dismissal referred to a specific version on the previous channel.
+     * differs. Also clears any prior [AppConfig.dismissedUpdateVersion] —
+     * that dismissal referred to a specific version on the previous channel.
      */
     suspend fun setUpdateChannelPreference(pref: UpdateChannelPreference) {
         val current = loadConfig()
@@ -384,10 +394,12 @@ open class ConfigRepository {
     /**
      * Add a new patch source.
      */
-    suspend fun addPatchSource(source: PatchSource) {
+    suspend fun addPatchSource(source: PatchSource): Boolean {
         val current = loadConfig()
-        val updated = current.copy(patchSource = current.patchSource + source)
-        saveConfig(updated)
+        val result = PatchSourceDuplicateGuard.addIfUnique(current.patchSource, source)
+        if (!result.added) return false
+        saveConfig(current.copy(patchSource = result.sources))
+        return true
     }
 
     /**
@@ -414,7 +426,7 @@ open class ConfigRepository {
     /**
      * Persist a new source ordering given the ids in their desired order. Order
      * only affects the app display-name tiebreak (first source wins) and UI
-     * presentation order, not which patches load, so any source, default
+     * presentation order — not which patches load — so any source, default
      * included, may be reordered. Ignores the call unless [orderedIds] is a
      * permutation of the existing sources (guards against a stale UI snapshot
      * dropping or duplicating a source).
@@ -454,7 +466,7 @@ open class ConfigRepository {
     }
 
     /**
-     * Mark the multi-source upgrade hint as dismissed. One-shot, never resets.
+     * Mark the multi-source upgrade hint as dismissed. One-shot — never resets.
      */
     suspend fun setMultiSourceHintDismissed() {
         val current = loadConfig()
@@ -468,6 +480,18 @@ open class ConfigRepository {
         if (current.homeAppListFilter == value) return
         saveConfig(current.copy(homeAppListFilter = value))
     }
+
+    /** Persist the last sort choice independently for one home app-list view. */
+    suspend fun setHomeAppSortPreference(view: String, preference: AppSortPreference) {
+        val current = loadConfig()
+        if (current.homeAppSortPreferences[view] == preference) return
+        saveConfig(
+            current.copy(
+                homeAppSortPreferences = current.homeAppSortPreferences + (view to preference),
+            )
+        )
+    }
+
 
     /**
      * Toggle enablement of a patch source. Safety net: if disabling would leave zero

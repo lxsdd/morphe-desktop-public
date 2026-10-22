@@ -8,6 +8,7 @@ package app.morphe.gui.util
 import app.morphe.gui.data.model.Patch
 import app.morphe.gui.data.model.SupportedApp
 
+
 /**
  * Extracts supported apps from parsed patch data.
  * This allows the app to dynamically determine which apps are supported
@@ -76,9 +77,10 @@ object SupportedAppExtractor {
                 apkDownloadUrl = SupportedApp.getDownloadUrl(packageName, recommendedVersion ?: "any"),
                 experimentalDownloadUrl = SupportedApp.getDownloadUrl(packageName, latestExperimental),
                 appIconColor = packageIconColors[packageName],
+                trustedDisplayName = packageDisplayNames[packageName],
                 versionBuildCodes = packageBuildCodes[packageName]
                     ?.mapValues { (_, codes) -> codes.toSet() }
-                    .orEmpty()
+                    .orEmpty(),
             )
         }.sortedBy { it.displayName }
     }
@@ -88,6 +90,15 @@ object SupportedAppExtractor {
      */
     fun getSupportedApp(patches: List<Patch>, packageName: String): SupportedApp? {
         return extractSupportedApps(patches).find { it.packageName == packageName }
+    }
+
+    /**
+     * Check if a package is supported by the patches.
+     */
+    fun isPackageSupported(patches: List<Patch>, packageName: String): Boolean {
+        return patches.any { patch ->
+            patch.compatiblePackages.any { it.name == packageName }
+        }
     }
 
     /**

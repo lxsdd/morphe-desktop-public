@@ -14,18 +14,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.morphe.engine.model.PatchedAppRecord
+import app.morphe.gui.data.model.AppSortPreference
 import app.morphe.gui.ui.screens.home.HomeUiState
+import app.morphe.gui.ui.screens.home.DeviceAppInfo
+import app.morphe.gui.ui.screens.home.UnifiedHomeAppStateIndex
+import app.morphe.gui.util.DeviceAppDiscoverySnapshot
+import app.morphe.gui.util.DiscoveredDeviceApp
 
 @Composable
 internal fun HomeSplitLayout(
     uiState: HomeUiState,
+    deviceAppInfo: Map<String, DeviceAppInfo>,
+    unifiedAppStates: UnifiedHomeAppStateIndex,
     padding: Dp,
     sourceNamesByPackage: Map<String, List<String>>,
     patchSourcesForSelectedApk: List<String>,
     patchesLoaded: Boolean,
-    onSortModeChange: (HomeAppSortMode) -> Unit,
+    onSortPreferenceChange: (String, AppSortPreference) -> Unit,
     onShowDetail: (PatchedAppRecord) -> Unit,
+    onInstallPatchedApp: (String) -> Unit,
     onFilterChange: (AppListFilter) -> Unit,
+    deviceDiscovery: DeviceAppDiscoverySnapshot?,
+    deviceDisplayName: String?,
+    onRefreshDeviceApps: () -> Unit,
+    onVisibleDevicePackages: (String, List<String>) -> Unit,
+    onImportDeviceApp: (DiscoveredDeviceApp) -> Unit,
     onRetry: () -> Unit,
     onManageSources: () -> Unit,
     onClearClick: () -> Unit,
@@ -48,7 +61,7 @@ internal fun HomeSplitLayout(
     ) {
         val bodyViewport = this.maxHeight
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.spacedBy(padding),
             verticalAlignment = Alignment.Top,
         ) {
@@ -57,13 +70,22 @@ internal fun HomeSplitLayout(
                 supportedApps = uiState.supportedApps,
                 patchedStates = uiState.patchedStates,
                 patchedRecords = uiState.patchedRecords,
-                deviceAppInfo = uiState.deviceAppInfo,
+                deviceAppInfo = deviceAppInfo,
                 updateInfoByPackage = uiState.updateInfoByPackage,
-                sortMode = uiState.sortMode,
-                onSortModeChange = onSortModeChange,
+                unifiedAppStates = unifiedAppStates,
+                sortPreferences = uiState.appSortPreferences,
+                onSortPreferenceChange = onSortPreferenceChange,
                 onShowDetail = onShowDetail,
+                onInstallPatchedApp = onInstallPatchedApp,
                 filter = uiState.appListFilter,
                 onFilterChange = onFilterChange,
+                deviceDiscovery = deviceDiscovery,
+                deviceDisplayName = deviceDisplayName,
+                onRefreshDeviceApps = onRefreshDeviceApps,
+                onVisibleDevicePackages = onVisibleDevicePackages,
+                onImportDeviceApp = onImportDeviceApp,
+                importingDevicePackage = uiState.importingDevicePackage,
+                deviceImportStatus = uiState.deviceImportStatus,
                 sourceNamesByPackage = sourceNamesByPackage,
                 isLoading = uiState.isLoadingPatches,
                 loadError = uiState.patchLoadError,

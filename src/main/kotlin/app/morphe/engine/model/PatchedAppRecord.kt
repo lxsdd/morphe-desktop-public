@@ -8,22 +8,23 @@ package app.morphe.engine.model
 import kotlinx.serialization.Serializable
 
 /**
- * A record of one app the user has patched, the "recall" data behind the
+ * A record of one app the user has patched — the "recall" data behind the
  * patched-app history (see `patched-app-recall-plan.md`).
  *
  * Written by both the CLI and the GUI on a successful patch (the store lives in
  * the shared engine layer so the two pipelines feed one history), and read back
  * to surface "you've patched this before / an update is available" UX.
  *
- * Keyed by [packageName], so re-patching the same app overwrites its record.
+ * Keyed by [packageName] — re-patching the same app overwrites its record.
  * For apps whose package is renamed by a patch, this is the **original**
  * (pre-patch) package name, for consistency with the rest of our schema.
  */
 @Serializable
 data class PatchedAppRecord(
+    /** Original (pre-patch) package name. Primary key; matches the supported-apps list. */
     val packageName: String,
     /**
-     * Post-patch package as it installs on a device, differing from [packageName]
+     * Post-patch package as it installs on a device — differs from [packageName]
      * when a rename patch was applied (e.g. `com.google.android.youtube` →
      * `app.morphe.android.youtube`). Read from the output APK's manifest at patch
      * time. Null/blank = no rename (same as [packageName]). Mirrors Manager's
@@ -34,6 +35,7 @@ data class PatchedAppRecord(
     val displayName: String,
     /** APK version at patch time. */
     val apkVersion: String,
+    /** Android versionCode when known; null for legacy records. */
     val apkVersionCode: Int? = null,
 
     /** Input APK path used. May no longer exist on disk. */
@@ -64,7 +66,12 @@ data class PatchedAppRecord(
 
     /** Epoch millis of when the patch completed. */
     val patchedAt: Long,
+    /** The Morphe (CLI/GUI) version that produced the patch — handy for debugging. */
     val patchedWithMorpheVersion: String,
+    /** Source device for an S4 import; unrelated to subsequent install targets. */
+    val sourceDeviceSerial: String? = null,
+    /** Split-derived imports are not silently treated as cross-device universal. */
+    val deviceSpecificInput: Boolean = false,
 ) {
     /** Package actually installed on a device (post-rename if applicable). */
     val installedPackageName: String get() = currentPackageName?.takeIf { it.isNotBlank() } ?: packageName
@@ -75,5 +82,11 @@ data class PatchedAppRecord(
         val sourceName: String,
         /** `.mpp` release version, e.g. `v1.5.0`. */
         val version: String,
+        /**
+         * Content identity of the exact `.mpp` used for this patch. This lets a
+         * local source survive path changes or delete/re-add (new UUID) without
+         * falling back to its editable display name. Null for legacy records.
+         */
+        val artifactSha256: String? = null,
     )
 }

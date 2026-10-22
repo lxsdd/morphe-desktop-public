@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.morphe.engine.CacheManager
+import app.morphe.engine.MorpheComponents
+import app.morphe.gui.data.constants.AppConstants
 import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.theme.LocalMorpheCorners
 import app.morphe.gui.ui.theme.LocalMorpheFont
@@ -32,7 +34,7 @@ import org.jetbrains.compose.resources.stringResource
 import java.awt.Desktop
 
 /**
- * Tools dialog, the peer of [SettingsDialog]. One-off actions (open logs, open app
+ * Tools dialog — peer of [SettingsDialog]. One-off actions (open logs, open app
  * data, view licenses, clear cache) and reference info (version). Mirrors the
  * [SettingsDialog] AlertDialog aesthetic.
  *
@@ -56,8 +58,10 @@ fun ToolsDialog(
     var cacheCleared by remember { mutableStateOf(false) }
     var cacheClearFailed by remember { mutableStateOf(false) }
 
-    MorpheAlertDialog(
-        onDismiss = onDismiss,
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(corners.medium),
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Text(
                 text = stringResource(Res.string.tools_dialog_title),
@@ -157,7 +161,6 @@ fun ToolsDialog(
         },
         confirmButton = {
             OutlinedButton(
-                modifier = Modifier.handCursor(),
                 onClick = onDismiss,
                 shape = RoundedCornerShape(corners.small),
                 border = BorderStroke(1.dp, borderColor)
@@ -175,8 +178,10 @@ fun ToolsDialog(
 
     // Clear cache confirmation
     if (showClearCacheConfirm) {
-        MorpheAlertDialog(
-            onDismiss = { showClearCacheConfirm = false },
+        AlertDialog(
+            onDismissRequest = { showClearCacheConfirm = false },
+            shape = RoundedCornerShape(corners.medium),
+            containerColor = MaterialTheme.colorScheme.surface,
             title = {
                 Text(
                     stringResource(Res.string.tools_dialog_confirm_clear_title),
@@ -197,7 +202,6 @@ fun ToolsDialog(
             },
             confirmButton = {
                 Button(
-                    modifier = Modifier.handCursor(),
                     onClick = {
                         val success = clearAllCache()
                         cacheCleared = success
@@ -219,7 +223,7 @@ fun ToolsDialog(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showClearCacheConfirm = false }, modifier = Modifier.handCursor()) {
+                TextButton(onClick = { showClearCacheConfirm = false }) {
                     Text(
                         stringResource(Res.string.cancel),
                         fontFamily = font,
