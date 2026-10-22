@@ -67,7 +67,8 @@ class DevicePatchDeploymentStorePortTest {
     fun `receipt persistence failures are observable and never treated as success`() = runBlocking {
         val dir = Files.createTempDirectory("morphe-receipt-fail-test").toFile()
         try {
-            val blockedDestination = File(dir, "receipts.json").apply { mkdirs() }
+            val occupiedParent = File(dir, "not-a-directory").apply { writeText("synthetic parent") }
+            val blockedDestination = File(occupiedParent, "receipts.json")
             val store = DevicePatchDeploymentStore(blockedDestination)
             val receipt = DevicePatchDeploymentRecord(
                 deviceSerial = "fixture-a",
