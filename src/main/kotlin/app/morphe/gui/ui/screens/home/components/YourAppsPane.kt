@@ -5,6 +5,8 @@
 
 package app.morphe.gui.ui.screens.home.components
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,7 +47,7 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** Which list the home pane is showing: all supported apps, or only patched ("yours"). */
-enum class AppListFilter { ALL, YOURS }
+enum class AppListFilter { ALL, YOURS, APP_UPDATES, PATCH_UPDATES, DEVICE }
 
 /** Filter chips for toggling between all supported applications and user patched apps. */
 @Composable
@@ -54,12 +56,15 @@ fun AppListFilterChips(
     onSelect: (AppListFilter) -> Unit,
     allCount: Int,
     yourCount: Int,
+    appUpdateCount: Int,
+    patchUpdateCount: Int,
+    deviceCount: Int,
     modifier: Modifier = Modifier,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = modifier,
+        modifier = modifier.horizontalScroll(rememberScrollState()),
     ) {
         val allLabel = stringResource(Res.string.home_filter_all_apps)
         val yourLabel = stringResource(Res.string.home_filter_your_apps)
@@ -69,9 +74,24 @@ fun AppListFilterChips(
             onClick = { onSelect(AppListFilter.ALL) },
         )
         MorpheChoiceChip(
-            text = if (yourCount > 0) "$yourLabel $yourCount" else yourLabel,
+            text = "$yourLabel $yourCount",
             active = filter == AppListFilter.YOURS,
             onClick = { onSelect(AppListFilter.YOURS) },
+        )
+        MorpheChoiceChip(
+            text = "${stringResource(Res.string.home_filter_app_updates)} $appUpdateCount",
+            active = filter == AppListFilter.APP_UPDATES,
+            onClick = { onSelect(AppListFilter.APP_UPDATES) },
+        )
+        MorpheChoiceChip(
+            text = "${stringResource(Res.string.home_filter_patch_updates)} $patchUpdateCount",
+            active = filter == AppListFilter.PATCH_UPDATES,
+            onClick = { onSelect(AppListFilter.PATCH_UPDATES) },
+        )
+        MorpheChoiceChip(
+            text = "${stringResource(Res.string.home_filter_device_apps)} $deviceCount",
+            active = filter == AppListFilter.DEVICE,
+            onClick = { onSelect(AppListFilter.DEVICE) },
         )
     }
 }
