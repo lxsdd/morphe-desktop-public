@@ -5,11 +5,10 @@
 
 package app.morphe.gui.ui.screens.home.components
 
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -61,10 +60,10 @@ fun AppListFilterChips(
     deviceCount: Int,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = modifier.horizontalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier,
     ) {
         val allLabel = stringResource(Res.string.home_filter_all_apps)
         val yourLabel = stringResource(Res.string.home_filter_your_apps)
