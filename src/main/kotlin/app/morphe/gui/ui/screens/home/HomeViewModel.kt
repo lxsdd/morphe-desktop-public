@@ -17,6 +17,8 @@ import app.morphe.engine.apk.ApkOutputNaming
 import app.morphe.engine.apk.BundleFormats
 import app.morphe.engine.config.EngineConfigRepository
 import app.morphe.engine.model.PatchedAppRecord
+import app.morphe.gui.util.PatchedApkRelinker
+import app.morphe.gui.util.PatchedApkRelinkResult
 import app.morphe.engine.patches.PatchCache
 import app.morphe.engine.patches.PatchRepository
 import app.morphe.engine.patches.PatchResolver
@@ -573,6 +575,43 @@ class HomeViewModel(
         return target.version to when (target.channel) {
             SupportedTargetChannel.STABLE -> RecallUpdateInfo.AppChannel.STABLE
             SupportedTargetChannel.EXPERIMENTAL -> RecallUpdateInfo.AppChannel.EXPERIMENTAL
+        }
+    }
+
+    /**
+     * Read-only verification of a relocated patched APK before updating history.
+     * A selected path never bypasses exact package, version, byte length or SHA-256.
+     */
+    fun relinkPatchedApk(
+        packageName: String,
+        selectedPath: String,
+        onSuccess: (PatchedAppRecord) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            val current = patchedAppStore.get(packageName)
+            if (current == null) {
+                showError("The saved patched-app record is no longer available.")
+                return@launch
+            }
+            val result = withContext(Dispatchers.IO) {
+                PatchedApkRelinker().validate(current, File(selectedPath))
+            }
+            when (result) {
+                is PatchedApkRelinkResult.Rejected -> showError(result.reason)
+                is PatchedApkRelinkResult.Success -> {
+                    val updated = current.copy(
+                        outputApkPath = result.apk.canonicalPath,
+                        outputApkSize = result.apk.sizeBytes,
+                    )
+                    patchedAppStore.upsert(updated)
+                    val stored = patchedAppStore.get(packageName)
+                    if (stored?.outputApkPath != updated.outputApkPath) {
+                        showError("The verified APK was found, but updating the saved history failed.")
+                    } else {
+                        onSuccess(stored)
+                    }
+                }
+            }
         }
     }
 

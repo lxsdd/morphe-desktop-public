@@ -867,4 +867,5 @@
     <string name="changelog_dialog_title">View changelog</string>
     <string name="changelog_show_older_button">Show older releases</string>
     <string name="changelog_view_on_github_button">View on GitHub</string>
+    <string name="home_detail_relink_verified_output">Relink verified patched APK</string>
 </resources>

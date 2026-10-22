@@ -59,6 +59,7 @@ import app.morphe.gui.ui.screens.home.BundleSupport
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.PatchedAppState
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.util.MorpheFilePicker
 import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.morphe_desktop.generated.resources.*
 import java.io.File
@@ -93,6 +94,7 @@ fun PatchedAppDetailDialog(
     onPatchWith: (apkPath: String, overrides: Map<String, BundleChoice>) -> Unit = { _, _ -> },
     onForget: () -> Unit,
     onOpenFolder: () -> Unit,
+    onRelinkApk: (String) -> Unit = {},
     onInstall: () -> Unit = {},
     onUninstall: () -> Unit = {},
     installing: Boolean = false,
@@ -161,6 +163,7 @@ fun PatchedAppDetailDialog(
         }
 
         val scope = rememberCoroutineScope()
+        val relinkPickerTitle = stringResource(Res.string.home_detail_select_apk_title)
         var bundleSupport by remember(record.packageName) { mutableStateOf<BundleSupport?>(null) }
         var supportEpoch by remember(record.packageName) { mutableStateOf(0) }
         var bundleDownload by remember(record.packageName) { mutableStateOf<Float?>(null) }
@@ -414,6 +417,24 @@ fun PatchedAppDetailDialog(
                 }
                 record.outputApkSha256?.let { CopyableStat(stringResource(Res.string.home_detail_sha256_label), it) }
                 CopyableStat(stringResource(Res.string.home_detail_output_path_label), record.outputApkPath)
+                if (record.outputApkSha256 != null) {
+                    MorpheButton(
+                        label = stringResource(Res.string.home_detail_relink_verified_output),
+                        icon = MorpheIcons.FolderOpen,
+                        variant = MorpheButtonVariant.OUTLINED,
+                        size = MorpheButtonSize.DEFAULT,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            scope.launch {
+                                val chosen = MorpheFilePicker.pickFile(
+                                    title = relinkPickerTitle,
+                                    extensions = listOf("apk"),
+                                )
+                                if (chosen?.isFile == true) onRelinkApk(chosen.absolutePath)
+                            }
+                        },
+                    )
+                }
                 }
                 }
                 DisclosureHeader(
