@@ -39,8 +39,7 @@ internal object UninstallCommand : Runnable {
     private var unmount: Boolean = false
 
     override fun run() {
-        val requestedSerials = deviceSerials?.toList().orEmpty()
-        if (requestedSerials.isEmpty() || requestedSerials.any { it.isBlank() } || requestedSerials.toSet().size != requestedSerials.size) {
+        val requestedSerials = validatedDeviceSerials(deviceSerials) ?: run {
             Logger.error("Supply unique, nonblank ADB device serials.")
             return
         }
