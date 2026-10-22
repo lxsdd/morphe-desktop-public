@@ -13,7 +13,7 @@ class PatchSourceDuplicateGuardPortTest {
     )
 
     @Test
-    fun `case and .git suffix do not create duplicate repositories`() {
+    fun `repository case and git suffix do not create duplicate sources`() {
         val original = github("first", "https://github.com/Example/Patches")
         val equivalent = github("second", "https://github.com/example/patches.git")
         val result = PatchSourceDuplicateGuard.addIfUnique(listOf(original), equivalent)
