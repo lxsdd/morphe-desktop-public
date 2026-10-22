@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import app.morphe.engine.MorpheConstants
 import app.morphe.engine.MultiSourceLoader
 import app.morphe.engine.PatchedAppStore
+import app.morphe.engine.DevicePatchDeploymentStore
 import app.morphe.engine.UpdateInfo
 import app.morphe.engine.apk.ApkInspector
 import app.morphe.engine.apk.ApkOutputNaming
@@ -219,6 +220,12 @@ class HomeViewModel(
         viewModelScope.launch {
             val result = adbManager.installApk(record.outputApkPath, target.serial)
 
+            // Only successful installs can create a serial-specific receipt. A fresh
+            // on-device checksum must still be checked before claiming an exact match.
+            if (result.isSuccess) {
+                DevicePatchDeploymentStore.shared.recordSuccessfulInstall(target.serial, record)
+            }
+
             // Configure app link routing if enabled.
             if (result.isSuccess) {
                 val engineConfig = engineConfigRepository.loadConfig()
@@ -254,6 +261,9 @@ class HomeViewModel(
         _uiState.value = _uiState.value.copy(uninstallingPackage = packageName)
         viewModelScope.launch {
             val result = adbManager.uninstallApk(record.installedPackageName, target.serial)
+            if (result.isSuccess) {
+                DevicePatchDeploymentStore.shared.delete(target.serial, record.packageName)
+            }
             if (result.isSuccess && alsoForget) {
                 patchedAppStore.delete(packageName)
             }
