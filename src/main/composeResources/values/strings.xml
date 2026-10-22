@@ -878,11 +878,16 @@
     <string name="home_device_inventory_empty">No apps reported by the selected device</string>
     <string name="home_device_inventory_unavailable">Select an online device to see its installed apps</string>
     <string name="home_device_inventory_title">Installed on selected device (read-only)</string>
-    <string name="home_update_unknown">Update status not yet verified</string>
+    <string name="home_update_unknown">Only confirmed updates to your patched apps are listed here.</string>
     <string name="home_version_patch_only">Patch source used: %1$s</string>
     <string name="home_update_view_empty">No confirmed updates in this category</string>
     <string name="home_your_apps_patch_update_status">Patch update</string>
     <string name="home_your_apps_patch_review_hint">Relevant patch changes available. Open details to review.</string>
     <string name="home_device_inventory_patched_record">Previously patched with Morphe</string>
     <string name="home_device_installed_version">Device version: %1$s</string>
+    <string name="home_action_choose_new_app_apk">Choose newer app APK</string>
+    <string name="home_action_apply_patch_update">Apply patch update</string>
+    <string name="home_action_patch_selected_apk">Patch selected APK</string>
+    <string name="home_detail_app_update_requires_input">A newer supported app version (%1$s) exists. Select its APK first; repatching the current APK will not upgrade the app.</string>
+    <string name="home_your_apps_patched_date_label">Patched on</string>
 </resources>

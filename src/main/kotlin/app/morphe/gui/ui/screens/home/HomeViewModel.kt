@@ -889,14 +889,16 @@ class HomeViewModel(
                 if (!isNewerVersion(latest, version)) continue
 
                 val resolved = resolvedByName[sourceName]
-                if (resolved == null) { add(sourceName); continue }
+                // Missing metadata cannot establish an app-specific patch change.
+                if (resolved == null) continue
                 val prerelease = resolved.channel == PatchResolver.Channel.DEV_LATEST ||
                     resolved.channel == PatchResolver.Channel.DEV_OLDER
                 val entries = changelogRepository.entriesFor(resolved.source, prerelease)
-                if (entries == null) { add(sourceName); continue }
-                if (names.isEmpty()) { add(sourceName); continue }
+                // A newer repository release alone is not a confirmed update for this app.
+                if (entries == null) continue
+                if (names.isEmpty()) continue
 
-                if (ChangelogParser.hasChangesFor(entries, version, names)) {
+                if (hasConfirmedScopedPatchChange(version, latest, entries, names)) {
                     add(sourceName)
                 } else {
                     Logger.debug(
@@ -1281,6 +1283,19 @@ enum class PatchedAppState {
     MODIFIED_EXTERNALLY,
     APK_MISSING,
 }
+
+/** A repository version bump is not proof of an update for this app.
+ *  A verified newer release and an available, matching scoped changelog are required.
+ */
+internal fun hasConfirmedScopedPatchChange(
+    usedVersion: String,
+    latestVersion: String?,
+    entries: List<app.morphe.gui.util.ChangelogEntry>?,
+    appNames: Set<String>,
+): Boolean = latestVersion != null &&
+    isNewerVersion(latestVersion, usedVersion) &&
+    !entries.isNullOrEmpty() &&
+    ChangelogParser.hasChangesFor(entries, usedVersion, appNames)
 
 /** Update guidance for a patched app comparing against resolved patch sources and app versions. */
 data class RecallUpdateInfo(

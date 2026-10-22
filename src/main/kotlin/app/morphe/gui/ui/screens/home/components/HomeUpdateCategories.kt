@@ -18,7 +18,8 @@ internal fun hasConfirmedAppUpdate(info: RecallUpdateInfo?): Boolean =
         info.appOutdated && !info.appSuggestedVersion.isNullOrBlank()
 
 internal fun hasConfirmedPatchUpdate(info: RecallUpdateInfo?): Boolean =
-    info?.sources?.any { it.hasRelevantChanges } == true
+    info?.metadataResolution == UpdateMetadataResolution.READY &&
+        info.sources.any { it.hasRelevantChanges }
 
 internal fun visiblePatchedRecords(
     filter: AppListFilter,
@@ -29,3 +30,10 @@ internal fun visiblePatchedRecords(
     AppListFilter.PATCH_UPDATES -> records.filter { hasConfirmedPatchUpdate(info[it.packageName]) }
     else -> records
 }
+
+/** Only a successfully captured device inventory may display a numeric count. */
+internal fun verifiedDeviceInventoryCount(installedCount: Int, inventorySerial: String?): Int? =
+    installedCount.takeIf { inventorySerial != null }
+
+internal fun deviceInventoryCountText(verifiedCount: Int?): String =
+    verifiedCount?.toString() ?: "?"

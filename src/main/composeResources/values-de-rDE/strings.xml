@@ -283,7 +283,7 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="home_sort_recently_patched">Zuletzt gepatcht</string>
     <string name="home_sort_recently_patched_desc">Zuletzt gepatchte zuerst</string>
     <!-- Home Screen - YourAppsPane -->
-    <string name="home_your_apps_status_patched">Gepatcht am</string>
+    <string name="home_your_apps_status_patched">Gepatcht</string>
     <string name="home_filter_all_apps">Alle Apps</string>
     <string name="home_filter_your_apps">Deine Apps</string>
     <string name="home_banner_view">Ansehen</string>
@@ -839,11 +839,16 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="home_device_inventory_empty">Auf dem ausgewählten Gerät wurden keine Apps gefunden</string>
     <string name="home_device_inventory_unavailable">Verbinde und wähle ein bereites Gerät, um dessen Apps zu sehen</string>
     <string name="home_device_inventory_title">Auf ausgewähltem Gerät installiert (nur Lesen)</string>
-    <string name="home_update_unknown">Update-Status noch nicht verifiziert</string>
+    <string name="home_update_unknown">Hier erscheinen nur bestätigte Updates deiner gepatchten Apps.</string>
     <string name="home_version_patch_only">Verwendete Patchquelle: %1$s</string>
     <string name="home_update_view_empty">Keine bestätigten Updates in dieser Kategorie</string>
     <string name="home_your_apps_patch_update_status">Patch-Update</string>
     <string name="home_your_apps_patch_review_hint">Für diese App liegen relevante Patch-Änderungen vor. Details öffnen.</string>
     <string name="home_device_inventory_patched_record">In Morphe bereits gepatcht</string>
     <string name="home_device_installed_version">Geräteversion: %1$s</string>
+    <string name="home_action_choose_new_app_apk">Neuere App-APK auswählen</string>
+    <string name="home_action_apply_patch_update">Patch-Update durchführen</string>
+    <string name="home_action_patch_selected_apk">Ausgewählte APK patchen</string>
+    <string name="home_detail_app_update_requires_input">Eine neuere unterstützte App-Version (%1$s) ist verfügbar. Wähle zuerst deren APK; erneutes Patchen der bisherigen APK aktualisiert die App-Version nicht.</string>
+    <string name="home_your_apps_patched_date_label">Gepatcht am</string>
 </resources>

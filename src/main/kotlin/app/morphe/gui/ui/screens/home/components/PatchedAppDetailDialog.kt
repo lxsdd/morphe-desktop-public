@@ -103,7 +103,8 @@ fun PatchedAppDetailDialog(
     val accents = MorpheTheme.colors
     val cardFills = LocalCardFills.current
     val patchCount = record.patchSelectionByBundle.values.sumOf { it.size }
-    val hasUpdate = updateInfo != null && (updateInfo.appOutdated || updateInfo.patchesChanged)
+    val hasPatchChanges = hasConfirmedPatchUpdate(updateInfo)
+    val hasNewAppTarget = hasConfirmedAppUpdate(updateInfo)
     val installPending = deviceInfo?.installPending == true
 
     Dialog(
@@ -353,14 +354,28 @@ fun PatchedAppDetailDialog(
                         downloads.isNullOrEmpty() -> emptyList()
                         else -> downloads.map { "↓  $it" }
                     }
-                    val inputsChanged = selectedApkPath != record.inputApkPath ||
-                        bundleChoices.isNotEmpty()
+                    // A newer supported *app* version needs a new APK input. Changing
+                    // patches on the same old APK must never pretend to upgrade it.
+                    val newAppApkRequired = hasNewAppTarget &&
+                        selectedApkPath == record.inputApkPath &&
+                        stagedVersion?.removePrefix("v") == record.apkVersion.removePrefix("v")
+                    if (newAppApkRequired) {
+                        InfoNote(stringResource(
+                            Res.string.home_detail_app_update_requires_input,
+                            "v" + updateInfo!!.appSuggestedVersion!!.removePrefix("v")
+                        ))
+                    }
+                    val chooseNewApk = newAppApkRequired && !hasPatchChanges && bundleChoices.isEmpty()
                     ActionBar(
                         label = when {
                             patchPrepProgress != null ->
                                 stringResource(Res.string.home_detail_downloading_percent, (patchPrepProgress.second * 100).toInt())
                             preparingPatch -> stringResource(Res.string.home_action_preparing)
-                            hasUpdate || inputsChanged -> stringResource(Res.string.home_action_update)
+                            chooseNewApk -> stringResource(Res.string.home_action_choose_new_app_apk)
+                            selectedApkPath != record.inputApkPath ->
+                                stringResource(Res.string.home_action_patch_selected_apk)
+                            hasPatchChanges || bundleChoices.isNotEmpty() ->
+                                stringResource(Res.string.home_action_apply_patch_update)
                             else -> stringResource(Res.string.home_action_repatch)
                         },
                         icon = null,
@@ -368,7 +383,9 @@ fun PatchedAppDetailDialog(
                         filled = !installPending,
                         sublabels = patchSubs,
                         progress = if (preparingPatch) (patchPrepProgress?.second ?: 0f) else null,
-                        onClick = if (preparingPatch) ({}) else ({ onPatchWith(selectedApkPath, bundleChoices) }),
+                        onClick = if (preparingPatch) ({}) else if (chooseNewApk) ({
+                            apkExpanded = true
+                        }) else ({ onPatchWith(selectedApkPath, bundleChoices) }),
                     )
 
                     if (deviceInfo?.installed == true) {
@@ -402,7 +419,7 @@ fun PatchedAppDetailDialog(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StatCell(stringResource(Res.string.home_your_apps_status_patched), fullDate(record.patchedAt))
+                    StatCell(stringResource(Res.string.home_your_apps_patched_date_label), fullDate(record.patchedAt))
                     StatCell(
                         stringResource(Res.string.home_detail_app_version_label),
                         buildString {
