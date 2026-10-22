@@ -91,12 +91,26 @@ internal fun SupportedAppsListPane(
             it.packageName.contains(searchQuery, ignoreCase = true)
         }
     }
-    val filteredRecords = remember(matchingRecords, order, patchedStates, installedPackages) {
-        matchingRecords.sortedWith(
-            compareBy(order) { it.sortKeys(patchedStates, installedPackages) }
-        )
+    val appUpdateCount = patchedRecords.count { isAppUpdateCandidate(updateInfoByPackage[it.packageName]) }
+    val patchUpdateCount = patchedRecords.count { isPatchUpdateCandidate(updateInfoByPackage[it.packageName]) }
+    val onDeviceCount = patchedRecords.count { deviceAppInfo[it.packageName]?.installed == true }
+    val filteredRecords = remember(matchingRecords, order, patchedStates, installedPackages, updateInfoByPackage, deviceAppInfo, filter) {
+        matchingRecords.filter { record ->
+            when (filter) {
+                AppListFilter.ALL, AppListFilter.YOURS -> true
+                AppListFilter.APP_UPDATES -> isAppUpdateCandidate(updateInfoByPackage[record.packageName])
+                AppListFilter.PATCH_UPDATES -> isPatchUpdateCandidate(updateInfoByPackage[record.packageName])
+                AppListFilter.ON_DEVICE -> deviceAppInfo[record.packageName]?.installed == true
+            }
+        }.sortedWith(compareBy(order) { it.sortKeys(patchedStates, installedPackages) })
     }
-    val activeCount = if (filter == AppListFilter.YOURS) patchedRecords.size else supportedApps.size
+    val activeCount = when (filter) {
+        AppListFilter.ALL -> supportedApps.size
+        AppListFilter.YOURS -> patchedRecords.size
+        AppListFilter.APP_UPDATES -> appUpdateCount
+        AppListFilter.PATCH_UPDATES -> patchUpdateCount
+        AppListFilter.ON_DEVICE -> onDeviceCount
+    }
 
     // Collapse selection if the expanded app no longer matches filters.
     LaunchedEffect(searchQuery, filtered) {
@@ -113,9 +127,9 @@ internal fun SupportedAppsListPane(
             .wrapContentHeight()
             .align(Alignment.TopCenter),
       ) {
-        val updateCount = patchedStates.values.count { it == PatchedAppState.PATCHED_WITH_UPDATES }
+        val updateCount = patchUpdateCount
         if (filter == AppListFilter.ALL && updateCount > 0) {
-            PatchedUpdatesBanner(updateCount) { onFilterChange(AppListFilter.YOURS) }
+            PatchedUpdatesBanner(updateCount) { onFilterChange(AppListFilter.PATCH_UPDATES) }
         }
 
         Row(
@@ -127,6 +141,9 @@ internal fun SupportedAppsListPane(
                 onSelect = onFilterChange,
                 allCount = supportedApps.size,
                 yourCount = patchedRecords.size,
+                appUpdateCount = appUpdateCount,
+                patchUpdateCount = patchUpdateCount,
+                onDeviceCount = onDeviceCount,
                 modifier = Modifier.weight(1f),
             )
             MorpheDropdown(
@@ -149,7 +166,7 @@ internal fun SupportedAppsListPane(
             Spacer(modifier = Modifier.height(10.dp))
         }
 
-        if (filter == AppListFilter.YOURS) {
+        if (filter != AppListFilter.ALL) {
             YourAppsListBody(
                 patchedRecords = patchedRecords,
                 filteredRecords = filteredRecords,
