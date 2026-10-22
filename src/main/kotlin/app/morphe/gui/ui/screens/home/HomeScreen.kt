@@ -228,6 +228,11 @@ fun HomeScreenContent(
                     if (parent != null && parent.exists()) Desktop.getDesktop().open(parent)
                 }
             },
+            onRelinkApk = { path ->
+                viewModel.relinkPatchedApk(record.packageName, path) { updated ->
+                    detailRecord = updated
+                }
+            },
             onInstall = { viewModel.installPatchedApp(record.packageName) },
             onUninstall = { onUninstall(record.packageName) },
             installing = uiState.installingPackage == record.packageName,
