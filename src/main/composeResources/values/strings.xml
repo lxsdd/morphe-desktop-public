@@ -883,4 +883,6 @@
     <string name="home_update_view_empty">No confirmed updates in this category</string>
     <string name="home_your_apps_patch_update_status">Patch update</string>
     <string name="home_your_apps_patch_review_hint">Relevant patch changes available. Open details to review.</string>
+    <string name="home_device_inventory_patched_record">Previously patched with Morphe</string>
+    <string name="home_device_installed_version">Device version: %1$s</string>
 </resources>
