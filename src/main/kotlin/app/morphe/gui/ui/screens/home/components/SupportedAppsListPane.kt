@@ -49,6 +49,8 @@ internal fun SupportedAppsListPane(
     patchedStates: Map<String, PatchedAppState> = emptyMap(),
     patchedRecords: List<PatchedAppRecord> = emptyList(),
     deviceAppInfo: Map<String, DeviceAppInfo> = emptyMap(),
+    deviceInstalledPackages: Set<String> = emptySet(),
+    deviceInventorySerial: String? = null,
     updateInfoByPackage: Map<String, RecallUpdateInfo> = emptyMap(),
     onShowDetail: (PatchedAppRecord) -> Unit = {},
     filter: AppListFilter = AppListFilter.ALL,
@@ -96,7 +98,22 @@ internal fun SupportedAppsListPane(
             compareBy(order) { it.sortKeys(patchedStates, installedPackages) }
         )
     }
-    val activeCount = if (filter == AppListFilter.YOURS) patchedRecords.size else supportedApps.size
+    val confirmedAppUpdates = remember(patchedRecords, updateInfoByPackage) {
+        patchedRecords.count { hasConfirmedAppUpdate(updateInfoByPackage[it.packageName]) }
+    }
+    val confirmedPatchUpdates = remember(patchedRecords, updateInfoByPackage) {
+        patchedRecords.count { hasConfirmedPatchUpdate(updateInfoByPackage[it.packageName]) }
+    }
+    val categoryRecords = remember(filter, filteredRecords, updateInfoByPackage) {
+        visiblePatchedRecords(filter, filteredRecords, updateInfoByPackage)
+    }
+    val activeCount = when (filter) {
+        AppListFilter.ALL -> supportedApps.size
+        AppListFilter.YOURS -> patchedRecords.size
+        AppListFilter.APP_UPDATES -> confirmedAppUpdates
+        AppListFilter.PATCH_UPDATES -> confirmedPatchUpdates
+        AppListFilter.DEVICE -> deviceInstalledPackages.size
+    }
 
     // Collapse selection if the expanded app no longer matches filters.
     LaunchedEffect(searchQuery, filtered) {
@@ -113,11 +130,6 @@ internal fun SupportedAppsListPane(
             .wrapContentHeight()
             .align(Alignment.TopCenter),
       ) {
-        val updateCount = patchedStates.values.count { it == PatchedAppState.PATCHED_WITH_UPDATES }
-        if (filter == AppListFilter.ALL && updateCount > 0) {
-            PatchedUpdatesBanner(updateCount) { onFilterChange(AppListFilter.YOURS) }
-        }
-
         Row(
             modifier = Modifier.fillMaxWidth().padding(end = 12.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -127,15 +139,20 @@ internal fun SupportedAppsListPane(
                 onSelect = onFilterChange,
                 allCount = supportedApps.size,
                 yourCount = patchedRecords.size,
+                appUpdateCount = confirmedAppUpdates,
+                patchUpdateCount = confirmedPatchUpdates,
+                deviceCount = deviceInstalledPackages.size,
                 modifier = Modifier.weight(1f),
             )
-            MorpheDropdown(
-                label = sortMode.label,
-                items = HomeAppSortMode.entries.map { mode ->
-                    MorpheDropdownItem(mode.label) { onSortModeChange(mode) }
-                },
-                modifier = Modifier.width(170.dp),
-            )
+            if (filter != AppListFilter.DEVICE) {
+                MorpheDropdown(
+                    label = sortMode.label,
+                    items = HomeAppSortMode.entries.map { mode ->
+                        MorpheDropdownItem(mode.label) { onSortModeChange(mode) }
+                    },
+                    modifier = Modifier.width(170.dp),
+                )
+            }
         }
 
         if (activeCount > 4) {
@@ -149,10 +166,20 @@ internal fun SupportedAppsListPane(
             Spacer(modifier = Modifier.height(10.dp))
         }
 
-        if (filter == AppListFilter.YOURS) {
+        if (filter == AppListFilter.DEVICE) {
+            DeviceInventoryPane(
+                installedPackages = deviceInstalledPackages,
+                selectedDeviceSerial = deviceInventorySerial,
+                supportedApps = supportedApps,
+                patchedRecords = patchedRecords,
+                deviceAppInfo = deviceAppInfo,
+                searchQuery = searchQuery,
+                paneMaxHeight = paneMaxHeight,
+            )
+        } else if (filter != AppListFilter.ALL) {
             YourAppsListBody(
                 patchedRecords = patchedRecords,
-                filteredRecords = filteredRecords,
+                filteredRecords = categoryRecords,
                 searchQuery = searchQuery,
                 patchedStates = patchedStates,
                 deviceAppInfo = deviceAppInfo,
@@ -161,6 +188,7 @@ internal fun SupportedAppsListPane(
                 onShowDetail = onShowDetail,
                 paneMaxHeight = paneMaxHeight,
                 showSearch = activeCount > 4,
+                updateCategory = filter == AppListFilter.APP_UPDATES || filter == AppListFilter.PATCH_UPDATES,
             )
         } else when {
             isLoading -> {
