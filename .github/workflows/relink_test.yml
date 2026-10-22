@@ -1,0 +1,34 @@
+name: Safe patched APK recovery source tests
+
+on:
+  push:
+    branches:
+      - integration/1-19-safe-apk-relink-20261022
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  tests:
+    name: APK recovery tests (${{ matrix.os }})
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Test source only; do not publish JAR or APK
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew test --no-daemon
