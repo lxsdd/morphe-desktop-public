@@ -868,4 +868,17 @@
     <string name="changelog_show_older_button">Show older releases</string>
     <string name="changelog_view_on_github_button">View on GitHub</string>
     <string name="home_detail_relink_verified_output">Relink verified patched APK</string>
+    <string name="home_filter_app_updates">App updates</string>
+    <string name="home_filter_patch_updates">Patch updates</string>
+    <string name="home_filter_device_apps">On device</string>
+    <string name="home_version_patched">Patched app: %1$s</string>
+    <string name="home_version_patch_source">Patch source: %1$s</string>
+    <string name="home_version_app_upgrade">App update: %1$s → %2$s</string>
+    <string name="home_version_patch_upgrade">Patch update: %1$s → %2$s</string>
+    <string name="home_device_inventory_empty">No apps reported by the selected device</string>
+    <string name="home_device_inventory_unavailable">Select an online device to see its installed apps</string>
+    <string name="home_device_inventory_title">Installed on selected device (read-only)</string>
+    <string name="home_update_unknown">Update status not yet verified</string>
+    <string name="home_version_patch_only">Patch source used: %1$s</string>
+    <string name="home_update_view_empty">No confirmed updates in this category</string>
 </resources>
