@@ -67,11 +67,15 @@ internal fun HomeSplitLayout(
                 loadError = uiState.patchLoadError,
                 onRetry = onRetry,
                 onManageSources = onManageSources,
-                modifier = Modifier
-                    .weight(1.2f)
-                    .heightIn(max = bodyViewport),
+                modifier = (if (uiState.appListFilter == AppListFilter.DEVICE) {
+                    // Device inventory is read-only: use the full workspace instead
+                    // of leaving an unrelated APK drop target on the right.
+                    Modifier.fillMaxWidth()
+                } else {
+                    Modifier.weight(1.2f)
+                }).heightIn(max = bodyViewport),
             )
-            Column(
+            if (uiState.appListFilter != AppListFilter.DEVICE) Column(
                 modifier = Modifier
                     .weight(1f)
                     .align(Alignment.CenterVertically)
