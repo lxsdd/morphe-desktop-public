@@ -9,6 +9,10 @@ permissions:
   contents: read
   packages: read
 
+concurrency:
+  group: safety-first-1-19-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   compile:
     if: github.repository == 'lxsdd/morphe-desktop-public'
