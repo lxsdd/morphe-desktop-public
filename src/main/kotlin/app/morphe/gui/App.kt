@@ -6,6 +6,8 @@
 package app.morphe.gui
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -38,6 +40,9 @@ import app.morphe.gui.data.repository.isRtlLanguage
 import app.morphe.gui.di.appModule
 import app.morphe.gui.ui.components.CardFillHost
 import app.morphe.gui.ui.components.LocalFrameWindowScope
+import app.morphe.gui.ui.components.LocalMorpheDialogHostState
+import app.morphe.gui.ui.components.MorpheDialogHost
+import app.morphe.gui.ui.components.MorpheDialogHostState
 import app.morphe.gui.ui.components.SettingsDialogHost
 import app.morphe.gui.ui.screens.home.HomeScreen
 import app.morphe.gui.ui.screens.patches.PatchSelectionScreen
@@ -50,8 +55,10 @@ import app.morphe.gui.ui.theme.LocalThemeState
 import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.gui.ui.theme.ThemePreference
 import app.morphe.gui.ui.theme.ThemeState
+import app.morphe.gui.ui.theme.useAnimatedScreenTransitions
 import app.morphe.gui.ui.theme.backgrounds.AnimatedBackground
 import app.morphe.gui.ui.theme.backgrounds.BackgroundType
+import app.morphe.gui.ui.theme.backgrounds.LocalBackgroundAnimationEnabled
 import app.morphe.gui.ui.theme.backgrounds.LocalParallaxState
 import app.morphe.gui.ui.theme.backgrounds.rememberParallaxState
 import app.morphe.gui.util.DeviceMonitor
@@ -101,9 +108,15 @@ data class PatchSelectionParams(
     val apkArchitectures: List<String> = emptyList(),
     val patchesFilePaths: List<String> = emptyList(),
     val patchSourceNames: List<String> = emptyList(),
+    val patchSourceIds: List<String> = emptyList(),
+    val patchSourceHashes: List<String?> = emptyList(),
     val initialSelectionByBundle: Map<String, Set<String>> = emptyMap(),
     val initialPatchOptions: Map<String, String> = emptyMap(),
     val apkVersion: String = "",
+    val temporaryInputRoot: String? = null,
+    val sourceDeviceSerial: String? = null,
+    val deviceSpecificInput: Boolean = false,
+    val validatedDeviceImport: Boolean = false,
 )
 
 val LocalNavController = compositionLocalOf<NavHostController> {
@@ -186,7 +199,7 @@ val LocalGroupPatchesByCategory = compositionLocalOf<MutableState<Boolean>> {
 /**
  * Auto-start ADB preference. Exposed as a composition local so the
  * SettingsDialog (writer) and DeviceIndicator + install buttons (readers)
- * can react without prop-drilling through Voyager screens. App-level
+ * can react without prop-drilling through Compose Navigation screens. App-level
  * lifecycle (start/stop the daemon when this flips) is handled in [App.kt].
  */
 data class AdbPreferenceState(
@@ -235,9 +248,15 @@ private fun appContent(
     val patchSourceManager: PatchSourceManager = koinInject()
     val scope = rememberCoroutineScope()
     val enableParallaxState = remember { mutableStateOf(true) }
+    val isWindows = remember {
+        System.getProperty("os.name")?.startsWith("Windows", ignoreCase = true) == true
+    }
+    val animatedScreenTransitionsEnabled = remember {
+        useAnimatedScreenTransitions(System.getProperty("os.name"))
+    }
+    val interactiveParallaxEnabled = enableParallaxState.value && !isWindows
     val (parallaxState, parallaxMod) = rememberParallaxState(
-        enableParallax = enableParallaxState.value,
-        coroutineScope = scope
+        enableParallax = interactiveParallaxEnabled,
     )
 
     var themePreference by remember { mutableStateOf(ThemePreference.SYSTEM) }
@@ -375,6 +394,7 @@ private fun appContent(
 
     val settingsDialogVisible = remember { mutableStateOf(false) }
     val isPatchingState = remember { mutableStateOf(false) }
+    val morpheDialogHostState = remember { MorpheDialogHostState() }
 
     val targetDirection = if (appLanguage.isRtlLanguage()) LayoutDirection.Rtl else LayoutDirection.Ltr
 
@@ -391,6 +411,8 @@ private fun appContent(
                 LocalAdbPreference provides adbPreferenceState,
                 LocalSettingsDialogVisible provides settingsDialogVisible,
                 LocalIsPatching provides isPatchingState,
+                LocalMorpheDialogHostState provides morpheDialogHostState,
+                LocalBackgroundAnimationEnabled provides !isWindows,
                 LocalBackgroundType provides backgroundTypeState,
                 LocalEnableParallax provides enableParallaxState,
                 LocalParallaxState provides parallaxState,
@@ -452,7 +474,7 @@ private fun appContent(
                             Box(modifier = Modifier.fillMaxWidth().weight(1f).then(parallaxMod)) {
                                 AnimatedBackground(
                                     type = backgroundTypeState.value,
-                                    enableParallax = enableParallaxState.value,
+                                    enableParallax = interactiveParallaxEnabled,
                                     speedMultiplier = { backgroundSpeedState.floatValue },
                                     patchingCompleted = { patchingCompletedState.value }
                                 )
@@ -468,10 +490,18 @@ private fun appContent(
                                         NavHost(
                                             navController = navController,
                                             startDestination = if (isSimplifiedMode) QuickPatchScreenRoute else HomeScreenRoute,
-                                            enterTransition = { Animations.screenEnter },
-                                            exitTransition = { Animations.screenExit },
-                                            popEnterTransition = { Animations.screenEnter },
-                                            popExitTransition = { Animations.screenExit }
+                                            enterTransition = {
+                                                if (animatedScreenTransitionsEnabled) Animations.screenEnter else EnterTransition.None
+                                            },
+                                            exitTransition = {
+                                                if (animatedScreenTransitionsEnabled) Animations.screenExit else ExitTransition.None
+                                            },
+                                            popEnterTransition = {
+                                                if (animatedScreenTransitionsEnabled) Animations.screenEnter else EnterTransition.None
+                                            },
+                                            popExitTransition = {
+                                                if (animatedScreenTransitionsEnabled) Animations.screenExit else ExitTransition.None
+                                            }
                                         ) {
                                             composable<HomeScreenRoute> {
                                                 HomeScreen()
@@ -556,6 +586,7 @@ private fun appContent(
                                 }
                             }
                         }
+                        MorpheDialogHost(morpheDialogHostState)
                     }
                 }
             }
