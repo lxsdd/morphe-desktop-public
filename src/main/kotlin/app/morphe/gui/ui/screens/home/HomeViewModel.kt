@@ -889,12 +889,14 @@ class HomeViewModel(
                 if (!isNewerVersion(latest, version)) continue
 
                 val resolved = resolvedByName[sourceName]
-                if (resolved == null) { add(sourceName); continue }
+                // Missing metadata cannot establish an app-specific patch change.
+                if (resolved == null) continue
                 val prerelease = resolved.channel == PatchResolver.Channel.DEV_LATEST ||
                     resolved.channel == PatchResolver.Channel.DEV_OLDER
                 val entries = changelogRepository.entriesFor(resolved.source, prerelease)
-                if (entries == null) { add(sourceName); continue }
-                if (names.isEmpty()) { add(sourceName); continue }
+                // A newer repository release alone is not a confirmed update for this app.
+                if (entries == null) continue
+                if (names.isEmpty()) continue
 
                 if (ChangelogParser.hasChangesFor(entries, version, names)) {
                     add(sourceName)
