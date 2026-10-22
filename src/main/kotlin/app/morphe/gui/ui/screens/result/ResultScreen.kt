@@ -32,6 +32,7 @@ import app.morphe.gui.ui.components.*
 import app.morphe.gui.ui.screens.result.components.*
 import app.morphe.gui.ui.theme.*
 import app.morphe.gui.util.DeviceMonitor
+import app.morphe.gui.util.DevicePackageMutations
 import app.morphe.gui.util.DeviceOperationTarget
 import app.morphe.gui.util.captureOperationTarget
 import app.morphe.gui.util.FormatUtils
@@ -154,6 +155,7 @@ fun ResultScreenContent(outputPath: String) {
                 onSuccess = {
                     installState.isSuccess = true
                     installedOnTarget = target
+                    outputPackage?.let { DevicePackageMutations.notify(target.serial, it) }
                     installState.progress = if (alreadyInstalled) getString(Res.string.result_adb_update_successful) else getString(Res.string.result_adb_install_successful)
                 },
                 onFailure = { exception ->

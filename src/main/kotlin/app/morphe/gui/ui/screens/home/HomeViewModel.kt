@@ -44,6 +44,7 @@ import app.morphe.gui.ui.screens.home.components.HomeAppSortMode
 import app.morphe.gui.util.ChangelogParser
 import app.morphe.gui.util.ChecksumStatus
 import app.morphe.gui.util.DeviceMonitor
+import app.morphe.gui.util.DevicePackageMutations
 import app.morphe.gui.util.captureOperationTarget
 import app.morphe.gui.util.AppUpdateClassification
 import app.morphe.gui.util.SupportedTargetChannel
@@ -138,6 +139,15 @@ class HomeViewModel(
                 .map { it.selectedDevice?.id to (it.selectedDevice?.isReady == true) }
                 .distinctUntilChanged()
                 .collect { refreshDeviceInfo() }
+        }
+
+        // Re-evaluate only the exact selected serial when another UI surface
+        // successfully changes package state on that same endpoint.
+        viewModelScope.launch {
+            DevicePackageMutations.events.collect { mutation ->
+                val selected = DeviceMonitor.state.value.selectedDevice
+                if (selected?.id == mutation.deviceSerial && selected.isReady) refreshDeviceInfo()
+            }
         }
 
         // Load patches whenever expert mode becomes active.
@@ -243,6 +253,9 @@ class HomeViewModel(
                 }
             }
 
+            if (result.isSuccess) {
+                DevicePackageMutations.notify(target.serial, record.installedPackageName)
+            }
             val installError = result.exceptionOrNull()?.let {
                 (it as? AdbException)?.getUserMessage() ?: getString(Res.string.home_install_failed, it.message ?: "")
             } ?: _uiState.value.error
@@ -274,6 +287,9 @@ class HomeViewModel(
             }
             if (result.isSuccess && alsoForget) {
                 patchedAppStore.delete(packageName)
+            }
+            if (result.isSuccess) {
+                DevicePackageMutations.notify(target.serial, record.installedPackageName)
             }
             val uninstallError = result.exceptionOrNull()?.let {
                 (it as? AdbException)?.getUserMessage() ?: getString(Res.string.home_uninstall_failed, it.message ?: "")
