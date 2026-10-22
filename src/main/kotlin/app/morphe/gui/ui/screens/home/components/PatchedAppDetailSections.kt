@@ -56,7 +56,7 @@ import app.morphe.gui.ui.screens.home.BundleRelease
 import app.morphe.gui.ui.screens.home.BundleSupport
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.PatchedAppState
-import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.ui.screens.home.UnifiedHomeAppState
 import app.morphe.gui.ui.theme.LocalMorpheAccents
 import app.morphe.gui.ui.theme.LocalMorpheCorners
 import app.morphe.morphe_desktop.generated.resources.*
@@ -71,7 +71,7 @@ internal fun IdentityBand(
     record: PatchedAppRecord,
     state: PatchedAppState,
     deviceInfo: DeviceAppInfo?,
-    updateInfo: RecallUpdateInfo?,
+    unifiedState: UnifiedHomeAppState?,
     font: FontFamily,
 ) {
     val accents = LocalMorpheAccents.current
@@ -127,11 +127,21 @@ internal fun IdentityBand(
         deviceInfo?.let {
             DeviceLine(it, font, MaterialTheme.colorScheme.onSurfaceVariant, accents.primary)
         }
-        val advice = updateInfo?.let { appAdvice(it) }
-        if (advice != null) {
-            UpdateHint(advice.first, font, recommended = advice.second)
-        } else if (updateInfo != null && updateInfo.sources.any { it.outdated }) {
-            InfoNote(stringResource(Res.string.home_detail_newer_patch_available_note), font)
+        if (unifiedState != null) {
+            InfoNote(
+                stringResource(
+                    Res.string.home_detail_app_channel_label,
+                    unifiedAppChannelStatusLabel(unifiedState),
+                ),
+                font,
+            )
+            InfoNote(
+                stringResource(
+                    Res.string.home_detail_patch_channel_label,
+                    unifiedPatchChannelStatusLabel(unifiedState),
+                ),
+                font,
+            )
         }
     }
 }

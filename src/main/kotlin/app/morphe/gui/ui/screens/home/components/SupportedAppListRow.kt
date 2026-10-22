@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.morphe.gui.ui.components.MorpheBadge
 import app.morphe.gui.ui.components.MorpheBadgeTone
+import app.morphe.gui.ui.components.MorpheTooltip
 import app.morphe.gui.ui.components.cardChipInk
 import app.morphe.gui.ui.components.MorpheCardChip
 import app.morphe.gui.ui.components.LocalCardFills
@@ -231,16 +232,25 @@ internal fun PatchedStateBadge(
 ) {
     val label = when (state) {
         PatchedAppState.PATCHED -> stringResource(Res.string.home_your_apps_status_patched)
-        PatchedAppState.PATCHED_WITH_UPDATES -> stringResource(Res.string.home_app_row_update_available_badge)
+        PatchedAppState.PATCHED_WITH_UPDATES -> stringResource(Res.string.home_your_apps_status_patched)
         PatchedAppState.MODIFIED_EXTERNALLY -> stringResource(Res.string.home_app_row_modified_badge)
         PatchedAppState.APK_MISSING -> stringResource(Res.string.home_app_row_apk_missing_badge)
         PatchedAppState.NEVER_PATCHED -> return
     }
-    if (!onGradient) {
-        MorpheBadge(text = label, tone = MorpheBadgeTone.Primary)
-        return
+    val tooltip = when (state) {
+        PatchedAppState.PATCHED,
+        PatchedAppState.PATCHED_WITH_UPDATES -> stringResource(Res.string.home_tooltip_patched_badge)
+        PatchedAppState.MODIFIED_EXTERNALLY -> stringResource(Res.string.home_tooltip_modified_badge)
+        PatchedAppState.APK_MISSING -> stringResource(Res.string.home_tooltip_missing_badge)
+        PatchedAppState.NEVER_PATCHED -> return
     }
-    MorpheCardChip(text = label)
+    MorpheTooltip(tooltip) {
+        if (!onGradient) {
+            MorpheBadge(text = label, tone = MorpheBadgeTone.Primary)
+        } else {
+            MorpheCardChip(text = label)
+        }
+    }
 }
 
 @Composable

@@ -57,7 +57,8 @@ import app.morphe.gui.ui.screens.home.BundleRelease
 import app.morphe.gui.ui.screens.home.BundleSupport
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.PatchedAppState
-import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.ui.screens.home.HomePrimaryAction
+import app.morphe.gui.ui.screens.home.UnifiedHomeAppState
 import app.morphe.gui.ui.theme.LocalMorpheAccents
 import app.morphe.gui.ui.theme.LocalMorpheCorners
 import app.morphe.gui.ui.theme.LocalMorpheFont
@@ -67,6 +68,23 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
+
+internal enum class PatchedAppDetailAction {
+    CHOOSE_APK,
+    PATCH_SELECTED_INPUTS,
+    REPATCH_CURRENT_INPUTS,
+}
+
+internal fun resolvePatchedAppDetailAction(
+    primaryAction: HomePrimaryAction,
+    inputsChanged: Boolean,
+): PatchedAppDetailAction = when {
+    inputsChanged -> PatchedAppDetailAction.PATCH_SELECTED_INPUTS
+    primaryAction == HomePrimaryAction.NEW_APK_REQUIRED ||
+        primaryAction == HomePrimaryAction.NEW_APK_AND_REPATCH_REQUIRED ->
+        PatchedAppDetailAction.CHOOSE_APK
+    else -> PatchedAppDetailAction.REPATCH_CURRENT_INPUTS
+}
 
 /**
  * Full recall breakdown for one patched app. Everything is already on the record
@@ -78,7 +96,7 @@ fun PatchedAppDetailDialog(
     record: PatchedAppRecord,
     state: PatchedAppState,
     deviceInfo: DeviceAppInfo?,
-    updateInfo: RecallUpdateInfo?,
+    unifiedState: UnifiedHomeAppState?,
     supportedApp: SupportedApp? = null,
     activeSources: List<ActivePatchSource> = emptyList(),
     allSources: List<PatchSource> = emptyList(),
@@ -109,8 +127,8 @@ fun PatchedAppDetailDialog(
     val corners = LocalMorpheCorners.current
     val cardFills = LocalCardFills.current
     val patchCount = record.patchSelectionByBundle.values.sumOf { it.size }
-    val hasUpdate = updateInfo != null && (updateInfo.appOutdated || updateInfo.patchesChanged)
-    val installPending = deviceInfo?.installPending == true
+    val primaryAction = unifiedState?.primaryAction ?: HomePrimaryAction.NONE
+    val installPending = primaryAction == HomePrimaryAction.INSTALL_LOCAL_BUILD
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -226,7 +244,7 @@ fun PatchedAppDetailDialog(
             contentPadding = PaddingValues(0.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-                IdentityBand(record, state, deviceInfo, updateInfo, font)
+                IdentityBand(record, state, deviceInfo, unifiedState, font)
                 BandDivider()
 
                 Column(
@@ -348,7 +366,7 @@ fun PatchedAppDetailDialog(
                             corner = corners.small,
                             filled = true,
                             sublabels = listOf(
-                                if (deviceInfo.installed)
+                                if (deviceInfo?.installed == true)
                                     stringResource(
                                         Res.string.home_detail_ready_device_version,
                                         record.apkVersion.removePrefix("v"),
@@ -372,12 +390,18 @@ fun PatchedAppDetailDialog(
                     }
                     val inputsChanged = selectedApkPath != record.inputApkPath ||
                         bundleChoices.isNotEmpty()
+                    val detailAction = resolvePatchedAppDetailAction(primaryAction, inputsChanged)
                     ActionBar(
                         label = when {
                             patchPrepProgress != null ->
                                 stringResource(Res.string.home_detail_downloading_percent, (patchPrepProgress.second * 100).toInt())
                             preparingPatch -> stringResource(Res.string.home_action_preparing)
-                            hasUpdate || inputsChanged -> stringResource(Res.string.home_action_update)
+                            detailAction == PatchedAppDetailAction.CHOOSE_APK &&
+                                primaryAction == HomePrimaryAction.NEW_APK_REQUIRED ->
+                                stringResource(Res.string.home_action_get_newer_apk)
+                            detailAction == PatchedAppDetailAction.CHOOSE_APK &&
+                                primaryAction == HomePrimaryAction.NEW_APK_AND_REPATCH_REQUIRED ->
+                                stringResource(Res.string.home_action_get_newer_apk_and_patch)
                             else -> stringResource(Res.string.home_action_repatch)
                         },
                         icon = null,
@@ -387,7 +411,12 @@ fun PatchedAppDetailDialog(
                         filled = !installPending,
                         sublabels = patchSubs,
                         progress = if (preparingPatch) (patchPrepProgress?.second ?: 0f) else null,
-                        onClick = if (preparingPatch) ({}) else ({ onPatchWith(selectedApkPath, bundleChoices) }),
+                        onClick = if (preparingPatch) ({}) else when (detailAction) {
+                            PatchedAppDetailAction.CHOOSE_APK -> ({ apkExpanded = true })
+                            PatchedAppDetailAction.PATCH_SELECTED_INPUTS ->
+                                ({ onPatchWith(selectedApkPath, bundleChoices) })
+                            PatchedAppDetailAction.REPATCH_CURRENT_INPUTS -> ({ onRepatch() })
+                        },
                     )
 
                     if (deviceInfo?.installed == true) {
