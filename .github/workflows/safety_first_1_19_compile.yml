@@ -1,4 +1,4 @@
-name: Safety-first 1.19 source tests (no artifacts)
+name: Custom 1.19 source tests (no artifacts)
 
 on:
   push:
@@ -16,8 +16,12 @@ concurrency:
 jobs:
   compile:
     if: github.repository == 'lxsdd/morphe-desktop-public'
-    name: Test explicit-target ADB variant
-    runs-on: ubuntu-latest
+    name: Test Custom 1.19 source (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v7
         with:
