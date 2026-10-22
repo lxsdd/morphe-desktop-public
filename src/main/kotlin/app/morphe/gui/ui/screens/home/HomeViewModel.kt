@@ -44,6 +44,8 @@ import app.morphe.gui.util.ChangelogParser
 import app.morphe.gui.util.ChecksumStatus
 import app.morphe.gui.util.DeviceMonitor
 import app.morphe.gui.util.AppUpdateClassification
+import app.morphe.gui.util.SupportedTargetChannel
+import app.morphe.gui.util.selectSupportedAppTarget
 import app.morphe.gui.util.UpdateMetadataResolution
 import app.morphe.gui.util.classifyAppUpdate
 import app.morphe.gui.util.EnabledSourcesLoader
@@ -527,14 +529,14 @@ class HomeViewModel(
         used: String,
     ): Pair<String?, RecallUpdateInfo.AppChannel> {
         if (app == null) return null to RecallUpdateInfo.AppChannel.UNKNOWN
-        val latestStable = app.recommendedVersion
-        val latestExperimental = app.experimentalVersions.firstOrNull()
-        val onExperimental = app.experimentalVersions.any { it.equals(used, ignoreCase = true) } ||
-            (latestStable != null && isNewerVersion(used, latestStable))
-        return if (onExperimental) {
-            (latestExperimental ?: latestStable) to RecallUpdateInfo.AppChannel.EXPERIMENTAL
-        } else {
-            (latestStable ?: latestExperimental) to RecallUpdateInfo.AppChannel.STABLE
+        val target = selectSupportedAppTarget(
+            stableVersion = app.recommendedVersion,
+            experimentalVersions = app.experimentalVersions,
+            currentVersion = used,
+        )
+        return target.version to when (target.channel) {
+            SupportedTargetChannel.STABLE -> RecallUpdateInfo.AppChannel.STABLE
+            SupportedTargetChannel.EXPERIMENTAL -> RecallUpdateInfo.AppChannel.EXPERIMENTAL
         }
     }
 
