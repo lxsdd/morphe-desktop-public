@@ -8,6 +8,7 @@ picocli = "4.7.7"
 arsclib = "10d0708212"
 morphe-patcher = "2.0.0"
 morphe-library = "1.4.0"
+apksig = "9.1.1"
 
 # Compose Desktop
 compose = "1.12.1"
@@ -46,6 +47,7 @@ junit-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref 
 picocli = { module = "info.picocli:picocli", version.ref = "picocli" }
 morphe-patcher = { module = "app.morphe:morphe-patcher", version.ref = "morphe-patcher" }
 morphe-library = { module = "app.morphe:morphe-library-jvm", version.ref = "morphe-library" }
+apksig = { module = "com.android.tools.build:apksig", version.ref = "apksig" }
 
 # Ktor Client
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }

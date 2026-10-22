@@ -63,6 +63,8 @@ dependencies {
         // jadb is unused by morphe-desktop and leaks mockito-core/bytebuddy into the fat JAR
         exclude(group = "app.morphe", module = "jadb")
     }
+    // Verified APK signer certificates for read-only ownership/provenance checks.
+    implementation(libs.apksig)
     implementation(libs.picocli)
     implementation(libs.bundles.compose.desktop)
     implementation(libs.compose.components.resources)
