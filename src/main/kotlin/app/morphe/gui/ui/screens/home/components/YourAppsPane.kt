@@ -124,6 +124,7 @@ internal fun YourAppsListBody(
     onShowDetail: (PatchedAppRecord) -> Unit,
     paneMaxHeight: Dp,
     showSearch: Boolean,
+    updateCategory: Boolean = false,
 ) {
     when {
         patchedRecords.isEmpty() -> YourAppsEmptyHint(
@@ -131,8 +132,12 @@ internal fun YourAppsListBody(
             subtitle = stringResource(Res.string.home_your_apps_empty_subtitle),
         )
         filteredRecords.isEmpty() -> YourAppsEmptyHint(
-            title = stringResource(Res.string.no_matches),
-            subtitle = stringResource(Res.string.home_your_apps_no_matches_subtitle, searchQuery),
+            title = if (updateCategory && searchQuery.isBlank()) {
+                stringResource(Res.string.home_update_view_empty)
+            } else stringResource(Res.string.no_matches),
+            subtitle = if (updateCategory && searchQuery.isBlank()) {
+                stringResource(Res.string.home_update_unknown)
+            } else stringResource(Res.string.home_your_apps_no_matches_subtitle, searchQuery),
         )
         else -> {
             val listState = rememberLazyListState()
