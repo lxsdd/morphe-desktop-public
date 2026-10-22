@@ -1,0 +1,38 @@
+name: Source-only signer verification CI
+
+on:
+  push:
+    branches:
+      - integration/1-19-apk-signer-verification-20261022
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: signer-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    name: Source-only tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Build & test, no files published
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew test --no-daemon
