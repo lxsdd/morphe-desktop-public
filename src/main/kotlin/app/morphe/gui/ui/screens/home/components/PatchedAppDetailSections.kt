@@ -115,8 +115,8 @@ internal fun IdentityBand(
         val advice = updateInfo?.let { appAdvice(it) }
         if (advice != null) {
             UpdateHint(advice.first, recommended = advice.second)
-        } else if (updateInfo != null && updateInfo.sources.any { it.outdated }) {
-            InfoNote(stringResource(Res.string.home_detail_newer_patch_available_note))
+        } else if (hasConfirmedPatchUpdate(updateInfo)) {
+            InfoNote(stringResource(Res.string.home_your_apps_patch_review_hint))
         }
     }
 }
