@@ -51,8 +51,7 @@ internal object InstallCommand : Runnable {
     private var stockPackage: String? = null
 
     override fun run() {
-        val requestedSerials = deviceSerials?.toList().orEmpty()
-        if (requestedSerials.isEmpty() || requestedSerials.any { it.isBlank() } || requestedSerials.toSet().size != requestedSerials.size) {
+        val requestedSerials = validatedDeviceSerials(deviceSerials) ?: run {
             Logger.error("Supply unique, nonblank ADB device serials.")
             return
         }
@@ -103,4 +102,11 @@ internal object InstallCommand : Runnable {
             }
         }
     }
+}
+
+/** Returns a stable, unique target set or null; the CLI must reject null before ADB startup. */
+internal fun validatedDeviceSerials(serials: Array<String>?): List<String>? {
+    val result = serials?.toList().orEmpty()
+    return result.takeIf { it.isNotEmpty() && it.all(String::isNotBlank) &&
+        it.all { id -> id == id.trim() } && it.distinct().size == it.size }
 }
