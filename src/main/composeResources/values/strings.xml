@@ -881,4 +881,6 @@
     <string name="home_update_unknown">Update status not yet verified</string>
     <string name="home_version_patch_only">Patch source used: %1$s</string>
     <string name="home_update_view_empty">No confirmed updates in this category</string>
+    <string name="home_your_apps_patch_update_status">Patch update</string>
+    <string name="home_your_apps_patch_review_hint">Relevant patch changes available. Open details to review.</string>
 </resources>
