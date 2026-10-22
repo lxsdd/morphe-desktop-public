@@ -25,7 +25,6 @@ object AndroidArchitectures {
 
 /** Reads manifest metadata and architectures from APKs and bundles in-memory. */
 object ApkInspector {
-    private val splitPatterns = listOf("split_config", "config.", "split_")
 
     /** Extracts manifest attributes and CPU architectures, or null if invalid. */
     fun inspect(file: File): ApkInspectionResult? {
@@ -166,24 +165,8 @@ object ApkInspector {
     }
 
     private fun findBaseApkEntry(zip: ZipFile): ZipEntry? {
-        // 1. APKM / standard bundle convention
-        zip.getEntry("base.apk")?.let { return it }
-
-        // 2. APKS (bundletool / SAI) convention
-        zip.getEntry("splits/base-master.apk")?.let { return it }
-        zip.getEntry("splits/base.apk")?.let { return it }
-
-        // 3. XAPK / custom bundle: look for non-split .apk entry
-        val allApks = zip.entries().asSequence()
-            .filter { !it.isDirectory && it.name.endsWith(".apk", ignoreCase = true) }
-            .toList()
-
-        val nonSplit = allApks.firstOrNull { entry ->
-            val simpleName = entry.name.substringAfterLast('/').lowercase()
-            splitPatterns.none { simpleName.startsWith(it) }
-        }
-
-        // 4. Fallback: largest APK by compressed size
-        return nonSplit ?: allApks.maxByOrNull { it.compressedSize }
+        val entries = zip.entries().asSequence().filter { !it.isDirectory }.toList()
+        val selected = BundleBaseApkSelection.select(entries.map { it.name }) ?: return null
+        return entries.singleOrNull { it.name == selected }
     }
 }
