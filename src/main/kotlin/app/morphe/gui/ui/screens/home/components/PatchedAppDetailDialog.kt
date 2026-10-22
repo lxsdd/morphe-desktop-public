@@ -354,8 +354,6 @@ fun PatchedAppDetailDialog(
                         downloads.isNullOrEmpty() -> emptyList()
                         else -> downloads.map { "↓  $it" }
                     }
-                    val inputsChanged = selectedApkPath != record.inputApkPath ||
-                        bundleChoices.isNotEmpty()
                     // A newer supported *app* version needs a new APK input. Changing
                     // patches on the same old APK must never pretend to upgrade it.
                     val newAppApkRequired = hasNewAppTarget &&
