@@ -33,31 +33,31 @@ internal fun LogEntryRow(
     val corners = LocalMorpheCorners.current
     val mono = LocalMorpheMono.current
     val accents = LocalMorpheAccents.current
-    
+
     val bg = when (entry.level) {
         LogLevel.ERROR -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
         LogLevel.WARNING -> accents.warning.copy(alpha = 0.12f)
         else -> Color.Transparent
     }
-    
+
     val badgeBg = when (entry.level) {
         LogLevel.ERROR -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
         LogLevel.WARNING -> accents.warning.copy(alpha = 0.3f)
         LogLevel.INFO -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
     }
-    
+
     val text = when (entry.level) {
         LogLevel.ERROR -> MaterialTheme.colorScheme.error
         LogLevel.WARNING -> accents.warning
         LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
     }
-    
+
     val badgeTextColor = when (entry.level) {
         LogLevel.ERROR -> MaterialTheme.colorScheme.error
         LogLevel.WARNING -> accents.warning
         LogLevel.INFO -> MaterialTheme.colorScheme.onSurface
     }
-    
+
     val badge = when (entry.level) {
         LogLevel.ERROR -> "E"
         LogLevel.WARNING -> "W"

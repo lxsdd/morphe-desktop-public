@@ -70,8 +70,10 @@ fun PatchSelectionScreen(
         val effectiveList = params.patchesFilePaths.takeIf { it.isNotEmpty() } ?: listOf(params.patchesFilePath)
         parametersOf(
             params.apkPath, params.apkName, params.patchesFilePath, params.packageName, params.apkArchitectures,
-            effectiveList, params.patchSourceNames, params.initialSelectionByBundle, params.initialPatchOptions,
-            params.apkVersion,
+            effectiveList, params.patchSourceNames, params.patchSourceIds, params.patchSourceHashes,
+            params.initialSelectionByBundle, params.initialPatchOptions, params.apkVersion,
+            params.temporaryInputRoot, params.sourceDeviceSerial, params.deviceSpecificInput,
+            params.validatedDeviceImport,
         )
     }
 ) {

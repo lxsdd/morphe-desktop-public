@@ -36,11 +36,13 @@ import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.gui.ui.components.AppCard
 import app.morphe.gui.ui.components.LocalCardFills
 import app.morphe.gui.ui.components.MorpheBadge
+import app.morphe.gui.ui.components.MorpheTooltip
 import app.morphe.gui.ui.components.cardChipInk
 import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.PatchedAppState
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.ui.screens.home.UnifiedHomeAppState
 import app.morphe.gui.ui.theme.LocalMorpheAccents
 import app.morphe.gui.ui.theme.LocalMorpheCorners
 import app.morphe.gui.ui.theme.LocalMorpheFont
@@ -57,6 +59,7 @@ fun YourAppRow(
     state: PatchedAppState,
     deviceInfo: DeviceAppInfo?,
     updateInfo: RecallUpdateInfo?,
+    unifiedState: UnifiedHomeAppState?,
     onClick: () -> Unit,
     appIconColorHex: String? = null,
 ) {
@@ -116,13 +119,15 @@ fun YourAppRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (deviceInfo?.installPending == true) {
+            if (unifiedState?.installReady == true) {
                 Spacer(Modifier.width(8.dp))
-                MorpheBadge(
-                    text = stringResource(Res.string.home_your_apps_install_ready),
-                    containerColor = cardChipInk,
-                    onGradient = true,
-                )
+                MorpheTooltip(stringResource(Res.string.home_tooltip_install_ready)) {
+                    MorpheBadge(
+                        text = stringResource(Res.string.home_your_apps_install_ready),
+                        containerColor = cardChipInk,
+                        onGradient = true,
+                    )
+                }
             }
             if (state != PatchedAppState.NEVER_PATCHED) {
                 Spacer(Modifier.width(8.dp))
@@ -132,18 +137,23 @@ fun YourAppRow(
         deviceInfo?.let { DeviceLine(it, font, Color.White.copy(alpha = 0.5f), cardChipInk) }
         updateInfo?.sources?.firstOrNull()?.let { s ->
             val more = updateInfo.sources.size - 1
+            val sourceState = unifiedState?.patchBundle?.sources?.firstOrNull {
+                (s.sourceId.isNotBlank() && it.sourceId == s.sourceId) || it.sourceName == s.name
+            }
             VersionBumpText(
                 label = "${s.name} ",
                 oldVersion = s.usedVersion,
-                newVersion = if (s.outdated) s.latestAvailableVersion else null,
+                newVersion = if (
+                    sourceState?.newerReleaseAvailable == true && sourceState.hasRelevantAppChanges
+                ) s.latestAvailableVersion else null,
                 font = font,
                 suffix = if (more > 0) "  +$more" else null,
             )
         }
-        val cardAdvice = updateInfo?.let { appAdvice(it) }
-        if (cardAdvice != null) {
+        if (unifiedState != null && (unifiedState.requiresAction || unifiedState.optionalOfferAvailable)) {
             Text(
-                text = cardAdvice.first,
+                text = if (unifiedState.requiresAction) unifiedActionStatusLabel(unifiedState)
+                else unifiedAppChannelStatusLabel(unifiedState),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Normal,
                 fontFamily = font,
@@ -151,31 +161,10 @@ fun YourAppRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-        } else if (updateInfo != null && updateInfo.sources.any { it.outdated }) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Icon(
-                    imageVector = MorpheIcons.Info,
-                    contentDescription = null,
-                    modifier = Modifier.size(12.dp),
-                    tint = Color.White.copy(alpha = 0.6f),
-                )
-                Text(
-                    text = stringResource(Res.string.home_your_apps_newer_patch_hint),
-                    fontSize = 11.sp,
-                    fontFamily = font,
-                    fontWeight = FontWeight.Normal,
-                    color = Color.White.copy(alpha = 0.6f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
         // Already-patched APK is newer than what's on the device → offer to install
         // it directly (no re-patch needed). Streams away once the device catches up.
-        if (deviceInfo?.installPending == true) {
+        if (unifiedState?.installReady == true) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -187,7 +176,7 @@ fun YourAppRow(
                     tint = Color.White,
                 )
                 Text(
-                    text = if (deviceInfo.installed)
+                    text = if (deviceInfo?.installed == true)
                         stringResource(
                             Res.string.home_your_apps_device_version_ready,
                             record.apkVersion.removePrefix("v"),

@@ -22,6 +22,7 @@ import app.morphe.gui.util.PatchResult
 import app.morphe.gui.util.PatchService
 import app.morphe.gui.util.PatcherLogInterceptor
 import app.morphe.gui.util.PatcherState
+import app.morphe.gui.util.cleanupDeviceImportRoot
 import app.morphe.morphe_desktop.generated.resources.*
 import java.io.File
 import java.lang.management.ManagementFactory
@@ -172,6 +173,7 @@ class PatchingViewModel(
                     exclusiveMode = config.useExclusiveMode,
                     keepArchitectures = config.keepArchitectures,
                     continueOnError = config.continueOnError,
+                    forceCompatibility = config.forceCompatibility,
                     keystorePath = resolvedKeystorePath,
                     keystorePassword = appConfig.keystorePassword,
                     keystoreAlias = appConfig.keystoreAlias,
@@ -228,6 +230,7 @@ class PatchingViewModel(
                 }
             )
         }
+        patchingJob?.invokeOnCompletion { cleanupTemporaryInput() }
     }
 
     fun cancelPatching() {
@@ -277,6 +280,8 @@ class PatchingViewModel(
                     sourcesSnapshot = config.sourcesSnapshot,
                     patchedAt = System.currentTimeMillis(),
                     patchedWithMorpheVersion = UpdateChecker.currentVersion() ?: "unknown",
+                    sourceDeviceSerial = config.sourceDeviceSerial,
+                    deviceSpecificInput = config.deviceSpecificInput,
                 )
             )
         } catch (e: Exception) {
@@ -289,6 +294,15 @@ class PatchingViewModel(
         _uiState.update { it.copy(
             logs = it.logs + entry
         ) }
+    }
+
+    private fun cleanupTemporaryInput() {
+        config.temporaryInputRoot?.let { root ->
+            java.util.concurrent.CompletableFuture.runAsync {
+                runCatching { cleanupDeviceImportRoot(File(root)) }
+                    .onFailure { Logger.warn("Could not remove temporary device import: ${it.message}") }
+            }
+        }
     }
 
     private fun parseAndAddLog(line: String) {

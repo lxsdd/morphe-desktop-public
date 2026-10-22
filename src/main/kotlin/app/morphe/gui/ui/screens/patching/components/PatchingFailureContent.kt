@@ -66,7 +66,7 @@ internal fun ExpertFailureContent(
     val mono = LocalMorpheMono.current
     val accents = LocalMorpheAccents.current
     val borderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-    
+
     val logFile = remember { Logger.getLogFile() }
     val hasTempFiles = remember { FileUtils.hasTempFiles() }
     val tempFilesSize = remember { FileUtils.getTempDirSize() }
@@ -176,7 +176,7 @@ internal fun ExpertFailureContent(
                             fontFamily = font,
                             color = MaterialTheme.colorScheme.error
                         )
-                        
+
                         val copyHover = remember { MutableInteractionSource() }
                         val isCopyHovered by copyHover.collectIsHoveredAsState()
                         val copyBg by animateColorAsState(
@@ -207,9 +207,9 @@ internal fun ExpertFailureContent(
                             )
                         }
                     }
-                    
+
                     Spacer(Modifier.height(8.dp))
-                    
+
                     val scrollState = rememberScrollState()
                     Box(
                         modifier = Modifier

@@ -48,12 +48,14 @@ import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.gui.ui.components.MorpheBanner
 import app.morphe.gui.ui.components.MorpheBannerAction
 import app.morphe.gui.ui.components.MorpheBannerText
+import app.morphe.gui.ui.components.MorpheTooltip
 import app.morphe.gui.ui.components.handCursor
 import app.morphe.gui.ui.components.morpheScrollbarStyle
 import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.PatchedAppState
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.ui.screens.home.UnifiedHomeAppState
 import app.morphe.gui.ui.theme.LocalMorpheAccents
 import app.morphe.gui.ui.theme.LocalMorpheCorners
 import app.morphe.gui.ui.theme.LocalMorpheFont
@@ -62,7 +64,7 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** Which list the home pane is showing: all supported apps, or only patched ("yours"). */
-enum class AppListFilter { ALL, YOURS }
+enum class AppListFilter { ALL, YOURS, DEVICE }
 
 /**
  * Segmented filter at the top of the apps pane: ALL APPS · YOUR APPS. Replaces the
@@ -75,6 +77,7 @@ fun AppListFilterChips(
     onSelect: (AppListFilter) -> Unit,
     allCount: Int,
     yourCount: Int,
+    deviceCount: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val font = LocalMorpheFont.current
@@ -92,6 +95,7 @@ fun AppListFilterChips(
             accent = accents.primary,
             font = font,
             corner = corners.small,
+            tooltip = stringResource(Res.string.home_tooltip_all_apps),
             onClick = { onSelect(AppListFilter.ALL) },
         )
         FilterChip(
@@ -101,15 +105,26 @@ fun AppListFilterChips(
             accent = accents.primary,
             font = font,
             corner = corners.small,
+            tooltip = stringResource(Res.string.home_tooltip_your_apps),
             onClick = { onSelect(AppListFilter.YOURS) },
+        )
+        FilterChip(
+            label = stringResource(Res.string.home_filter_device),
+            count = if (deviceCount > 0) deviceCount else null,
+            selected = filter == AppListFilter.DEVICE,
+            accent = accents.primary,
+            font = font,
+            corner = corners.small,
+            tooltip = stringResource(Res.string.home_tooltip_device_apps),
+            onClick = { onSelect(AppListFilter.DEVICE) },
         )
     }
 }
 
 /**
  * On-open update notice (Phase 7 QoL, mirrors Manager). Shown above the apps list
- * when one or more patched apps have a newer app version or patch-source version
- * available. Tapping jumps to the "Your apps" list where each is badged.
+ * when one or more patched apps require an action according to the unified state.
+ * Tapping jumps to the matching "Your apps" filter.
  */
 @Composable
 fun PatchedUpdatesBanner(count: Int, onView: () -> Unit) {
@@ -126,13 +141,14 @@ fun PatchedUpdatesBanner(count: Int, onView: () -> Unit) {
 }
 
 @Composable
-private fun FilterChip(
+internal fun FilterChip(
     label: String,
     count: Int?,
     selected: Boolean,
     accent: Color,
     font: FontFamily,
     corner: Dp,
+    tooltip: String? = null,
     onClick: () -> Unit,
 ) {
     val hover = remember { MutableInteractionSource() }
@@ -145,7 +161,8 @@ private fun FilterChip(
         },
         tween(150), label = "chip",
     )
-    Row(
+    MorpheTooltip(tooltip ?: label) {
+      Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         modifier = Modifier
@@ -174,6 +191,7 @@ private fun FilterChip(
                 color = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+      }
     }
 }
 
@@ -195,6 +213,7 @@ internal fun YourAppsListBody(
     patchedStates: Map<String, PatchedAppState>,
     deviceAppInfo: Map<String, DeviceAppInfo>,
     updateInfoByPackage: Map<String, RecallUpdateInfo>,
+    unifiedStates: Map<String, UnifiedHomeAppState>,
     appIconColorByPackage: Map<String, String>,
     onShowDetail: (PatchedAppRecord) -> Unit,
     paneMaxHeight: Dp,
@@ -209,7 +228,11 @@ internal fun YourAppsListBody(
         )
         filteredRecords.isEmpty() -> YourAppsEmptyHint(
             title = stringResource(Res.string.no_matches),
-            subtitle = stringResource(Res.string.home_your_apps_no_matches_subtitle, searchQuery),
+            subtitle = if (searchQuery.isBlank()) {
+                null
+            } else {
+                stringResource(Res.string.home_your_apps_no_matches_subtitle, searchQuery)
+            },
             font = font,
         )
         else -> {
@@ -231,6 +254,7 @@ internal fun YourAppsListBody(
                             state = patchedStates[record.packageName] ?: PatchedAppState.PATCHED,
                             deviceInfo = deviceAppInfo[record.packageName],
                             updateInfo = updateInfoByPackage[record.packageName],
+                            unifiedState = unifiedStates[record.packageName],
                             onClick = { onShowDetail(record) },
                             appIconColorHex = appIconColorByPackage[record.packageName],
                         )
@@ -249,7 +273,7 @@ internal fun YourAppsListBody(
 }
 
 @Composable
-internal fun YourAppsEmptyHint(title: String, subtitle: String, font: FontFamily) {
+internal fun YourAppsEmptyHint(title: String, subtitle: String?, font: FontFamily) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
@@ -261,14 +285,16 @@ internal fun YourAppsEmptyHint(title: String, subtitle: String, font: FontFamily
             fontFamily = font,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = subtitle,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Normal,
-            fontFamily = font,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
+        if (subtitle != null) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = subtitle,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Normal,
+                fontFamily = font,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }

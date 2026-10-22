@@ -167,7 +167,7 @@ internal fun IoUsageGraph(
 
     val current = samples.lastOrNull()
     val locale = currentLocale()
-    val formatRate = { kbPerSec: Int -> 
+    val formatRate = { kbPerSec: Int ->
         FormatUtils.formatTransferRate(kbPerSec, locale)
     }
 
