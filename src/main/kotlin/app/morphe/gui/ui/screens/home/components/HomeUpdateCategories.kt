@@ -18,7 +18,8 @@ internal fun hasConfirmedAppUpdate(info: RecallUpdateInfo?): Boolean =
         info.appOutdated && !info.appSuggestedVersion.isNullOrBlank()
 
 internal fun hasConfirmedPatchUpdate(info: RecallUpdateInfo?): Boolean =
-    info?.sources?.any { it.hasRelevantChanges } == true
+    info?.metadataResolution == UpdateMetadataResolution.READY &&
+        info.sources.any { it.hasRelevantChanges }
 
 internal fun visiblePatchedRecords(
     filter: AppListFilter,
