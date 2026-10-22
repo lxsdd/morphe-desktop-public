@@ -141,7 +141,7 @@ internal fun SupportedAppsListPane(
                 yourCount = patchedRecords.size,
                 appUpdateCount = confirmedAppUpdates,
                 patchUpdateCount = confirmedPatchUpdates,
-                deviceCount = deviceInstalledPackages.size,
+                deviceCount = verifiedDeviceInventoryCount(deviceInstalledPackages.size, deviceInventorySerial),
                 modifier = Modifier.weight(1f),
             )
             if (filter != AppListFilter.DEVICE) {
