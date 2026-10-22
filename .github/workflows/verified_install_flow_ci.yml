@@ -1,0 +1,34 @@
+name: Custom 1.19 verified install flow tests
+
+on:
+  push:
+    branches:
+      - integration/1-19-verified-install-flow-20261022
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  test:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    name: Verified installer source (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Build and run simulated ADB tests; never publish binaries
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew test --no-daemon

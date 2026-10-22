@@ -17,6 +17,8 @@ import app.morphe.engine.apk.ApkOutputNaming
 import app.morphe.engine.apk.BundleFormats
 import app.morphe.engine.config.EngineConfigRepository
 import app.morphe.engine.model.PatchedAppRecord
+import app.morphe.engine.installation.AdbApkInstaller
+import app.morphe.engine.installation.AdbInstallRequest
 import app.morphe.gui.util.PatchedApkRelinker
 import app.morphe.gui.util.PatchedApkRelinkResult
 import app.morphe.engine.patches.PatchCache
@@ -231,7 +233,28 @@ class HomeViewModel(
         if (_uiState.value.installingPackage != null) return
         _uiState.value = _uiState.value.copy(installingPackage = packageName)
         viewModelScope.launch {
-            val result = adbManager.installApk(record.outputApkPath, target.serial)
+            // Reconfirm exact patched APK identity before ADB is contacted. Never
+            // install a moved, substituted or unverified output file by filename.
+            val result: Result<Unit> = withContext(Dispatchers.IO) {
+                when (val checked = PatchedApkRelinker().validate(record, File(record.outputApkPath))) {
+                    is PatchedApkRelinkResult.Rejected -> Result.failure(IllegalStateException(checked.reason))
+                    is PatchedApkRelinkResult.Success -> {
+                        val adbPath = adbManager.findAdb()
+                        if (adbPath.isNullOrBlank()) {
+                            Result.failure(IllegalStateException("ADB is not available on this computer."))
+                        } else {
+                            AdbApkInstaller().install(
+                                AdbInstallRequest(
+                                    adbPath = adbPath,
+                                    apk = File(checked.apk.canonicalPath),
+                                    deviceSerial = target.serial,
+                                    expectedPackageName = record.installedPackageName,
+                                )
+                            ).map { Unit }
+                        }
+                    }
+                }
+            }
 
             // Only successful installs can create a serial-specific receipt. A fresh
             // on-device checksum must still be checked before claiming an exact match.
