@@ -1,0 +1,34 @@
+name: Read-only direct APK inspection tests
+
+on:
+  push:
+    branches:
+      - integration/1-19-direct-apk-inspection-20261022
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  test:
+    name: Direct APK inspection tests (${{ matrix.os }})
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          java-version: '21'
+          distribution: jetbrains
+      - name: Test only; no APKs or JARs published
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew test --no-daemon
