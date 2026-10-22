@@ -43,6 +43,9 @@ import app.morphe.gui.ui.screens.home.components.HomeAppSortMode
 import app.morphe.gui.util.ChangelogParser
 import app.morphe.gui.util.ChecksumStatus
 import app.morphe.gui.util.DeviceMonitor
+import app.morphe.gui.util.AppUpdateClassification
+import app.morphe.gui.util.UpdateMetadataResolution
+import app.morphe.gui.util.classifyAppUpdate
 import app.morphe.gui.util.EnabledSourcesLoader
 import app.morphe.gui.util.logIfFailed
 import app.morphe.gui.util.PatchException
@@ -514,6 +517,7 @@ class HomeViewModel(
             appUsedSupported = usedSupported,
             latestStableVersion = latestStable,
             stableUpdateAvailable = isNewerVersion(latestStable, used),
+            metadataResolution = if (app != null) UpdateMetadataResolution.READY else UpdateMetadataResolution.UNAVAILABLE,
         )
     }
 
@@ -1166,7 +1170,26 @@ data class RecallUpdateInfo(
     val latestStableVersion: String? = null,
     /** Whether a newer stable version exists than what was patched. */
     val stableUpdateAvailable: Boolean = false,
+    val metadataResolution: UpdateMetadataResolution = UpdateMetadataResolution.READY,
 ) {
+    /** Preserve separate app and patch knowledge; unknown inputs never mean up-to-date. */
+    fun classification(installedVersion: String?, installedPatchUpdateAvailable: Boolean? = null): AppUpdateClassification {
+        val knownHistory = sources.takeIf {
+            it.isNotEmpty() && it.all { src ->
+                !src.latestAvailableVersion.isNullOrBlank() || !src.resolvedVersion.isNullOrBlank()
+            }
+        }
+        val patchFact = knownHistory?.any { it.outdated || it.hasRelevantChanges }
+        val liveVersion = installedVersion?.takeUnless { it.isBlank() || it.equals("unknown", ignoreCase = true) }
+        return classifyAppUpdate(
+            patchUpdateAvailable = if (liveVersion != null) installedPatchUpdateAvailable else patchFact,
+            currentVersion = liveVersion,
+            recordVersion = appUsedVersion,
+            supportedVersion = appSuggestedVersion,
+            metadataResolution = metadataResolution,
+        )
+    }
+
     data class SourceUpdate(
         val name: String,
         /** Version recorded when this app was patched. */

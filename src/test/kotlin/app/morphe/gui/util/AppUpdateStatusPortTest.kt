@@ -1,9 +1,32 @@
 package app.morphe.gui.util
 
+import app.morphe.gui.ui.screens.home.RecallUpdateInfo
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class AppUpdateStatusPortTest {
+    @Test
+    fun `history and live device version use different evidence for patch status`() {
+        val info = RecallUpdateInfo(
+            sources = listOf(RecallUpdateInfo.SourceUpdate(
+                name = "synthetic-patches",
+                usedVersion = "1.0",
+                resolvedVersion = "1.0",
+                latestAvailableVersion = "1.1",
+                outdated = true,
+            )),
+            appUsedVersion = "1.0",
+            appChannel = RecallUpdateInfo.AppChannel.STABLE,
+            appSuggestedVersion = "1.1",
+            appOutdated = true,
+        )
+        assertEquals(AppUpdateStatus.APP_AND_PATCH_UPDATE, info.classification(null).status)
+        assertEquals(AppUpdateStatus.NEWER_APP_VERSION, info.classification("1.0").status)
+        assertEquals(AppUpdateStatus.APP_AND_PATCH_UPDATE, info.classification("1.0", true).status)
+        assertEquals(AppUpdateStatus.UNKNOWN,
+            info.copy(metadataResolution = UpdateMetadataResolution.CHECKING).classification(null).status)
+    }
+
     @Test
     fun `independent dimensions classify updates without inventing certainty`() {
         assertEquals(AppUpdateStatus.PATCH_UPDATE,
