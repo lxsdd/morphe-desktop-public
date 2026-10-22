@@ -844,4 +844,6 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="home_update_view_empty">Keine bestätigten Updates in dieser Kategorie</string>
     <string name="home_your_apps_patch_update_status">Patch-Update</string>
     <string name="home_your_apps_patch_review_hint">Für diese App liegen relevante Patch-Änderungen vor. Details öffnen.</string>
+    <string name="home_device_inventory_patched_record">In Morphe bereits gepatcht</string>
+    <string name="home_device_installed_version">Geräteversion: %1$s</string>
 </resources>
