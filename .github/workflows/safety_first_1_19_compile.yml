@@ -1,4 +1,4 @@
-name: Safety-first 1.19 source compile (no artifacts)
+name: Safety-first 1.19 source tests (no artifacts)
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 jobs:
   compile:
     if: github.repository == 'lxsdd/morphe-desktop-public'
-    name: Compile explicit-target ADB variant
+    name: Test explicit-target ADB variant
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -22,9 +22,9 @@ jobs:
         with:
           distribution: jetbrains
           java-version: '21'
-      - name: Compile only, never publish
+      - name: Build and test only, never publish
         shell: bash
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./gradlew compileKotlin --no-daemon
+        run: ./gradlew test --no-daemon

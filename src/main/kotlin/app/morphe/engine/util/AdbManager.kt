@@ -283,6 +283,12 @@ class AdbManager {
      * ready device when [deviceId] is null or blank).
      */
     suspend fun resolveTargetDevice(deviceId: String? = null): Result<AdbDevice> = withContext(Dispatchers.IO) {
+        // Fail closed before any ADB discovery: empty explicit serial never means auto-select.
+        if (deviceId != null && deviceId.isBlank()) {
+            return@withContext Result.failure(
+                AdbException("An explicit device serial is required", AdbErrorCode.DEVICE_NOT_FOUND)
+            )
+        }
         val devicesResult = getConnectedDevices()
         if (devicesResult.isFailure) {
             return@withContext Result.failure(devicesResult.exceptionOrNull()!!)
@@ -302,12 +308,6 @@ class AdbManager {
             )
         }
 
-        // An explicit but blank serial must never degrade to single-device auto-selection.
-        if (deviceId != null && deviceId.isBlank()) {
-            return@withContext Result.failure(
-                AdbException("An explicit device serial is required", AdbErrorCode.DEVICE_NOT_FOUND)
-            )
-        }
         val normalizedId = deviceId
         val targetDevice = if (normalizedId != null) {
             authorizedDevices.find { it.id == normalizedId }
