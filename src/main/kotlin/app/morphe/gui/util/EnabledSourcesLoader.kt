@@ -11,6 +11,7 @@ import app.morphe.engine.MultiSourceLoader
 import app.morphe.engine.model.Release
 import app.morphe.engine.patches.PatchBundleLoader
 import app.morphe.engine.patches.PullRequestPatchSource
+import app.morphe.engine.util.FileChecksum
 import app.morphe.gui.data.model.FollowMode
 import app.morphe.gui.data.model.Patch
 import app.morphe.gui.data.model.PatchSource
@@ -55,6 +56,8 @@ object EnabledSourcesLoader {
     data class ResolvedSource(
         val source: PatchSource,
         val patchFile: File? = null,
+        /** Stable identity used to compare a local output with a device deployment. */
+        val artifactSha256: String? = null,
         val resolvedVersion: String? = null,
         /**
          * Newest available release tag in the resolved channel (stable/dev),
@@ -84,6 +87,7 @@ object EnabledSourcesLoader {
         val guiPatchesBySource: Map<String, List<Patch>>,
     ) {
         val anyLoaded: Boolean get() = loaded.allPatches.isNotEmpty()
+        val anyFailed: Boolean get() = resolved.any { it.error != null } || loaded.hasErrors
     }
 
     /**
@@ -126,23 +130,25 @@ object EnabledSourcesLoader {
             )
         }
 
-        val loaded = if (inputs.isEmpty()) {
-            MultiSourceLoader.Result(
-                perSource = emptyList(),
-                allPatches = emptySet(),
-                patchToSourceIds = emptyMap(),
-            )
-        } else {
-            MultiSourceLoader.load(inputs)
-        }
-
-        // Convert library patches → GUI patches once. Both the union and per-source
-        // groupings are derived from this single conversion.
-        val unionGui = patchService.convertToGuiPatches(loaded.allPatches)
-        val guiBySource: Map<String, List<Patch>> =
-            loaded.perSource.associate { src ->
+        // Patch linking and metadata conversion can be expensive. Never perform it
+        // on Compose's UI dispatcher after the parallel source resolution finishes.
+        val (loaded, converted) = runBackgroundWork {
+            val loaded = if (inputs.isEmpty()) {
+                MultiSourceLoader.Result(
+                    perSource = emptyList(),
+                    allPatches = emptySet(),
+                    patchToSourceIds = emptyMap(),
+                )
+            } else {
+                MultiSourceLoader.load(inputs)
+            }
+            val unionGui = patchService.convertToGuiPatches(loaded.allPatches)
+            val guiBySource = loaded.perSource.associate { src ->
                 src.sourceId to patchService.convertToGuiPatches(src.patches)
             }
+            loaded to (unionGui to guiBySource)
+        }
+        val (unionGui, guiBySource) = converted
 
         Result(
             resolved = resolved,
@@ -206,6 +212,7 @@ object EnabledSourcesLoader {
         return ResolvedSource(
             source = source,
             patchFile = file,
+            artifactSha256 = FileChecksum.fingerprintOrNull(file.absolutePath).first,
             resolvedVersion = manifestVersion ?: file.nameWithoutExtension,
             isOffline = false,
             // A local file has no release channel, so tag it LOCAL rather than letting
@@ -389,6 +396,7 @@ object EnabledSourcesLoader {
         return ResolvedSource(
             source = source,
             patchFile = patchFile,
+            artifactSha256 = FileChecksum.fingerprintOrNull(patchFile.absolutePath).first,
             resolvedVersion = resolvedVersion,
             latestAvailableVersion = if (isPrSource) resolvedVersion else (if (release.isDevRelease()) latestDevTag else latestStableTag),
             isOffline = false,
@@ -410,6 +418,7 @@ object EnabledSourcesLoader {
             ResolvedSource(
                 source = source,
                 patchFile = cached,
+                artifactSha256 = FileChecksum.fingerprintOrNull(cached.absolutePath).first,
                 resolvedVersion = resolvedVersion,
                 latestAvailableVersion = if (isPrSource) resolvedVersion else null,
                 isOffline = true,
