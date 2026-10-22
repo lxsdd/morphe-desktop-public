@@ -150,7 +150,7 @@ internal fun PatchedStateBadge(
 ) {
     val label = when (state) {
         PatchedAppState.PATCHED -> stringResource(Res.string.home_your_apps_status_patched)
-        PatchedAppState.PATCHED_WITH_UPDATES -> stringResource(Res.string.home_app_row_update_available_badge)
+        PatchedAppState.PATCHED_WITH_UPDATES -> stringResource(Res.string.home_your_apps_patch_update_status)
         PatchedAppState.MODIFIED_EXTERNALLY -> stringResource(Res.string.home_app_row_modified_badge)
         PatchedAppState.APK_MISSING -> stringResource(Res.string.home_app_row_apk_missing_badge)
         PatchedAppState.NEVER_PATCHED -> return
