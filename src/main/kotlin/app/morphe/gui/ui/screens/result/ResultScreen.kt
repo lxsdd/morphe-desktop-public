@@ -32,6 +32,8 @@ import app.morphe.gui.ui.components.*
 import app.morphe.gui.ui.screens.result.components.*
 import app.morphe.gui.ui.theme.*
 import app.morphe.gui.util.DeviceMonitor
+import app.morphe.gui.util.DeviceOperationTarget
+import app.morphe.gui.util.captureOperationTarget
 import app.morphe.gui.util.FormatUtils
 import app.morphe.gui.util.currentLocale
 import app.morphe.gui.util.getUserMessage
@@ -69,6 +71,7 @@ fun ResultScreenContent(outputPath: String) {
     val adbPreference = LocalAdbPreference.current
     val isAdbDisabledByUser = !adbPreference.enabled
     val installState = remember { AsyncActionState() }
+    var installedOnTarget by remember(outputPath) { mutableStateOf<DeviceOperationTarget?>(null) }
 
     // Check if the patched package is already installed on the target device.
     var outputPackage by remember { mutableStateOf<String?>(null) }
@@ -134,21 +137,23 @@ fun ResultScreenContent(outputPath: String) {
     }
 
     fun installViaAdb() {
-        val device = monitorState.selectedDevice ?: return
+        val target = monitorState.captureOperationTarget() ?: return
+        installedOnTarget = null
         scope.launch {
             installState.isRunning = true
             installState.error = null
-            installState.progress = if (alreadyInstalled) getString(Res.string.result_adb_updating_on_device, device.displayName) else getString(Res.string.adb_status_installing, device.displayName)
+            installState.progress = if (alreadyInstalled) getString(Res.string.result_adb_updating_on_device, target.displayName) else getString(Res.string.adb_status_installing, target.displayName)
 
             val result = adbManager.installApk(
                 apkPath = outputPath,
-                deviceId = device.id,
+                deviceId = target.serial,
                 onProgress = { installState.progress = it }
             )
 
             result.fold(
                 onSuccess = {
                     installState.isSuccess = true
+                    installedOnTarget = target
                     installState.progress = if (alreadyInstalled) getString(Res.string.result_adb_update_successful) else getString(Res.string.result_adb_install_successful)
                 },
                 onFailure = { exception ->
@@ -160,14 +165,14 @@ fun ResultScreenContent(outputPath: String) {
         }
     }
 
-    fun applyLinkHandling(enable: Boolean) {
-        val device = monitorState.selectedDevice ?: return
+    fun applyLinkHandling(enable: Boolean, capturedTarget: DeviceOperationTarget? = null) {
+        val target = capturedTarget ?: monitorState.captureOperationTarget() ?: return
         val patched = outputPackage ?: return
         scope.launch {
             linkState.isRunning = true
             linkState.error = null
             val result = adbManager.setLinkHandling(
-                deviceId = device.id,
+                deviceId = target.serial,
                 patchedPackage = patched,
                 stockPackage = if (disableStockLinks) stockPackage else null,
                 enable = enable,
@@ -191,11 +196,13 @@ fun ResultScreenContent(outputPath: String) {
     }
 
     // Auto-route links after a successful install if enabled.
-    LaunchedEffect(installState.isSuccess, autoRouteLinks, outputPackage) {
+    LaunchedEffect(installState.isSuccess, autoRouteLinks, outputPackage, installedOnTarget) {
+        val installTarget = installedOnTarget
         if (installState.isSuccess && autoRouteLinks && outputPackage != null &&
-            !linkState.isSuccess && !linkState.isRunning && linkState.error == null
+            installTarget != null && !linkState.isSuccess && !linkState.isRunning && linkState.error == null
         ) {
-            applyLinkHandling(enable = true)
+            // Auto-route is part of the same operation; do not switch to a newly selected device.
+            applyLinkHandling(enable = true, capturedTarget = installTarget)
         }
     }
 
