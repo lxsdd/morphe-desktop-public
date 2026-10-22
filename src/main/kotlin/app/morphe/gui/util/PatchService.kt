@@ -5,7 +5,6 @@
 
 package app.morphe.gui.util
 
-import app.morphe.desktop.command.model.deserializeOptionValue
 import app.morphe.engine.PatchEngine
 import app.morphe.engine.patches.PatchBundleLoader
 import app.morphe.gui.data.model.CompatiblePackage
@@ -104,6 +103,7 @@ class PatchService {
         exclusiveMode: Boolean = false,
         keepArchitectures: Set<CpuArchitecture> = emptySet(),
         continueOnError: Boolean = false,
+        forceCompatibility: Boolean = true,
         keystorePath: String? = null,
         keystorePassword: String? = null,
         keystoreAlias: String? = null,
@@ -135,17 +135,16 @@ class PatchService {
             try {
                 val loadedPatches = PatchBundleLoader.loadFlat(tempCopies)
 
-                // Build a lookup: patchName -> (optionKey -> KType) for type-aware coercion.
+                // Preserve the patcher's native option types when converting the
+                // GUI's persisted string representation back into engine values.
                 val patchOptionTypes: Map<String, Map<String, KType>> = loadedPatches
                     .filter { it.name != null }
                     .associate { patch ->
-                        patch.name!! to patch.options.mapValues { (_, opt) -> opt.type }
+                        patch.name!! to patch.options.mapValues { (_, option) -> option.type }
                     }
 
                 // Convert GUI's flat "patchName.optionKey" -> value map
-                // to engine's Map<patchName, Map<optionKey, value>> format.
-                // String values are coerced to the option's native type (Boolean, Int, etc.)
-                // so the patcher receives the expected JVM type, not a raw String.
+                // to engine's Map<patchName, Map<optionKey, value>> format
                 val patchOptions = enabledPatches.associateWith { patchName ->
                     options.filterKeys { it.startsWith("$patchName.") }
                         .mapKeys { it.key.removePrefix("$patchName.") }
@@ -176,7 +175,7 @@ class PatchService {
                     enabledPatches = enabledPatches.toSet(),
                     disabledPatches = disabledPatches.toSet(),
                     exclusiveMode = exclusiveMode,
-                    forceCompatibility = true,
+                    forceCompatibility = forceCompatibility,
                     patchOptions = patchOptions,
                     architecturesToKeep = keepArchitectures,
                     failOnError = !continueOnError,
@@ -204,7 +203,7 @@ class PatchService {
                 } else {
                     // Prefer a specific failed-patch error, else the last failed
                     // step's error (rebuild/sign), else a generic fallback.
-                    // First line only, since this is the short UI-banner summary. The
+                    // First line only — this is the short UI-banner summary; the
                     // full traces are already logged above.
                     engineResult.failedPatches.firstOrNull()?.let { fp ->
                         Triple("${fp.name}: ${fp.error.lineSequence().first()}", null, emptyList())
@@ -257,7 +256,7 @@ class PatchService {
      * Convert library Patch to GUI Patch model.
      *
      * Reads BOTH the new [compatibility] API and the deprecated [compatiblePackages]
-     * field. Some forks (e.g. hoo-dles) compiled their patches against the older
+     * field — some forks (e.g. hoo-dles) compiled their patches against the older
      * patcher API and only declare compatibility via the legacy field. Without the
      * fallback, those patches would convert to a GUI Patch with empty
      * compatiblePackages, which means SupportedAppExtractor under-counts apps and
@@ -276,22 +275,13 @@ class PatchService {
                     versions = stable.mapNotNull { it.version },
                     experimentalVersions = experimental.mapNotNull { it.version },
                     appIconColor = compatibility.appIconColor
-                        ?.let { "#%06X".format(it and 0xFFFFFF) },
-                    versionBuildCodes = compatibility.targets
-                        .mapNotNull { target ->
-                            val version = target.version ?: return@mapNotNull null
-                            version to target.versionCodes?.values?.toSet().orEmpty()
-                        }
-                        .groupBy({ it.first }, { it.second })
-                        .mapValues { (_, sets) ->
-                            if (sets.any { it.isEmpty() }) emptySet() else sets.flatten().toSet()
-                        },
+                        ?.let { "#%06X".format(it and 0xFFFFFF) }
                 )
             }
             ?: emptyList()
 
         // Fallback: legacy compatiblePackages field (Set<Pair<packageName, versions?>>).
-        // No display name or experimental flag in the legacy schema, so those stay null or empty.
+        // No display name or experimental flag in the legacy schema — those stay null/empty.
         val fromLegacyApi: List<CompatiblePackage> = if (fromNewApi.isEmpty()) {
             this.compatiblePackages
                 ?.map { (pkgName, versions) ->
@@ -394,8 +384,8 @@ data class PatchResult(
     val appliedPatches: List<String>,
     val failedPatches: List<String>,
     // Human-readable reason for [success == false]. Populated from the first
-    // failed patch's error, or when patching succeeded but a later step
-    // (rebuild, sign) blew up, that step's error. Null on success.
+    // failed patch's error or — when patching succeeded but a later step
+    // (rebuild, sign) blew up — that step's error. Null on success.
     val failureReason: String? = null,
     // Full failure detail: complete stack traces (incl. nested "Caused by:"
     // causes) for every failed patch and step. The expandable "Details"
