@@ -63,4 +63,28 @@ class DevicePatchDeploymentStorePortTest {
             dir.deleteRecursively()
         }
     }
+    @Test
+    fun `receipt persistence failures are observable and never treated as success`() = runBlocking {
+        val dir = Files.createTempDirectory("morphe-receipt-fail-test").toFile()
+        try {
+            val blockedDestination = File(dir, "receipts.json").apply { mkdirs() }
+            val store = DevicePatchDeploymentStore(blockedDestination)
+            val receipt = DevicePatchDeploymentRecord(
+                deviceSerial = "fixture-a",
+                packageName = "app.example.patched",
+                installedPackageName = "app.example.patched",
+                apkVersion = "1.0",
+                outputApkSha256 = "a".repeat(64),
+                sourcesSnapshot = emptyList(),
+                installedAt = 1000,
+            )
+            kotlin.test.assertFailsWith<IllegalStateException> {
+                store.upsert(receipt)
+            }
+            assertNull(DevicePatchDeploymentStore(blockedDestination)
+                .get("fixture-a", receipt.packageName))
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }

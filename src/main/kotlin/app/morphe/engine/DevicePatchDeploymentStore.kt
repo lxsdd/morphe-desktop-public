@@ -121,7 +121,9 @@ class DevicePatchDeploymentStore(
             }
             cache = records
         } catch (e: Exception) {
-            logger.warning("Failed to write device patch deployments: ${e.message}")
+            logger.warning("Failed to persist device patch deployments: ${e.message}")
+            // A failed write must not be reported as a recorded installation.
+            throw IllegalStateException("Could not persist device installation receipt", e)
         }
     }
 

@@ -223,7 +223,11 @@ class HomeViewModel(
             // Only successful installs can create a serial-specific receipt. A fresh
             // on-device checksum must still be checked before claiming an exact match.
             if (result.isSuccess) {
-                DevicePatchDeploymentStore.shared.recordSuccessfulInstall(target.serial, record)
+                runCatching {
+                    DevicePatchDeploymentStore.shared.recordSuccessfulInstall(target.serial, record)
+                }.onFailure { error ->
+                    Logger.warn("Installation succeeded, but the per-device receipt could not be saved", error)
+                }
             }
 
             // Configure app link routing if enabled.
@@ -262,7 +266,11 @@ class HomeViewModel(
         viewModelScope.launch {
             val result = adbManager.uninstallApk(record.installedPackageName, target.serial)
             if (result.isSuccess) {
-                DevicePatchDeploymentStore.shared.delete(target.serial, record.packageName)
+                runCatching {
+                    DevicePatchDeploymentStore.shared.delete(target.serial, record.packageName)
+                }.onFailure { error ->
+                    Logger.warn("Uninstall succeeded, but the per-device receipt could not be cleared", error)
+                }
             }
             if (result.isSuccess && alsoForget) {
                 patchedAppStore.delete(packageName)
