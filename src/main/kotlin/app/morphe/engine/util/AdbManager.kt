@@ -302,7 +302,13 @@ class AdbManager {
             )
         }
 
-        val normalizedId = deviceId?.takeIf { it.isNotBlank() }
+        // An explicit but blank serial must never degrade to single-device auto-selection.
+        if (deviceId != null && deviceId.isBlank()) {
+            return@withContext Result.failure(
+                AdbException("An explicit device serial is required", AdbErrorCode.DEVICE_NOT_FOUND)
+            )
+        }
+        val normalizedId = deviceId
         val targetDevice = if (normalizedId != null) {
             authorizedDevices.find { it.id == normalizedId }
                 ?: return@withContext Result.failure(
@@ -339,7 +345,7 @@ class AdbManager {
     /** Installs an APK on [deviceId], optionally spoofing the installer package to block Play updates. */
     suspend fun installApk(
         apkPath: String,
-        deviceId: String? = null,
+        deviceId: String,
         allowDowngrade: Boolean = true,
         installerPackage: String? = AUTO_SPOOF,
         onProgress: (String) -> Unit = {}
@@ -437,7 +443,7 @@ class AdbManager {
 
     /** Verifies that the target device is connected and ready for installation. */
     suspend fun verifyTargetDevice(
-        deviceId: String? = null,
+        deviceId: String,
         mount: Boolean = false,
     ): Result<AdbDevice> = withContext(Dispatchers.IO) {
         val targetDevice = resolveTargetDevice(deviceId).getOrElse {
@@ -473,7 +479,7 @@ class AdbManager {
     suspend fun mountApk(
         apkFile: File,
         packageName: String,
-        deviceId: String? = null,
+        deviceId: String,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         if (!apkFile.exists()) {
             val msg = "APK file not found: ${apkFile.path}"
@@ -510,7 +516,7 @@ class AdbManager {
     /** Unmounts a root-mounted patched APK for [packageName]. */
     suspend fun unmountApk(
         packageName: String,
-        deviceId: String? = null,
+        deviceId: String,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val targetDevice = resolveTargetDevice(deviceId).getOrElse {
             return@withContext Result.failure(it)
@@ -540,16 +546,15 @@ class AdbManager {
     /** Uninstalls [packageName] from [deviceId], treating missing packages as success. */
     suspend fun uninstallApk(
         packageName: String,
-        deviceId: String? = null,
+        deviceId: String,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val adb = findAdb() ?: return@withContext Result.failure(
             AdbException("ADB binary not found", AdbErrorCode.ADB_NOT_FOUND)
         )
-        val targetDeviceId = if (!deviceId.isNullOrBlank()) {
-            deviceId
-        } else {
-            resolveTargetDevice(null).getOrElse { return@withContext Result.failure(it) }.id
-        }
+        // Revalidate the captured serial; never choose a different connected device.
+        val targetDeviceId = resolveTargetDevice(deviceId).getOrElse {
+            return@withContext Result.failure(it)
+        }.id
 
         try {
             val process = ProcessBuilder(adb, "-s", targetDeviceId, "uninstall", packageName)
