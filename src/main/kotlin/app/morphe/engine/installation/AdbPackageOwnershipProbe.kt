@@ -75,13 +75,13 @@ class AdbPackageOwnershipProbe(private val runner: AdbCommandRunner) {
         fun parseInstalledPackageDump(packageName: String, output: String): InstalledPackageOwnership {
             // Never use an update-owner value from another package's dumpsys section.
             val selectedHeader = Regex(
-                """(?m)^[ \\t]*Package[ \\t]+\\[${Regex.escape(packageName)}][ \\t]+\\(""",
+                """(?m)^[ \t]*Package[ \t]+\[${Regex.escape(packageName)}][ \t]+\(""",
             )
             val header = selectedHeader.find(output) ?: return InstalledPackageOwnership.NotInstalled
-            val anyHeader = Regex("""(?m)^[ \\t]*Package[ \\t]+\\[[^]\\r\\n]+][ \\t]+\\(""")
+            val anyHeader = Regex("""(?m)^[ \t]*Package[ \t]+\[[^]\r\n]+][ \t]+\(""")
             val next = anyHeader.find(output, header.range.last + 1)
             val selectedBlock = output.substring(header.range.first, next?.range?.first ?: output.length)
-            val owner = Regex("""(?m)^[ \\t]*updateOwnerPackageName[ \\t]*=[ \\t]*(\\S+)[ \\t]*$""")
+            val owner = Regex("""(?m)^[ \t]*updateOwnerPackageName[ \t]*=[ \t]*(\S+)[ \t]*$""")
                 .find(selectedBlock)
                 ?.groupValues
                 ?.get(1)
