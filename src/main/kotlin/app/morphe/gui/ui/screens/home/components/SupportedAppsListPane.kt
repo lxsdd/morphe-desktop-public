@@ -155,7 +155,9 @@ internal fun SupportedAppsListPane(
             }
         }
 
-        if (activeCount > 4) {
+        // A query entered in another tab must never keep filtering invisibly.
+        val searchVisible = activeCount > 4 || searchQuery.isNotBlank()
+        if (searchVisible) {
             Box(modifier = Modifier.fillMaxWidth().padding(end = 12.dp)) {
                 SlimSearchField(
                     value = searchQuery,
@@ -187,7 +189,7 @@ internal fun SupportedAppsListPane(
                 appIconColorByPackage = supportedApps.associate { it.packageName to (it.appIconColor ?: "") }.filterValues { it.isNotEmpty() },
                 onShowDetail = onShowDetail,
                 paneMaxHeight = paneMaxHeight,
-                showSearch = activeCount > 4,
+                showSearch = searchVisible,
                 updateCategory = filter == AppListFilter.APP_UPDATES || filter == AppListFilter.PATCH_UPDATES,
             )
         } else when {
