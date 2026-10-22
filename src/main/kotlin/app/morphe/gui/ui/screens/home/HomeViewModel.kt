@@ -920,16 +920,28 @@ class HomeViewModel(
     fun refreshDeviceInfo() {
         val generation = ++deviceRefreshGeneration
         val target = DeviceMonitor.state.value.captureOperationTarget()
+        // A device-switch must never briefly expose the previous device's catalog.
+        if (target == null || _uiState.value.deviceInventorySerial != target.serial) {
+            _uiState.value = _uiState.value.copy(
+                deviceAppInfo = emptyMap(),
+                deviceInstalledPackages = emptySet(),
+                deviceInventorySerial = null,
+            )
+        }
         viewModelScope.launch {
-            if (target == null) {
-                if (generation == deviceRefreshGeneration && _uiState.value.deviceAppInfo.isNotEmpty()) {
-                    _uiState.value = _uiState.value.copy(deviceAppInfo = emptyMap())
+            if (target == null) return@launch
+            val records = patchedRecordsByPackage.values
+            val installed = adbManager.listInstalledPackages(target.serial).getOrNull() ?: run {
+                // Failed ADB reads never masquerade as an empty, verified inventory.
+                if (generation == deviceRefreshGeneration) {
+                    _uiState.value = _uiState.value.copy(
+                        deviceAppInfo = emptyMap(),
+                        deviceInstalledPackages = emptySet(),
+                        deviceInventorySerial = null,
+                    )
                 }
                 return@launch
             }
-            val records = patchedRecordsByPackage.values
-            if (records.isEmpty()) return@launch
-            val installed = adbManager.listInstalledPackages(target.serial).getOrNull() ?: return@launch
             val ourSignatureIds = morpheSignatureIds()
             // Key by original package, querying by installed package to handle renames.
             val info = records.associate { record ->
@@ -951,7 +963,11 @@ class HomeViewModel(
                     requestGeneration = generation,
                     currentGeneration = deviceRefreshGeneration,
                 )) return@launch
-            _uiState.value = _uiState.value.copy(deviceAppInfo = info)
+            _uiState.value = _uiState.value.copy(
+                deviceAppInfo = info,
+                deviceInstalledPackages = installed,
+                deviceInventorySerial = target.serial,
+            )
         }
     }
 
@@ -1350,6 +1366,10 @@ data class HomeUiState(
     /** Package currently being uninstalled from the device. */
     val uninstallingPackage: String? = null,
     val deviceAppInfo: Map<String, DeviceAppInfo> = emptyMap(),
+    /** All package identifiers reported by the exact selected, ready ADB endpoint. */
+    val deviceInstalledPackages: Set<String> = emptySet(),
+    /** Null while disconnected, switching targets, or when the read has failed. */
+    val deviceInventorySerial: String? = null,
     val patchesVersion: String? = null,
     val patchesChannel: PatchResolver.Channel? = null,
     val patchSourceName: String? = null,
