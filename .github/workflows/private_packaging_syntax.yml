@@ -1,0 +1,33 @@
+name: Private Windows packaging script syntax (no artifacts)
+
+on:
+  push:
+    branches:
+      - delivery/private-local-build-handoff-20261022
+
+permissions:
+  contents: read
+
+jobs:
+  powershell-validation:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Parse Windows packaging script without executing a build
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path './scripts/Build-PrivateCustom.ps1').Path,
+            [ref]$tokens,
+            [ref]$errors
+          )
+          if ($errors.Count -ne 0) {
+            $errors | Format-List | Out-String | Write-Error
+            exit 1
+          }
+          Write-Host 'PASS: private local packaging PowerShell script parsed successfully. No binary was built or uploaded.'
