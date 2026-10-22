@@ -64,6 +64,7 @@ jobs:
           file=$(find build/libs -maxdepth 1 -type f -name '*-all.jar' -print -quit)
           test -n "$file" && test -s "$file"
           unzip -t "$file" > /dev/null
-          unzip -Z -1 "$file" | grep -Fqx 'app/morphe/MorpheLauncherKt.class'
+          unzip -Z -1 "$file" > "$RUNNER_TEMP/morphe-jar-entries.txt"
+          grep -Fqx 'app/morphe/MorpheLauncherKt.class' "$RUNNER_TEMP/morphe-jar-entries.txt"
           sha256sum "$file"
           echo "PASS: ephemeral desktop archive verified. No artifact has been uploaded."
