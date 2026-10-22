@@ -1,6 +1,9 @@
 name: Public source CI (no distribution)
 
 on:
+  push:
+    branches:
+      - integration/sanitized-private-1-18-1-20261022
   workflow_dispatch:
   pull_request:
     branches:
