@@ -57,7 +57,7 @@ fun AppListFilterChips(
     yourCount: Int,
     appUpdateCount: Int,
     patchUpdateCount: Int,
-    deviceCount: Int,
+    deviceCount: Int?,
     modifier: Modifier = Modifier,
 ) {
     FlowRow(
@@ -88,7 +88,7 @@ fun AppListFilterChips(
             onClick = { onSelect(AppListFilter.PATCH_UPDATES) },
         )
         MorpheChoiceChip(
-            text = "${stringResource(Res.string.home_filter_device_apps)} $deviceCount",
+            text = "${stringResource(Res.string.home_filter_device_apps)} ${deviceInventoryCountText(deviceCount)}",
             active = filter == AppListFilter.DEVICE,
             onClick = { onSelect(AppListFilter.DEVICE) },
         )
