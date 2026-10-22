@@ -45,6 +45,7 @@ import app.morphe.gui.util.ChangelogParser
 import app.morphe.gui.util.ChecksumStatus
 import app.morphe.gui.util.DeviceMonitor
 import app.morphe.gui.util.DevicePackageMutations
+import app.morphe.gui.util.shouldApplyDeviceResult
 import app.morphe.gui.util.captureOperationTarget
 import app.morphe.gui.util.AppUpdateClassification
 import app.morphe.gui.util.SupportedTargetChannel
@@ -850,19 +851,23 @@ class HomeViewModel(
         add(SupportedApp.getDisplayName(app.packageName))
     }
 
+    /** Invalidates obsolete asynchronous reads, including same-serial reselects. */
+    private var deviceRefreshGeneration: Long = 0
+
     /** Queries the connected ADB device for installed versions of patched records. */
     fun refreshDeviceInfo() {
+        val generation = ++deviceRefreshGeneration
+        val target = DeviceMonitor.state.value.captureOperationTarget()
         viewModelScope.launch {
-            val device = DeviceMonitor.state.value.selectedDevice
-            if (device == null || !device.isReady) {
-                if (_uiState.value.deviceAppInfo.isNotEmpty()) {
+            if (target == null) {
+                if (generation == deviceRefreshGeneration && _uiState.value.deviceAppInfo.isNotEmpty()) {
                     _uiState.value = _uiState.value.copy(deviceAppInfo = emptyMap())
                 }
                 return@launch
             }
             val records = patchedRecordsByPackage.values
             if (records.isEmpty()) return@launch
-            val installed = adbManager.listInstalledPackages(device.id).getOrNull() ?: return@launch
+            val installed = adbManager.listInstalledPackages(target.serial).getOrNull() ?: return@launch
             val ourSignatureIds = morpheSignatureIds()
             // Key by original package, querying by installed package to handle renames.
             val info = records.associate { record ->
@@ -871,13 +876,19 @@ class HomeViewModel(
                 record.packageName to if (devicePkg !in installed) {
                     DeviceAppInfo(installed = false, installedVersion = null, installPending = outputExists)
                 } else {
-                    val (version, sigId) = adbManager.getInstalledPackageInfo(device.id, devicePkg) ?: (null to null)
+                    val (version, sigId) = adbManager.getInstalledPackageInfo(target.serial, devicePkg) ?: (null to null)
                     val signed = if (sigId == null || ourSignatureIds.isEmpty()) null else sigId in ourSignatureIds
                     // Mark pending if the device version is older than the patched APK.
                     val pending = outputExists && version != null && isNewerVersion(record.apkVersion, version)
                     DeviceAppInfo(installed = true, installedVersion = version, signedByMorphe = signed, installPending = pending)
                 }
             }
+            if (!shouldApplyDeviceResult(
+                    activeSerial = DeviceMonitor.state.value.captureOperationTarget()?.serial,
+                    resultSerial = target.serial,
+                    requestGeneration = generation,
+                    currentGeneration = deviceRefreshGeneration,
+                )) return@launch
             _uiState.value = _uiState.value.copy(deviceAppInfo = info)
         }
     }
