@@ -5,8 +5,8 @@
         <item quantity="other">%1$d Patch-Quellen konnten nicht geladen werden. Die erfolgreich geladenen Quellen werden verwendet</item>
     </plurals>
     <plurals name="home_banner_update_available">
-        <item quantity="one">Für %1$d gepatchte App ist ein Update verfügbar</item>
-        <item quantity="other">Für %1$d gepatchte Apps sind Updates verfügbar</item>
+        <item quantity="one">Für %1$d gepatchte App ist eine Aktion erforderlich</item>
+        <item quantity="other">Für %1$d gepatchte Apps ist eine Aktion erforderlich</item>
     </plurals>
     <plurals name="settings_runtime_logs_saved_success">
         <item quantity="one">In %2$s wurde %1$d Zeile gespeichert</item>

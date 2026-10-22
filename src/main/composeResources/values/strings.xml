@@ -112,7 +112,7 @@
     <string name="quick_patch_extract_base_apk_failed">Failed to extract base APK from bundle</string>
     <string name="quick_patch_unsupported_app_error">%1$s is not supported in Quick Patch mode. Supported apps: %2$s. Use Normal mode for unsupported apps</string>
     <string name="adb_install_on_button">Install on %1$s</string>
-    
+
     <!-- Patcher Steps -->
     <string name="patching_step_loading_patches">Loading patches</string>
     <string name="patching_step_preparing">Preparing</string>
@@ -122,7 +122,7 @@
     <string name="patching_step_saving">Saving</string>
     <string name="patching_step_writing_apk">Writing patched APK file</string>
     <string name="patching_step_signing">Signing patched APK file</string>
-    
+
     <!-- ADB Installation Errors -->
     <string name="adb_status_installing">Installing on %1$s…</string>
     <string name="adb_error_downgrade">Cannot downgrade, a newer version is installed. Uninstall the existing app first</string>
@@ -184,7 +184,7 @@
     <string name="version_warning_too_old_message">Current: v%1$s\nOldest supported: v%2$s\n\nThis isn't an officially supported version. Patches will most likely fail.</string>
     <string name="version_warning_unsupported_message">Current: v%1$s\n\nThis isn't an officially supported version. Patches will most likely fail.</string>
     <string name="version_warning_notice_message">Continue with v%1$s?</string>
-    
+
     <!-- Version warnings for Quick Patch -->
     <string name="quick_patch_warning_older_stable">Older stable build - newer stable v%1$s available</string>
     <string name="quick_patch_warning_latest_experimental">Experimental build - supported, but may not work properly</string>
@@ -721,7 +721,7 @@
     <string name="settings_dialog_resolves_to_message">Resolves to: %1$s</string>
     <string name="settings_dialog_error_keystore_not_found">Keystore not found: %1$s</string>
 
-    <!-- Settings - Appearance --> 
+    <!-- Settings - Appearance -->
     <string name="settings_section_language">Language</string>
     <string name="settings_language_current_title">Current language</string>
     <string name="settings_language_community_translation_hint">Translations for some languages may be missing or incomplete. To translate new languages or improve the existing translations, visit %1$s</string>
@@ -868,4 +868,63 @@
     <string name="changelog_dialog_title">View changelog</string>
     <string name="changelog_show_older_button">Show older releases</string>
     <string name="changelog_view_on_github_button">View on GitHub</string>
+
+    <!-- Unified Home app/action state -->
+    <string name="home_filter_action_required">Action required</string>
+    <string name="home_action_get_newer_apk">Get newer APK</string>
+    <string name="home_action_get_newer_apk_and_patch">Get newer APK and patch</string>
+    <string name="home_action_patch_installed_app">Patch installed app</string>
+    <string name="home_state_current">Current</string>
+    <string name="home_state_exact_build_installed">Exact local build installed</string>
+    <string name="home_state_installation_required">Local patched build needs installation</string>
+    <string name="home_state_repatch_required">Relevant patch changes require re-patching</string>
+    <string name="home_state_new_apk_required">A newer compatible APK is required</string>
+    <string name="home_state_unknown">State unknown</string>
+    <string name="home_state_stable_current">Stable app channel current</string>
+    <string name="home_state_experimental_current">Experimental app channel current</string>
+    <string name="home_state_new_stable_app">New stable app version available</string>
+    <string name="home_state_new_experimental_app">New experimental app version available</string>
+    <string name="home_state_new_stable_patch">New relevant stable patch available</string>
+    <string name="home_state_new_dev_patch">New relevant dev patch available</string>
+    <string name="home_state_new_mixed_patch">New relevant stable and dev patches available</string>
+    <string name="home_state_new_local_patch">Local patch source changed</string>
+    <string name="home_state_irrelevant_patch_release">Newer patch release has no relevant change for this app</string>
+    <string name="home_state_patch_current">Selected patch sources current</string>
+    <string name="home_device_patch_input_label">Patch input status</string>
+    <string name="home_device_morphe_action_label">Morphe action status</string>
+    <string name="home_detail_app_channel_label">App channel: %1$s</string>
+    <string name="home_detail_patch_channel_label">Patch channel: %1$s</string>
+    <string name="home_device_endpoint_tooltip">Installation history is tied to this exact ADB serial. A freshly verified APK hash can still prove the exact local build.</string>
+    <string name="home_filter_your_all">All</string>
+    <string name="home_filter_app_update">App update</string>
+    <string name="home_filter_patch_update">Patch update</string>
+    <string name="home_filter_install_ready">Install ready</string>
+    <string name="home_filter_device">Device</string>
+    <string name="home_filter_device_patchable">Patchable now</string>
+    <string name="home_filter_device_known">Known</string>
+    <string name="home_filter_device_no_source">No patch source</string>
+    <string name="home_filter_device_all">All installed</string>
+    <string name="home_tooltip_all_apps">Show every app supported by the enabled patch sources.</string>
+    <string name="home_tooltip_your_apps">Show apps for which Morphe Desktop has a local patching record.</string>
+    <string name="home_tooltip_device_apps">Browse apps installed on the selected exact ADB device.</string>
+    <string name="home_tooltip_your_all">Show every locally patched app in Morphe Desktop.</string>
+    <string name="home_tooltip_action_required">Apps that need an action now: install a ready build, re-patch, or obtain a required newer APK.</string>
+    <string name="home_tooltip_app_update">Apps with a newer version available in the selected APK channel. Not every available version is mandatory.</string>
+    <string name="home_tooltip_patch_update">Apps for which the selected patch channel contains a relevant patch change. Stable and dev channels remain distinct.</string>
+    <string name="home_tooltip_install_ready">A local patched APK is ready but the selected device does not have that exact build installed.</string>
+    <string name="home_tooltip_device_patchable">The currently installed APK version can be used as a patch input. This does not mean a patched build is already installed.</string>
+    <string name="home_tooltip_device_known">Show installed apps found in at least one enabled patch source.</string>
+    <string name="home_tooltip_device_no_source">Show installed apps not found in any enabled patch source.</string>
+    <string name="home_tooltip_device_all">Show every app installed on the selected device.</string>
+    <string name="home_state_new_apk_and_repatch_required">A newer compatible APK and re-patching are required</string>
+    <string name="home_state_patchable_installed_app">Installed app can be used as patch input</string>
+    <string name="home_state_no_patch_source">No enabled patch source supports this app</string>
+    <string name="home_tooltip_patched_badge">A local patched result is recorded. Its action status is shown separately.</string>
+    <string name="home_tooltip_modified_badge">The recorded output APK changed outside Morphe Desktop and must be rebuilt before installation.</string>
+    <string name="home_tooltip_missing_badge">The recorded output APK is missing and must be rebuilt before installation.</string>
+    <string name="home_state_stable_current_optional_experimental">Stable app channel current · optional experimental version available</string>
+    <string name="home_state_experimental_current_optional_stable">Experimental app channel current · optional stable version available</string>
+    <string name="home_state_stable_patch_current">Stable patch channel current</string>
+    <string name="home_state_dev_patch_current">Dev patch channel current</string>
+    <string name="home_state_local_patch_current">Local patch source current</string>
 </resources>
