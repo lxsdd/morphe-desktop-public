@@ -51,6 +51,23 @@ data class BundlePatches(
  */
 internal data class PlayStoreSuppressionPatch(val bundleId: String, val patchId: String)
 
+/**
+ * Detect both the current Morphe patch name and the older name shown by
+ * previous patch bundles. This is a risk warning only: no source is trusted
+ * or selected solely because its display name matches.
+ */
+internal fun isVersionCodeUpdateSuppressionPatch(patch: PatchMetadata): Boolean =
+    patch.name.equals("Disable Play Store updates", ignoreCase = true) ||
+        patch.name.equals("Change version code", ignoreCase = true)
+
+internal fun selectedVersionCodeUpdateSuppressionPatches(
+    bundles: List<BundlePatches>,
+    selectedByBundle: Map<String, Set<String>>,
+): List<PatchMetadata> = bundles.flatMap { bundle ->
+    val selected = selectedByBundle[bundle.bundleId].orEmpty()
+    bundle.patches.filter { it.uniqueId in selected && isVersionCodeUpdateSuppressionPatch(it) }
+}
+
 internal fun findPlayStoreSuppressionPatch(bundles: List<BundlePatches>): PlayStoreSuppressionPatch? =
     bundles.firstNotNullOfOrNull { bundle ->
         // Never offer a same-named patch from arbitrary third-party sources.

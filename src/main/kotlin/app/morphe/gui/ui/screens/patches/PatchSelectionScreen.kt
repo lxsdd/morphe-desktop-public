@@ -87,6 +87,13 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
     val playStorePatchSelected = playStorePatch?.let { patch ->
         patch.patchId in uiState.selectedByBundle[patch.bundleId].orEmpty()
     } == true
+    val versionCodeUpdateSuppressionSelected = remember(
+        uiState.bundles, uiState.selectedByBundle
+    ) {
+        selectedVersionCodeUpdateSuppressionPatches(
+            uiState.bundles, uiState.selectedByBundle
+        ).isNotEmpty()
+    }
 
     val engineConfig by produceState<EngineConfig?>(initialValue = null) {
         value = engineConfigRepository.loadConfig()
@@ -102,6 +109,32 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
     var cleanMode by rememberSaveable { mutableStateOf(false) }
     var showCommandPreview by rememberSaveable { mutableStateOf(false) }
     var continueOnError by rememberSaveable { mutableStateOf(false) }
+    var showVersionCodeWarning by rememberSaveable { mutableStateOf(false) }
+    val proceedWithPatching: () -> Unit = {
+        val config = viewModel.createPatchConfig(continueOnError)
+        navController.navigateComplex(PatchingScreenRoute, config)
+    }
+
+    if (showVersionCodeWarning) {
+        AlertDialog(
+            onDismissRequest = { showVersionCodeWarning = false },
+            title = { Text(stringResource(Res.string.patch_version_code_warning_title)) },
+            text = { Text(stringResource(Res.string.patch_version_code_warning_details)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showVersionCodeWarning = false
+                    proceedWithPatching()
+                }) {
+                    Text(stringResource(Res.string.patch_version_code_warning_proceed))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showVersionCodeWarning = false }) {
+                    Text(stringResource(Res.string.patch_version_code_warning_back))
+                }
+            },
+        )
+    }
 
     var showRunInfo by remember { mutableStateOf(false) }
     if (showRunInfo) {
@@ -165,6 +198,33 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
             onShowOnlySelectedChange = { viewModel.setShowOnlySelected(it) },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
         )
+
+        // A version-code patch can come from any enabled patch source, including
+        // older bundles where it is named "Change version code". Warn whenever
+        // one is selected, regardless of how that selection was restored.
+        if (!uiState.isLoading && versionCodeUpdateSuppressionSelected) {
+            Surface(
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 5.dp),
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = MorpheTheme.shapes.medium,
+            ) {
+                Column(modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        stringResource(Res.string.patch_version_code_warning_title),
+                        style = MorpheTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    Text(
+                        stringResource(Res.string.patch_version_code_warning_details),
+                        style = MorpheTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
+            }
+        }
 
         // Optional last-resort versionCode workaround. The user's older Amazon
         // build worked without this patch, so it must not be treated as the
@@ -580,8 +640,11 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                 PatchSelectionBottomBar(
                     selectedCount = uiState.selectedCount,
                     onPatchClick = {
-                        val config = viewModel.createPatchConfig(continueOnError)
-                        navController.navigateComplex(PatchingScreenRoute, config)
+                        if (versionCodeUpdateSuppressionSelected) {
+                            showVersionCodeWarning = true
+                        } else {
+                            proceedWithPatching()
+                        }
                     },
                 )
             }

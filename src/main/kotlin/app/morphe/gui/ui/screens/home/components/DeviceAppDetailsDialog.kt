@@ -41,6 +41,13 @@ internal data class DevicePatchSourceDetails(
 )
 
 /**
+ * The official version-code suppression patch writes Int.MAX_VALUE to the
+ * manifest. This diagnostic never infers patch provenance or changes the app.
+ */
+internal fun hasPlayUpdateSuppressingVersionCode(versionCode: Long?): Boolean =
+    versionCode == Int.MAX_VALUE.toLong()
+
+/**
  * Read-only details for installed apps without a local PatchedAppRecord.
  * In particular, a Morphe-signed YouTube package is NOT evidence that
  * any particular source or patch set from this desktop is installed.
@@ -144,6 +151,13 @@ internal fun DeviceAppDetailsDialog(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (hasPlayUpdateSuppressingVersionCode(code)) {
+                            Text(
+                                stringResource(Res.string.device_version_code_update_warning),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
                     Text(
                         stringResource(Res.string.device_play_owner_is_not_play_detachment),

@@ -942,7 +942,12 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="device_play_owner_none">Keiner eingetragen</string>
     <string name="device_play_owner_is_not_play_detachment">Diese Angabe bestätigt nicht, dass die App aus den Google-Play-Updates entfernt wurde.</string>
     <string name="patch_play_store_title">Play-Store-Updateangebote unterdrücken</string>
-    <string name="patch_play_store_details">Optionaler Patch „Disable Play Store updates“: setzt den APK-Versionscode auf das Maximum. Kann spätere APK-Updates erschweren; die Wirkung muss auf dem Gerät geprüft werden.</string>
+    <string name="patch_play_store_details">Optionaler Versionscode-Patch: Kann offizielle Play-Store-Updateangebote unterdrücken und spätere APK-Updates erschweren. Unabhängig vom Android-Update-Owner.</string>
+    <string name="patch_version_code_warning_title">Ausgewählter Patch kann Play-Store-Updates ausblenden</string>
+    <string name="patch_version_code_warning_details">„Change version code“ oder „Disable Play Store updates“ kann die APK neuer als offizielle Versionen erscheinen lassen. Dadurch bietet der Play Store möglicherweise keine Updates mehr an. Das ist unabhängig von der Android-Update-Owner-Prüfung. Mit diesem Patch fortfahren?</string>
+    <string name="patch_version_code_warning_proceed">Trotzdem patchen</string>
+    <string name="patch_version_code_warning_back">Patch-Auswahl prüfen</string>
+    <string name="device_version_code_update_warning">Der installierte Versionscode liegt beim 32-Bit-Maximum. Wahrscheinlich wurde ein Patch zur Unterdrückung von Play-Store-Updates verwendet. Das ist kein Nachweis für den Update-Owner.</string>
     <string name="patch_play_store_enable">Patch aktivieren</string>
     <string name="patch_play_store_disable">Patch abwählen</string>
     <string name="device_android_version_code">Android-Versionscode auf dem Gerät: %1$s</string>
