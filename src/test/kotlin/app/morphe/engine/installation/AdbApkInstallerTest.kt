@@ -67,7 +67,7 @@ class AdbApkInstallerTest {
         val result = installer.install(request())
 
         assertTrue(result.isFailure)
-        assertContains(result.exceptionOrNull()?.message.orEmpty(), "did not contain the requested package record")
+        assertContains(result.exceptionOrNull()?.message.orEmpty(), "package not installed")
         assertTrue(commands.last().contains("rm"))
     }
 
