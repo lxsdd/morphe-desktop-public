@@ -426,6 +426,7 @@ fun HomeScreenContent(
                             onShowDetail = onShowDetail,
                             onFilterChange = { viewModel.setAppListFilter(it) },
                             onRetry = onRetry,
+                            onRefreshDeviceInfo = { viewModel.refreshDeviceInfo() },
                             onManageSources = { showSourceManagementSheet = true },
                             onClearClick = onClearClick,
                             onChangeClick = onChangeClick,
