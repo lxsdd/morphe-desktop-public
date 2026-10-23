@@ -33,6 +33,8 @@ import app.morphe.gui.ui.screens.result.components.*
 import app.morphe.gui.ui.theme.*
 import app.morphe.gui.util.DeviceMonitor
 import app.morphe.gui.util.DevicePackageMutations
+import app.morphe.gui.util.DeviceDeploymentState
+import app.morphe.gui.util.forSerial
 import app.morphe.gui.util.DeviceOperationTarget
 import app.morphe.gui.util.captureOperationTarget
 import app.morphe.gui.util.FormatUtils
@@ -71,22 +73,44 @@ fun ResultScreenContent(outputPath: String) {
     val monitorState by DeviceMonitor.state.collectAsState()
     val adbPreference = LocalAdbPreference.current
     val isAdbDisabledByUser = !adbPreference.enabled
-    val installState = remember { AsyncActionState() }
+    // Installation, presence, failures and link handling are keyed to ADB SERIAL,
+    // never to the currently selected device's display name.
+    var deployments by remember(outputPath) {
+        mutableStateOf<Map<String, DeviceDeploymentState>>(emptyMap())
+    }
+    var installTarget by remember(outputPath) { mutableStateOf<DeviceOperationTarget?>(null) }
     var installedOnTarget by remember(outputPath) { mutableStateOf<DeviceOperationTarget?>(null) }
+    var linkStates by remember(outputPath) { mutableStateOf<Map<String, AsyncActionState>>(emptyMap()) }
 
     // Check if the patched package is already installed on the target device.
     var outputPackage by remember { mutableStateOf<String?>(null) }
-    var alreadyInstalled by remember { mutableStateOf(false) }
+
     LaunchedEffect(outputPath) {
         outputPackage = withContext(Dispatchers.IO) {
             runCatching { ApkInspector.inspect(outputFile)?.packageName }.getOrNull()
         }
     }
-    LaunchedEffect(monitorState.selectedDevice?.id, monitorState.selectedDevice?.isReady, outputPackage) {
-        val device = monitorState.selectedDevice
-        val pkg = outputPackage
-        alreadyInstalled = device != null && device.isReady && pkg != null &&
-            adbManager.listInstalledPackages(device.id).getOrNull()?.contains(pkg) == true
+    LaunchedEffect(outputPath, monitorState.selectedDevice?.id,
+        monitorState.selectedDevice?.isReady, outputPackage) {
+        val target = monitorState.captureOperationTarget() ?: return@LaunchedEffect
+        val pkg = outputPackage ?: return@LaunchedEffect
+        // Do not downgrade a confirmed success for the SAME serial because the
+        // selected-device inventory has not finished loading yet.
+        val original = deployments.forSerial(target.serial)
+        if (original.installPhase == DeviceDeploymentState.InstallPhase.INSTALLED ||
+            original.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING) return@LaunchedEffect
+        deployments = deployments + (target.serial to original.checking())
+        val installed = adbManager.listInstalledPackages(target.serial).getOrNull()?.contains(pkg)
+        // Discard the result when the user switches devices during the ADB read.
+        if (DeviceMonitor.state.value.captureOperationTarget()?.serial != target.serial) return@LaunchedEffect
+        if (installed == null) {
+            deployments = deployments + (target.serial to original.copy(
+                installPhase = DeviceDeploymentState.InstallPhase.IDLE,
+                installed = null,
+            ))
+        } else {
+            deployments = deployments + (target.serial to original.observed(installed))
+        }
     }
 
     // Link-handling state loaded from the patched app recall record.
@@ -137,74 +161,90 @@ fun ResultScreenContent(outputPath: String) {
         }
     }
 
-    fun installViaAdb() {
-        val target = monitorState.captureOperationTarget() ?: return
-        installedOnTarget = null
+    fun installViaAdb(requestedTarget: DeviceOperationTarget? = null) {
+        if (deployments.values.any { it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING }) return
+        val target = requestedTarget ?: DeviceMonitor.state.value.captureOperationTarget() ?: return
+        // Never silently redirect an explicit install to a different selected device.
+        if (DeviceMonitor.state.value.devices.none { it.id == target.serial && it.isReady }) {
+            deployments = deployments + (target.serial to deployments.forSerial(target.serial)
+                .installFailed("Device ${target.displayName} is no longer ready."))
+            return
+        }
+        val previous = deployments.forSerial(target.serial)
+        val wasInstalled = previous.installed == true
+        installTarget = target
         scope.launch {
-            installState.isRunning = true
-            installState.error = null
-            installState.progress = if (alreadyInstalled) getString(Res.string.result_adb_updating_on_device, target.displayName) else getString(Res.string.adb_status_installing, target.displayName)
-
+            deployments = deployments + (target.serial to previous.installing(
+                if (wasInstalled) getString(Res.string.result_adb_updating_on_device, target.displayName)
+                else getString(Res.string.adb_status_installing, target.displayName)))
             val result = adbManager.installApk(
                 apkPath = outputPath,
                 deviceId = target.serial,
-                onProgress = { installState.progress = it }
+                onProgress = { progress ->
+                    deployments = deployments + (target.serial to deployments.forSerial(target.serial).installing(progress))
+                },
             )
-
-            result.fold(
+            deployments = deployments + (target.serial to result.fold(
                 onSuccess = {
-                    installState.isSuccess = true
                     installedOnTarget = target
                     outputPackage?.let { DevicePackageMutations.notify(target.serial, it) }
-                    installState.progress = if (alreadyInstalled) getString(Res.string.result_adb_update_successful) else getString(Res.string.result_adb_install_successful)
+                    deployments.forSerial(target.serial).installed(
+                        if (wasInstalled) "Updated on ${target.displayName}"
+                        else "Installed on ${target.displayName}")
                 },
                 onFailure = { exception ->
-                    installState.error = (exception as? AdbException)?.getUserMessage() ?: exception.message ?: getString(Res.string.error_patching_unknown)
-                }
-            )
-
-            installState.isRunning = false
+                    deployments.forSerial(target.serial).installFailed(
+                        (exception as? AdbException)?.getUserMessage()
+                            ?: exception.message ?: "Installation failed")
+                },
+            ))
         }
     }
 
-    fun applyLinkHandling(enable: Boolean, capturedTarget: DeviceOperationTarget? = null) {
-        val target = capturedTarget ?: monitorState.captureOperationTarget() ?: return
+    fun applyLinkHandling(enable: Boolean, requestedTarget: DeviceOperationTarget? = null) {
+        val target = requestedTarget ?: DeviceMonitor.state.value.captureOperationTarget() ?: return
+        if (DeviceMonitor.state.value.devices.none { it.id == target.serial && it.isReady }) return
         val patched = outputPackage ?: return
+        val state = linkStates[target.serial] ?: AsyncActionState().also {
+            linkStates = linkStates + (target.serial to it)
+        }
         scope.launch {
-            linkState.isRunning = true
-            linkState.error = null
+            state.isRunning = true
+            state.error = null
             val result = adbManager.setLinkHandling(
                 deviceId = target.serial,
                 patchedPackage = patched,
                 stockPackage = if (disableStockLinks) stockPackage else null,
                 enable = enable,
-                onProgress = { linkState.progress = it.toUserMessage() },
+                onProgress = { state.progress = it.toUserMessage() },
             )
             result.fold(
                 onSuccess = { outcome ->
-                    linkState.isSuccess = enable
-                    linkState.progress = when {
+                    state.isSuccess = enable
+                    state.progress = when {
                         !enable -> getString(Res.string.result_link_default_restored)
                         outcome.stockChanged -> getString(Res.string.result_link_routed_stock_disabled)
                         else -> getString(Res.string.result_screen_links_routed_label)
                     }
                 },
                 onFailure = { e ->
-                    linkState.error = (e as? AdbException)?.getUserMessage() ?: e.message ?: getString(Res.string.error_patching_unknown)
+                    state.error = (e as? AdbException)?.getUserMessage()
+                        ?: e.message ?: getString(Res.string.error_patching_unknown)
                 }
             )
-            linkState.isRunning = false
+            state.isRunning = false
         }
     }
 
     // Auto-route links after a successful install if enabled.
-    LaunchedEffect(installState.isSuccess, autoRouteLinks, outputPackage, installedOnTarget) {
-        val installTarget = installedOnTarget
-        if (installState.isSuccess && autoRouteLinks && outputPackage != null &&
-            installTarget != null && !linkState.isSuccess && !linkState.isRunning && linkState.error == null
+    LaunchedEffect(installedOnTarget?.serial, autoRouteLinks, outputPackage) {
+        val target = installedOnTarget ?: return@LaunchedEffect
+        val links = linkStates[target.serial]
+        if (autoRouteLinks && outputPackage != null &&
+            links?.isSuccess != true && links?.isRunning != true && links?.error == null
         ) {
-            // Auto-route is part of the same operation; do not switch to a newly selected device.
-            applyLinkHandling(enable = true, capturedTarget = installTarget)
+            // Keep link handling pinned to the original installation serial.
+            applyLinkHandling(enable = true, requestedTarget = target)
         }
     }
 
@@ -245,37 +285,43 @@ fun ResultScreenContent(outputPath: String) {
                     AdbInstallSection(
                         devices = monitorState.devices,
                         selectedDevice = monitorState.selectedDevice,
-                        alreadyInstalled = alreadyInstalled,
-                        isInstalling = installState.isRunning,
-                        installProgress = installState.progress,
-                        installError = installState.error,
-                        installSuccess = installState.isSuccess,
+                        deployments = deployments,
+                        installTarget = installTarget,
                         borderColor = borderColor,
                         onDeviceSelected = { DeviceMonitor.selectDevice(it) },
                         onInstallClick = { installViaAdb() },
-                        onRetryClick = {
-                            installState.error = null
-                            installState.isSuccess = false
-                            installViaAdb()
-                        },
-                        onDismissError = { installState.error = null }
+                        onRetryClick = { installViaAdb(installTarget) },
+                        onDismissError = {
+                            installTarget?.let { target ->
+                                val current = deployments.forSerial(target.serial)
+                                deployments = deployments + (target.serial to current.copy(
+                                    installError = null,
+                                    installPhase = if (current.installed == true)
+                                        DeviceDeploymentState.InstallPhase.PRESENT
+                                    else DeviceDeploymentState.InstallPhase.IDLE,
+                                ))
+                            }
+                        }
                     )
 
                     // Link handling is only available once installed on a ready device.
                     val device = monitorState.selectedDevice
-                    if (outputPackage != null && device?.isReady == true && (installState.isSuccess || alreadyInstalled)) {
+                    val deviceDeployment = device?.let { deployments.forSerial(it.id) }
+                    val linkState = device?.let { linkStates[it.id] }
+                    if (outputPackage != null && device?.isReady == true &&
+                        deviceDeployment?.installed == true) {
                         LinkHandlingSection(
                             stockPackage = stockPackage?.takeIf { it != outputPackage },
                             disableStockLinks = disableStockLinks,
                             onToggleDisableStock = { disableStockLinks = it },
-                            isApplying = linkState.isRunning,
-                            progress = linkState.progress,
-                            error = linkState.error,
-                            success = linkState.isSuccess,
+                            isApplying = linkState?.isRunning == true,
+                            progress = linkState?.progress.orEmpty(),
+                            error = linkState?.error,
+                            success = linkState?.isSuccess == true,
                             borderColor = borderColor,
                             onApply = { applyLinkHandling(enable = true) },
                             onRestore = { applyLinkHandling(enable = false) },
-                            onDismissError = { linkState.error = null },
+                            onDismissError = { linkState?.error = null },
                         )
                     }
                 }
