@@ -36,7 +36,7 @@ import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
-private enum class DeviceViewFilter { ALL, NEEDS_ATTENTION, PATCHABLE, VERSION_MATCH, OTHER }
+private enum class DeviceViewFilter { ALL, NEEDS_ATTENTION, PATCHABLE, VERIFIED, VERSION_MATCH, OTHER }
 
 private data class DeviceOverviewRow(
     val packageName: String,
@@ -53,6 +53,7 @@ private fun deviceLabel(status: DeviceOverviewStatus): StringResource = when (st
     DeviceOverviewStatus.LOCAL_BUILD_REVIEW -> Res.string.device_overview_local_build
     DeviceOverviewStatus.PATCH_CANDIDATE -> Res.string.device_overview_patchable
     DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED -> Res.string.device_overview_version_match
+    DeviceOverviewStatus.EXACT_BUILD_VERIFIED -> Res.string.device_overview_exact_build
     DeviceOverviewStatus.SIGNER_CONFLICT -> Res.string.device_overview_signer_conflict
     DeviceOverviewStatus.REVIEW_REQUIRED -> Res.string.device_overview_review
     DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG -> Res.string.device_overview_other
@@ -103,6 +104,7 @@ internal fun DeviceInventoryPane(
                 newerCompatibleAppVersion = newerVersion,
                 relevantPatchChange = hasConfirmedPatchUpdate(update),
                 localBuildVersionNewer = metadata?.installPending == true,
+                exactBuildVerified = metadata?.exactBuildVerified,
             ))
             DeviceOverviewRow(
                 packageName = pkg,
@@ -120,6 +122,7 @@ internal fun DeviceInventoryPane(
     val supportedCount = rows.count { it.packageName in supportedPackages }
     val needsCount = rows.count { deviceOverviewPriority(it.status) <= 3 }
     val patchableCount = rows.count { it.status == DeviceOverviewStatus.PATCH_CANDIDATE }
+    val verifiedCount = rows.count { it.status == DeviceOverviewStatus.EXACT_BUILD_VERIFIED }
     val versionMatchCount = rows.count { it.status == DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED }
     val otherCount = rows.count {
         it.status == DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG ||
@@ -134,6 +137,7 @@ internal fun DeviceInventoryPane(
                     DeviceViewFilter.ALL -> true
                     DeviceViewFilter.NEEDS_ATTENTION -> deviceOverviewPriority(row.status) <= 3
                     DeviceViewFilter.PATCHABLE -> row.status == DeviceOverviewStatus.PATCH_CANDIDATE
+                    DeviceViewFilter.VERIFIED -> row.status == DeviceOverviewStatus.EXACT_BUILD_VERIFIED
                     DeviceViewFilter.VERSION_MATCH -> row.status == DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED
                     DeviceViewFilter.OTHER ->
                         row.status == DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG ||
@@ -176,6 +180,9 @@ internal fun DeviceInventoryPane(
             MorpheChoiceChip(text = stringResource(Res.string.device_overview_patchable_count, patchableCount),
                 active = filter == DeviceViewFilter.PATCHABLE,
                 onClick = { filter = DeviceViewFilter.PATCHABLE })
+            MorpheChoiceChip(text = stringResource(Res.string.device_overview_verified_count, verifiedCount),
+                active = filter == DeviceViewFilter.VERIFIED,
+                onClick = { filter = DeviceViewFilter.VERIFIED })
             MorpheChoiceChip(text = stringResource(Res.string.device_overview_version_count, versionMatchCount),
                 active = filter == DeviceViewFilter.VERSION_MATCH,
                 onClick = { filter = DeviceViewFilter.VERSION_MATCH })
