@@ -252,6 +252,13 @@ fun PatchedAppDetailDialog(
                                 style = MorpheTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            if (hasPlayUpdateSuppressingVersionCode(code)) {
+                                Text(
+                                    stringResource(Res.string.device_version_code_update_warning),
+                                    style = MorpheTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
                         }
                         Text(
                             stringResource(Res.string.device_play_owner_is_not_play_detachment),
