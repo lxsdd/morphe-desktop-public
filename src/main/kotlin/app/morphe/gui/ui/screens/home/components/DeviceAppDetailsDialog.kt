@@ -130,9 +130,9 @@ internal fun DeviceAppDetailsDialog(
                             when {
                                 deviceInfo?.updateOwnerChecked != true ->
                                     stringResource(Res.string.device_play_owner_unknown)
-                                deviceInfo.updateOwnerPackage.isNullOrBlank() ->
+                                deviceInfo?.updateOwnerPackage.isNullOrBlank() ->
                                     stringResource(Res.string.device_play_owner_none)
-                                else -> deviceInfo.updateOwnerPackage
+                                else -> deviceInfo?.updateOwnerPackage.orEmpty()
                             },
                         ),
                         style = MaterialTheme.typography.bodySmall,
