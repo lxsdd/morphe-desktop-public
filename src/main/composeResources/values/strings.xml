@@ -944,4 +944,10 @@
     <string name="device_details_compatible_installed">Compatible with the detected device version</string>
     <string name="device_details_incompatible_installed">Not compatible with the detected device version</string>
     <string name="device_details_compatibility_unknown">Compatibility unknown – device version unavailable</string>
+    <!-- Device-specific installation outcome -->
+    <string name="result_device_installed_exact">Installed on this device</string>
+    <string name="result_device_present_unverified">App present · APK unverified</string>
+    <string name="result_device_not_installed">Not installed or not yet checked</string>
+    <string name="result_device_checking">Checking device…</string>
+    <string name="result_device_failed">Installation failed</string>
 </resources>
