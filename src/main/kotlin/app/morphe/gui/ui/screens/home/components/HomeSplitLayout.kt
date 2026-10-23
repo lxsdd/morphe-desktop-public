@@ -41,7 +41,7 @@ internal fun HomeSplitLayout(
                 top = 4.dp,
                 bottom = padding,
             ),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.TopStart,
     ) {
         val bodyViewport = this.maxHeight
         Row(
@@ -78,7 +78,7 @@ internal fun HomeSplitLayout(
             if (uiState.appListFilter != AppListFilter.DEVICE) Column(
                 modifier = Modifier
                     .weight(1f)
-                    .align(Alignment.CenterVertically)
+                    .align(Alignment.Top)
                     .heightIn(max = bodyViewport)
                     .padding(top = 16.dp)
                     .verticalScroll(rememberScrollState()),
