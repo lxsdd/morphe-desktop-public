@@ -144,7 +144,7 @@ Write-Output "MODE=READ_ONLY"
 Write-Output "DATE=$day"
 Write-Output "THIRD_PARTY_PACKAGES=$($packageNames.Count)"
 
-$matches = @()
+$recentApps = @()
 $unreadable = @()
 $dateFieldCount = 0
 foreach ($packageName in $packageNames) {
@@ -153,7 +153,7 @@ foreach ($packageName in $packageNames) {
         $info = Read-PackageInfo -Dump $dump -PackageName $packageName
         if ($info.FirstInstall -ne "NICHT_ANGEZEIGT" -or $info.LastUpdate -ne "NICHT_ANGEZEIGT") { $dateFieldCount++ }
         if ($info.FirstInstall.StartsWith($day) -or $info.LastUpdate.StartsWith($day)) {
-            $matches += $info
+            $recentApps += $info
         }
     } catch {
         # Continue safely but disclose any incomplete inventory.
@@ -162,8 +162,8 @@ foreach ($packageName in $packageNames) {
 }
 
 Write-Output "DATE_FIELDS_READABLE=$dateFieldCount"
-Write-Output "TODAY_INSTALLED_OR_UPDATED=$($matches.Count)"
-foreach ($info in $matches) {
+Write-Output "TODAY_INSTALLED_OR_UPDATED=$($recentApps.Count)"
+foreach ($info in $recentApps) {
     $ownerState = if ($info.UpdateOwner -eq "com.android.shell") {
         "SHELL_OWNER"
     } elseif ($info.UpdateOwner -eq "NICHT_ANGEZEIGT") {
