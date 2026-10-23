@@ -20,7 +20,11 @@ class DeviceOverviewStatusTest {
         assertEquals(DeviceOverviewStatus.APP_UPDATE,
             classifyDeviceOverview(evidence(appUpdate = true, patchUpdate = true)))
         assertEquals(DeviceOverviewStatus.PATCH_UPDATE,
+            classifyDeviceOverview(evidence(patchUpdate = true).copy(exactBuildVerified = true)))
+        assertEquals(DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED,
             classifyDeviceOverview(evidence(patchUpdate = true)))
+        assertEquals(DeviceOverviewStatus.REVIEW_REQUIRED,
+            classifyDeviceOverview(evidence(patchUpdate = true, installed = "1.2")))
     }
     @Test fun `missing installed version blocks certainty`() {
         assertEquals(DeviceOverviewStatus.REVIEW_REQUIRED,
