@@ -25,7 +25,13 @@ import app.morphe.gui.LocalAdbPreference
 import app.morphe.gui.ui.components.*
 import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.screens.result.components.OutputFileCard
+import app.morphe.gui.ui.screens.result.components.AdbInstallSection
 import app.morphe.gui.ui.theme.*
+import app.morphe.gui.util.DeviceDeploymentState
+import app.morphe.gui.util.DeviceOperationTarget
+import app.morphe.gui.util.DevicePackageMutations
+import app.morphe.gui.util.captureOperationTarget
+import app.morphe.gui.util.forSerial
 import app.morphe.gui.util.DeviceMonitor
 import app.morphe.gui.util.getUserMessage
 import app.morphe.morphe_desktop.generated.resources.*
@@ -43,13 +49,76 @@ internal fun CompletedContent(
     val monitorState by DeviceMonitor.state.collectAsState()
     val adbPreference = LocalAdbPreference.current
     val isAdbDisabledByUser = !adbPreference.enabled
-    var isInstalling by remember { mutableStateOf(false) }
-    var installError by remember { mutableStateOf<String?>(null) }
-    var installSuccess by remember { mutableStateOf(false) }
+    var deployments by remember(outputPath) {
+        mutableStateOf<Map<String, DeviceDeploymentState>>(emptyMap())
+    }
+    var activeInstallTarget by remember(outputPath) { mutableStateOf<DeviceOperationTarget?>(null) }
     val adbManager = remember { AdbManager() }
     val engineConfigRepository: EngineConfigRepository = koinInject()
     val scope = rememberCoroutineScope()
     val completedScroll = rememberScrollState()
+
+    fun installOnDevice(requested: DeviceOperationTarget? = null) {
+        if (deployments.values.any { it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING }) return
+        val target = requested ?: DeviceMonitor.state.value.captureOperationTarget() ?: return
+        if (DeviceMonitor.state.value.devices.none { it.id == target.serial && it.isReady }) return
+        activeInstallTarget = target
+        val previous = deployments.forSerial(target.serial)
+        deployments = deployments + (target.serial to previous.installing("Installing on ${target.displayName}"))
+        scope.launch {
+            val result = adbManager.installApk(
+                apkPath = outputPath,
+                deviceId = target.serial,
+                onProgress = { line ->
+                    deployments = deployments + (target.serial to
+                        deployments.forSerial(target.serial).installing(line))
+                },
+            )
+            result.fold(
+                onSuccess = {
+                    deployments = deployments + (target.serial to
+                        deployments.forSerial(target.serial).installed("Installed on ${target.displayName}"))
+                    val record = PatchedAppStore.shared.getAll()
+                        .firstOrNull { it.outputApkPath == outputPath }
+                    record?.let { DevicePackageMutations.notify(target.serial, it.installedPackageName) }
+                    val config = engineConfigRepository.loadConfig()
+                    if (config.autoRouteLinksAfterInstall && record != null) {
+                        // The user's selection may have changed in the meantime. Only
+                        // configure links for the successful installation target.
+                        adbManager.setLinkHandling(
+                            deviceId = target.serial,
+                            patchedPackage = record.installedPackageName,
+                            stockPackage = if (config.disableStockLinksAfterInstall)
+                                record.packageName else null,
+                            enable = true,
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    deployments = deployments + (target.serial to
+                        deployments.forSerial(target.serial).installFailed(
+                            (error as? AdbException)?.getUserMessage()
+                                ?: error.message ?: "Installation failed"))
+                },
+            )
+        }
+    }
+
+    // No device-specific state may be derived from the selected device's display name.
+    LaunchedEffect(outputPath, monitorState.selectedDevice?.id, monitorState.selectedDevice?.isReady) {
+        val target = monitorState.captureOperationTarget() ?: return@LaunchedEffect
+        val previous = deployments.forSerial(target.serial)
+        if (previous.installPhase == DeviceDeploymentState.InstallPhase.INSTALLED ||
+            previous.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING) return@LaunchedEffect
+        deployments = deployments + (target.serial to previous.checking())
+        val pkg = PatchedAppStore.shared.getAll()
+            .firstOrNull { it.outputApkPath == outputPath }?.installedPackageName
+        val installed = pkg?.let { adbManager.listInstalledPackages(target.serial).getOrNull()?.contains(it) }
+        if (DeviceMonitor.state.value.captureOperationTarget()?.serial != target.serial) return@LaunchedEffect
+        deployments = deployments + (target.serial to if (installed == null)
+            previous.copy(installPhase = DeviceDeploymentState.InstallPhase.IDLE, installed = null)
+        else previous.observed(installed))
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -87,110 +156,26 @@ internal fun CompletedContent(
                 )
             } else if (monitorState.isAdbAvailable == true) {
                 Spacer(modifier = Modifier.height(12.dp))
-
-                val readyDevices = monitorState.devices.filter { it.isReady }
-                val selectedDevice = monitorState.selectedDevice
-
-                when {
-                    installSuccess -> {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = MorpheIcons.CheckCircle,
-                                contentDescription = null,
-                                tint = MorpheTheme.colors.secondary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(
-                                    Res.string.installed_on,
-                                    selectedDevice?.displayName ?: stringResource(Res.string.device_default)
-                                ),
-                                style = MorpheTheme.typography.labelSmall,
-                                color = MorpheTheme.colors.secondary
-                            )
+                AdbInstallSection(
+                    devices = monitorState.devices,
+                    selectedDevice = monitorState.selectedDevice,
+                    deployments = deployments,
+                    installTarget = activeInstallTarget,
+                    onDeviceSelected = { DeviceMonitor.selectDevice(it) },
+                    onInstallClick = { installOnDevice() },
+                    onRetryClick = { installOnDevice(activeInstallTarget) },
+                    onDismissError = {
+                        activeInstallTarget?.let { target ->
+                            val current = deployments.forSerial(target.serial)
+                            deployments = deployments + (target.serial to current.copy(
+                                installError = null,
+                                installPhase = if (current.installed == true)
+                                    DeviceDeploymentState.InstallPhase.PRESENT
+                                else DeviceDeploymentState.InstallPhase.IDLE,
+                            ))
                         }
-                    }
-                    isInstalling -> {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 2.dp,
-                                color = MorpheTheme.colors.primary
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(Res.string.installing),
-                                style = MorpheTheme.typography.labelSmall,
-                                color = MorpheTheme.colors.primary
-                            )
-                        }
-                    }
-                    readyDevices.isNotEmpty() -> {
-                        val device = selectedDevice ?: readyDevices.first()
-                        MorpheButton(
-                            label = stringResource(Res.string.adb_install_on_button, device.displayName),
-                            variant = MorpheButtonVariant.FILLED,
-                            size = MorpheButtonSize.LARGE,
-                            modifier = Modifier
-                                .widthIn(max = 480.dp)
-                                .fillMaxWidth(),
-                            onClick = {
-                                scope.launch {
-                                    isInstalling = true
-                                    installError = null
-                                    val result = adbManager.installApk(
-                                        apkPath = outputPath,
-                                        deviceId = device.id,
-                                    )
-                                    result.fold(
-                                        onSuccess = {
-                                            installSuccess = true
-                                            val config = engineConfigRepository.loadConfig()
-                                            if (config.autoRouteLinksAfterInstall) {
-                                                val record = PatchedAppStore.shared.getAll()
-                                                    .firstOrNull { it.outputApkPath == outputPath }
-                                                record?.let {
-                                                    adbManager.setLinkHandling(
-                                                        deviceId = device.id,
-                                                        patchedPackage = it.installedPackageName,
-                                                        stockPackage = if (config.disableStockLinksAfterInstall) it.packageName else null,
-                                                        enable = true,
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        onFailure = { installError = (it as? AdbException)?.getUserMessage() ?: it.message }
-                                    )
-                                    isInstalling = false
-                                }
-                            }
-                        )
-                    }
-                    else -> {
-                        Text(
-                            text = stringResource(Res.string.quick_patch_completed_adb_connect_device),
-                            style = MorpheTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                installError?.let { error ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = error,
-                        style = MorpheTheme.typography.labelSmall,
-                        color = MorpheTheme.colors.danger,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                    },
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
