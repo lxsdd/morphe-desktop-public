@@ -103,9 +103,9 @@ private fun Color.over(background: Color, alpha: Float): Color = Color(
     blue = background.blue * (1f - alpha) + blue * alpha,
 )
 
-private val MANAGER_MID = Color(0xFF1E5AA8)
-private val MANAGER_END = Color(0xFF00AFAE)
-private val MANAGER_BASE = Color(0xFF0E3F6E)
+private val MANAGER_MID = Color(0xFF33455B)
+private val MANAGER_END = Color(0xFF35465B)
+private val MANAGER_BASE = Color(0xFF303F53)
 private val CARD_GROUND = Color.Black
 private const val CARD_BASE_ALPHA = 0.70f
 private const val CARD_MID_ALPHA = 0.85f
