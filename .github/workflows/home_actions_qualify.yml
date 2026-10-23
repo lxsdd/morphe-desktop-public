@@ -7,6 +7,7 @@ on:
       - feature/morphe-device-first-home-20261023
       - feature/device-guided-app-update-20261023
       - feature/device-app-details-without-history-20261023
+      - fix/result-device-scoped-install-continuity-20261023
 
 permissions:
   contents: read
