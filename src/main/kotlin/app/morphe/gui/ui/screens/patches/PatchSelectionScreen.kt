@@ -158,6 +158,36 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
             }
         }
 
+        // The official universal workaround modifies Android versionCode.
+        // It is opt-in because future repatching/downgrades may require migration.
+        val playUpdatePatch = remember(uiState.bundles) {
+            findPlayStoreSuppressionPatch(uiState.bundles)
+        }
+        if (playUpdatePatch != null) {
+            val enabled = playUpdatePatch.patchId in
+                uiState.selectedByBundle[playUpdatePatch.bundleId].orEmpty()
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(Res.string.patch_play_suppression_title),
+                        style = MorpheTheme.typography.bodyMedium)
+                    Text(stringResource(Res.string.patch_play_suppression_caution),
+                        style = MorpheTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                OutlinedButton(
+                    onClick = { viewModel.enablePlayStoreSuppressionPatch() },
+                    enabled = !enabled,
+                ) {
+                    Text(if (enabled) stringResource(Res.string.patch_play_suppression_selected)
+                        else stringResource(Res.string.patch_play_suppression_enable))
+                }
+            }
+        }
+
         PatchSearchBar(
             query = uiState.searchQuery,
             onQueryChange = { viewModel.setSearchQuery(it) },
