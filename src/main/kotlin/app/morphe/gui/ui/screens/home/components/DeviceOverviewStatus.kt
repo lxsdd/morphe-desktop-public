@@ -25,7 +25,9 @@ internal fun classifyDeviceOverview(e: DeviceOverviewEvidence): DeviceOverviewSt
     e.hasLocalPatchHistory && e.signerMatchesMorphe == false -> DeviceOverviewStatus.SIGNER_CONFLICT
     e.hasLocalPatchHistory && e.installedVersion.isNullOrBlank() -> DeviceOverviewStatus.REVIEW_REQUIRED
     e.newerCompatibleAppVersion -> DeviceOverviewStatus.APP_UPDATE
-    e.hasLocalPatchHistory && e.relevantPatchChange -> DeviceOverviewStatus.PATCH_UPDATE
+    // A local patch snapshot is only the installed patch state after APK bytes match.
+    e.hasLocalPatchHistory && e.relevantPatchChange && e.exactBuildVerified == true ->
+        DeviceOverviewStatus.PATCH_UPDATE
     e.hasLocalPatchHistory && e.localBuildVersionNewer -> DeviceOverviewStatus.LOCAL_BUILD_REVIEW
     !e.hasLocalPatchHistory && e.patchSupported -> DeviceOverviewStatus.PATCH_CANDIDATE
     e.hasLocalPatchHistory && e.exactBuildVerified == true &&
