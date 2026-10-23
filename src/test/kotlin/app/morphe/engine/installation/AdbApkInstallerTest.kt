@@ -64,26 +64,23 @@ class AdbApkInstallerTest {
     }
 
     @Test
-    fun `legacy attribution retry stays on captured serial`() {
-        var installAttempts = 0
+    fun `legacy installer rejection never falls back to un-attributed installation`() {
         val installer = installer { command ->
             when {
                 command.takeLast(3) == listOf("shell", "pm", "help") -> ok("install [-r] [-d]")
-                "install" in command -> {
-                    installAttempts++
-                    if (installAttempts == 1) AdbCommandResult(1, "attribution rejected") else ok("Success")
-                }
+                "install" in command -> AdbCommandResult(1, "attribution rejected")
                 else -> error("Unexpected command: $command")
             }
         }
 
         val result = installer.install(request(installerPackage = "org.fdroid.fdroid"))
 
-        assertEquals(AdbInstallMode.LEGACY, result.getOrThrow())
+        assertTrue(result.isFailure)
+        assertContains(result.exceptionOrNull()?.message.orEmpty(), "attribution rejected")
         val installs = commands.filter { "install" in it }
-        assertEquals(2, installs.size)
-        assertTrue(installs.all { it.take(3) == listOf("adb", "-s", "SERIAL") })
-        assertTrue(installs.none { "OTHER" in it })
+        assertEquals(1, installs.size)
+        assertEquals(listOf("adb", "-s", "SERIAL", "install", "-r", "-d",
+            "-i", "org.fdroid.fdroid", apk.absolutePath), installs.single())
     }
 
     @Test
