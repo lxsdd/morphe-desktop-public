@@ -988,4 +988,8 @@
     <string name="patch_play_version_code_warning">Optional patch: sets the APK version code to the maximum and may complicate later app updates.</string>
     <string name="patch_play_select">Enable patch</string>
     <string name="patch_play_selected">Disable patch</string>
+    <string name="patch_play_suppression_title">Suppress Play Store updates (optional)</string>
+    <string name="patch_play_suppression_caution">Sets versionCode to its maximum. May complicate future updates and removal. Not guaranteed to suppress every offer.</string>
+    <string name="patch_play_suppression_selected">Already selected</string>
+    <string name="patch_play_suppression_enable">Enable explicitly</string>
 </resources>
