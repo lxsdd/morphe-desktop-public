@@ -851,4 +851,25 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="home_action_patch_selected_apk">Ausgewählte APK patchen</string>
     <string name="home_detail_app_update_requires_input">Eine neuere unterstützte App-Version (%1$s) ist verfügbar. Wähle zuerst deren APK; erneutes Patchen der bisherigen APK aktualisiert die App-Version nicht.</string>
     <string name="home_your_apps_patched_date_label">Gepatcht am</string>
+
+    <!-- Device-first read-only overview -->
+    <string name="device_overview_app_update">App-Version aktualisieren</string>
+    <string name="device_overview_patch_update">Patch-Aktualisierung</string>
+    <string name="device_overview_local_build">Lokale APK prüfen</string>
+    <string name="device_overview_patchable">Patchquelle vorhanden – Version prüfen</string>
+    <string name="device_overview_version_match">Version gleich – Build ungeprüft</string>
+    <string name="device_overview_signer_conflict">Andere Signatur – prüfen</string>
+    <string name="device_overview_review">Prüfung erforderlich</string>
+    <string name="device_overview_other">Außerhalb Patchkatalog</string>
+    <string name="device_overview_summary">%1$d installiert · %2$d im Patchkatalog · %3$d mit Handlungsbedarf</string>
+    <string name="device_overview_disclaimer">Gerätedaten werden nur gelesen. Gleiche Version und Signatur beweisen noch keinen identischen APK-Build.</string>
+    <string name="device_overview_all">Alle %1$d</string>
+    <string name="device_overview_needs">Handlungsbedarf %1$d</string>
+    <string name="device_overview_patchable_count">Noch nicht gepatcht %1$d</string>
+    <string name="device_overview_version_count">Versionsgleich %1$d</string>
+    <string name="device_overview_other_count">Sonstige %1$d</string>
+    <string name="device_overview_no_results">Für diesen Filter sind keine installierten Apps vorhanden.</string>
+    <string name="device_overview_version_unknown">Version unbekannt</string>
+    <string name="device_overview_local_version">Lokal gepatcht: %1$s</string>
+    <string name="device_overview_target_version">Kompatibles Ziel: %1$s</string>
 </resources>
