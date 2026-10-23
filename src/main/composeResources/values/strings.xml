@@ -914,4 +914,15 @@
     <string name="device_overview_refresh">Refresh device</string>
     <string name="device_overview_exact_build">Installed APK build verified</string>
     <string name="device_overview_verified_count">Verified builds %1$d</string>
+    <!-- Guided app updates and device-oriented status -->
+    <string name="home_guided_find_app_version">Find newer app version v%1$s online</string>
+    <string name="home_guided_new_version_badge">App update v%1$s</string>
+    <string name="device_overview_relevant">Relevant apps %1$d</string>
+    <string name="device_overview_apps_to_update">App updates %1$d</string>
+    <string name="device_overview_patches_to_update">Patch updates %1$d</string>
+    <string name="device_overview_installed_patches">Installed patches: %1$s</string>
+    <string name="device_overview_patch_unverified">Installed patch state unverified</string>
+    <string name="device_overview_patch_candidate_count">Patchable · %1$d sources</string>
+    <string name="device_overview_outside_source">No patch source assigned</string>
+    <string name="device_overview_installed_app_version">Device: %1$s</string>
 </resources>
