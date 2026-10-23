@@ -116,7 +116,6 @@ fun ResultScreenContent(outputPath: String) {
     // Link-handling state loaded from the patched app recall record.
     var stockPackage by remember { mutableStateOf<String?>(null) }
     var disableStockLinks by remember { mutableStateOf(false) }
-    val linkState = remember { AsyncActionState() }
     var autoRouteLinks by remember { mutableStateOf(false) }
     LaunchedEffect(outputPath, outputPackage) {
         stockPackage = withContext(Dispatchers.IO) {
@@ -321,7 +320,7 @@ fun ResultScreenContent(outputPath: String) {
                             borderColor = borderColor,
                             onApply = { applyLinkHandling(enable = true) },
                             onRestore = { applyLinkHandling(enable = false) },
-                            onDismissError = { linkState?.error = null },
+                            onDismissError = { linkState?.let { it.error = null } },
                         )
                     }
                 }
