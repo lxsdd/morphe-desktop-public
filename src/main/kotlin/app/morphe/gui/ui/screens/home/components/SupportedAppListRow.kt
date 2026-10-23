@@ -56,7 +56,7 @@ fun SupportedAppListRow(
     AppCard(
         modifier = modifier.fillMaxWidth(),
         cornerRadius = MorpheTheme.shapes.mediumDp,
-        appIconColorHex = app.appIconColor,
+        appIconColorHex = null, // neutral default; custom saved fills preserved
         fill = cardFills[app.packageName],
         onClick = onClick,
         onCustomise = {
