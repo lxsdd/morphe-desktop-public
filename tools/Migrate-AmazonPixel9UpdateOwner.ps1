@@ -231,17 +231,70 @@ $pathNow = Get-RemoteBaseApkPath
 $hashNow = Get-RemoteHash -Path $pathNow
 Assert-ExpectedBaseline -Snapshot $stateNow -Hash $hashNow
 
-Write-Output "MODE=FULL_UNINSTALL_AND_FRESH_INSTALL"
-Write-Output "APP_LOCAL_DATA_LOSS=YES"
-$removed = @(Invoke-Adb -Arguments @("-s", $selectedSerial, "uninstall", $packageName))
-if (-not ($removed -match '(?i)^Success$')) {
-    throw "Uninstall was not confirmed. No further device mutation performed."
-}
-Write-Output "UNINSTALL=SUCCESS"
-
-$remoteTemp = "/data/local/tmp/morphe-amazon-owner-migration.apk"
+# Stage and checksum the exact backup on-device BEFORE deleting the installed package.
+# A transfer failure therefore cannot leave Amazon uninstalled.
+$remoteTemp = "/data/local/tmp/morphe-amazon-owner-$([guid]::NewGuid().ToString('N')).apk"
 try {
     $null = Invoke-Adb -Arguments @("-s", $selectedSerial, "push", $localApk, $remoteTemp)
+    $stagedHash = Get-RemoteHash -Path $remoteTemp
+    if ($stagedHash -ne $expectedSha256) {
+        throw "Staged APK hash mismatch. No uninstall performed."
+    }
+    Write-Output "STAGED_APK_SHA256=$stagedHash"
+    Write-Output "MODE=FULL_UNINSTALL_AND_FRESH_INSTALL"
+    Write-Output "APP_LOCAL_DATA_LOSS=YES"
+    $removed = @(Invoke-Adb -Arguments @("-s", $selectedSerial, "uninstall", $packageName))
+    if (-not ($removed -match '(?i)^Success
+        $installed = @(Invoke-Adb -Arguments @("-s", $selectedSerial, "shell", "pm", "install", "-r", "-d", "--update-ownership", $remoteTemp))
+        if (-not ($installed -match '(?i)^Success$')) {
+            throw "Package Manager did not confirm success."
+        }
+    } catch {
+        $primaryFailure = $_.Exception.Message
+        Write-Output "OWNERSHIP_INSTALL=FAILED"
+        Write-Output "RECOVERY=ATTEMPT_STANDARD_REINSTALL"
+        try {
+            $restored = @(Invoke-Adb -Arguments @("-s", $selectedSerial, "shell", "pm", "install", "-r", "-d", $remoteTemp))
+            if (-not ($restored -match '(?i)^Success$')) { throw "Package Manager did not confirm restore." }
+            Write-Output "RECOVERY=STANDARD_REINSTALL_SUCCEEDED_WITHOUT_OWNER_GUARANTEE"
+        } catch {
+            Write-Output "RECOVERY=FAILED"
+            throw "Owner install failed: $primaryFailure. Standard restore failed: $($_.Exception.Message). Private APK backup: $localApk"
+        }
+        throw "Owner install failed: $primaryFailure. Amazon APK restored without ownership guarantee. Private APK backup: $localApk"
+    }
+} finally {
+    try {
+        $null = Invoke-Adb -Arguments @("-s", $selectedSerial, "shell", "rm", "-f", $remoteTemp)
+    } catch {
+        Write-Output "TEMP_APK_CLEANUP=FAILED"
+    }
+}
+
+$after = Read-AmazonSnapshot
+$afterPath = Get-RemoteBaseApkPath
+$afterHash = Get-RemoteHash -Path $afterPath
+Write-Output "VERSION_AFTER=$($after.VersionName)"
+Write-Output "VERSION_CODE_AFTER=$($after.VersionCode)"
+Write-Output "BASE_APK_SHA256_AFTER=$afterHash"
+Write-Output "UPDATE_OWNER_AFTER=$($after.UpdateOwner)"
+Write-Output "APK_BYTES_IDENTICAL=$(if ($afterHash -eq $expectedSha256) { 'YES' } else { 'NO' })"
+Write-Output "PRIVATE_APK_BACKUP_PC=$localApk"
+Write-Output "ADB_SERIAL=NICHT_AUSGEGEBEN"
+if ($after.VersionName -ne $expectedVersionName -or
+    $after.VersionCode -ne $expectedVersionCode -or
+    $afterHash -ne $expectedSha256) {
+    throw "Post-install APK identity mismatch. Do not proceed with Play checks until reviewed."
+}
+if ($after.UpdateOwner -ne $expectedOwner) {
+    throw "Update ownership not established. Do not claim Play protection."
+}
+Write-Output "RESULT=FRESH_INSTALL_OWNER_ESTABLISHED"
+Write-Output "NEXT=Open Play Store updates on Pixel 9, refresh, and report whether Amazon remains offered."
+)) {
+        throw "Uninstall was not confirmed. Installation not attempted."
+    }
+    Write-Output "UNINSTALL=SUCCESS"
     try {
         $installed = @(Invoke-Adb -Arguments @("-s", $selectedSerial, "shell", "pm", "install", "-r", "-d", "--update-ownership", $remoteTemp))
         if (-not ($installed -match '(?i)^Success$')) {
