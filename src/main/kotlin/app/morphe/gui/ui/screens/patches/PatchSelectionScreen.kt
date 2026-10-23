@@ -79,6 +79,14 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
     val engineConfigRepository: EngineConfigRepository = koinInject()
     val uiState by viewModel.uiState.collectAsState()
     val targetPackage = viewModel.targetPackage()
+    // Exact patch metadata is resolved from the loaded source; no extra
+    // network fetch and no unconsented selection/patch/device operation.
+    val playStorePatch = remember(uiState.bundles) {
+        findPlayStoreSuppressionPatch(uiState.bundles)
+    }
+    val playStorePatchSelected = playStorePatch?.let { patch ->
+        patch.patchId in uiState.selectedByBundle[patch.bundleId].orEmpty()
+    } == true
 
     val engineConfig by produceState<EngineConfig?>(initialValue = null) {
         value = engineConfigRepository.loadConfig()
@@ -157,6 +165,62 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
             onShowOnlySelectedChange = { viewModel.setShowOnlySelected(it) },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
         )
+
+        // A supported, explicitly opt-in way to avoid the ORIGINAL Google
+        // Play update attempts: the upstream patch sets versionCode to MAX_INT.
+        // It is NOT the same thing as altering the ADB install source.
+        if (!uiState.isLoading && playStorePatch != null && targetPackage.isNotBlank()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 5.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shape = MorpheTheme.shapes.medium,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                    if (maxWidth < 620.dp) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(stringResource(Res.string.patch_play_store_title),
+                                style = MorpheTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(Res.string.patch_play_store_details),
+                                style = MorpheTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            OutlinedButton(onClick = {
+                                viewModel.togglePatch(playStorePatch.bundleId, playStorePatch.patchId)
+                            }) {
+                                Text(stringResource(if (playStorePatchSelected)
+                                    Res.string.patch_play_store_disable
+                                    else Res.string.patch_play_store_enable))
+                            }
+                        }
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Column(modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(stringResource(Res.string.patch_play_store_title),
+                                    style = MorpheTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(Res.string.patch_play_store_details),
+                                    style = MorpheTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            OutlinedButton(onClick = {
+                                viewModel.togglePatch(playStorePatch.bundleId, playStorePatch.patchId)
+                            }) {
+                                Text(stringResource(if (playStorePatchSelected)
+                                    Res.string.patch_play_store_disable
+                                    else Res.string.patch_play_store_enable))
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         when {
             uiState.isLoading -> {
