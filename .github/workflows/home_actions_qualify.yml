@@ -43,7 +43,8 @@ jobs:
           if [ ! -f "$path" ]; then
             printf '%s\n' '<settings></settings>' > "$path"
           fi
-          sed -i 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
+          sed -i.bak 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
+          rm -f "$path.bak"
       - name: Run tests with simulated ADB, no real device access
         shell: bash
         env:
@@ -74,7 +75,8 @@ jobs:
           if [ ! -f "$path" ]; then
             printf '%s\n' '<settings></settings>' > "$path"
           fi
-          sed -i 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
+          sed -i.bak 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
+          rm -f "$path.bak"
       - name: Build ephemeral fat JAR without distribution
         shell: bash
         env:
