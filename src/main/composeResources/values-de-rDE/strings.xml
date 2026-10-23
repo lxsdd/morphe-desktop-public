@@ -886,4 +886,5 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="device_overview_patch_candidate_count">Patchfähig · %1$d Quellen</string>
     <string name="device_overview_outside_source">Keine Patchquelle zugeordnet</string>
     <string name="device_overview_installed_app_version">Gerät: %1$s</string>
+    <string name="device_overview_patch_change">Neue Patches: %1$s</string>
 </resources>
