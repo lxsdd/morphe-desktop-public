@@ -905,4 +905,10 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="device_details_compatible_installed">Kompatibel mit der erkannten Geräteversion</string>
     <string name="device_details_incompatible_installed">Nicht kompatibel mit der erkannten Geräteversion</string>
     <string name="device_details_compatibility_unknown">Kompatibilität nicht prüfbar – Geräteversion unbekannt</string>
+    <!-- Device-specific installation outcome -->
+    <string name="result_device_installed_exact">Auf diesem Gerät installiert</string>
+    <string name="result_device_present_unverified">App vorhanden · APK ungeprüft</string>
+    <string name="result_device_not_installed">Nicht installiert oder noch ungeprüft</string>
+    <string name="result_device_checking">Gerät wird geprüft …</string>
+    <string name="result_device_failed">Installation fehlgeschlagen</string>
 </resources>
