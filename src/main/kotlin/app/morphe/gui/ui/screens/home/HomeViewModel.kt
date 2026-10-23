@@ -64,6 +64,9 @@ import app.morphe.gui.util.humanizePatchLoadError
 import app.morphe.morphe_desktop.generated.resources.*
 import java.io.File
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -965,11 +968,44 @@ class HomeViewModel(
                     requestGeneration = generation,
                     currentGeneration = deviceRefreshGeneration,
                 )) return@launch
+            // Publish the inventory immediately, then enrich supported apps in
+            // small read-only batches. A large device must not leave Home blank.
             _uiState.value = _uiState.value.copy(
                 deviceAppInfo = info,
                 deviceInstalledPackages = installed,
                 deviceInventorySerial = target.serial,
             )
+            val supportedNotInHistory = _uiState.value.supportedApps.filter { app ->
+                app.packageName in installed && app.packageName !in info
+            }
+            for (batch in supportedNotInHistory.chunked(4)) {
+                val additional = coroutineScope {
+                    batch.map { app ->
+                        async {
+                            val (version, signerId) =
+                                adbManager.getInstalledPackageInfo(target.serial, app.packageName)
+                                    ?: (null to null)
+                            val signed = if (signerId == null || ourSignatureIds.isEmpty()) null
+                                else signerId in ourSignatureIds
+                            app.packageName to DeviceAppInfo(
+                                installed = true,
+                                installedVersion = version,
+                                signedByMorphe = signed,
+                            )
+                        }
+                    }.awaitAll().toMap()
+                }
+                if (!shouldApplyDeviceResult(
+                        activeSerial = DeviceMonitor.state.value.captureOperationTarget()?.serial,
+                        resultSerial = target.serial,
+                        requestGeneration = generation,
+                        currentGeneration = deviceRefreshGeneration,
+                    )) return@launch
+                // Preserve other live UI fields, and publish each verified batch.
+                _uiState.value = _uiState.value.copy(
+                    deviceAppInfo = _uiState.value.deviceAppInfo + additional,
+                )
+            }
         }
     }
 
