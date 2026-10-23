@@ -895,7 +895,7 @@
     <string name="device_overview_app_update">Update app version</string>
     <string name="device_overview_patch_update">Update patches</string>
     <string name="device_overview_local_build">Check local APK</string>
-    <string name="device_overview_patchable">Patch source available – check version</string>
+    <string name="device_overview_patchable">Patch source available · review state</string>
     <string name="device_overview_version_match">Version matches – build unverified</string>
     <string name="device_overview_signer_conflict">Different signer – review</string>
     <string name="device_overview_review">Review needed</string>
@@ -904,7 +904,7 @@
     <string name="device_overview_disclaimer">Device data is read only. Equal version and signer do not prove identical APK bytes.</string>
     <string name="device_overview_all">All %1$d</string>
     <string name="device_overview_needs">Needs attention %1$d</string>
-    <string name="device_overview_patchable_count">Not patched yet %1$d</string>
+    <string name="device_overview_patchable_count">No local history %1$d</string>
     <string name="device_overview_version_count">Matching version %1$d</string>
     <string name="device_overview_other_count">Other %1$d</string>
     <string name="device_overview_no_results">No installed apps match this filter.</string>
