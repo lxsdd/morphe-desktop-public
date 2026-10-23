@@ -32,6 +32,7 @@ import app.morphe.gui.ui.screens.home.components.ForgetConfirmDialog
 import app.morphe.gui.ui.screens.home.components.FullScreenDropZone
 import app.morphe.gui.ui.screens.home.components.HeaderBar
 import app.morphe.gui.ui.screens.home.components.HomeBanners
+import app.morphe.gui.ui.screens.home.components.AppListFilter
 import app.morphe.gui.ui.screens.home.components.HomeSplitLayout
 import app.morphe.gui.ui.screens.home.components.DeviceAppDetailsDialog
 import app.morphe.gui.ui.screens.home.components.DevicePatchSourceDetails
@@ -41,6 +42,8 @@ import app.morphe.gui.ui.screens.home.components.UninstallConfirmDialog
 import app.morphe.gui.ui.screens.home.components.VersionWarningDialog
 import app.morphe.gui.ui.screens.home.components.handleContinue
 import app.morphe.gui.ui.screens.home.components.openFilePicker
+import app.morphe.gui.util.DeviceMonitor
+import app.morphe.gui.util.captureOperationTarget
 import app.morphe.gui.util.PatchException
 import app.morphe.gui.util.getUserMessage
 import app.morphe.gui.util.humanizePatchLoadError
