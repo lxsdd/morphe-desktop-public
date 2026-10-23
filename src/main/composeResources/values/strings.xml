@@ -925,4 +925,5 @@
     <string name="device_overview_patch_candidate_count">Patchable · %1$d sources</string>
     <string name="device_overview_outside_source">No patch source assigned</string>
     <string name="device_overview_installed_app_version">Device: %1$s</string>
+    <string name="device_overview_patch_change">Newer patches: %1$s</string>
 </resources>
