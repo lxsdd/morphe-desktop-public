@@ -222,6 +222,54 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
             }
         }
 
+        // Amazon has had an observed Play Store update regression. Make the
+        // upstream universal versionCode workaround discoverable but explicit:
+        // it may complicate future upgrades and is NEVER silently enabled.
+        if (!uiState.isLoading && targetPackage == "com.amazon.mShop.android.shopping") {
+            val suppression = remember(uiState.bundles) {
+                findPlayStoreSuppressionPatch(uiState.bundles)
+            }
+            val selected = suppression != null &&
+                suppression.patchId in uiState.selectedByBundle[suppression.bundleId].orEmpty()
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                shape = MorpheTheme.shapes.small,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(Res.string.patch_play_amazon_title),
+                            style = MorpheTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            stringResource(
+                                if (suppression == null) Res.string.patch_play_source_missing
+                                else Res.string.patch_play_version_code_warning
+                            ),
+                            style = MorpheTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (suppression != null) {
+                        OutlinedButton(
+                            onClick = { viewModel.togglePatch(suppression.bundleId, suppression.patchId) },
+                        ) {
+                            Text(stringResource(
+                                if (selected) Res.string.patch_play_selected
+                                else Res.string.patch_play_select
+                            ))
+                        }
+                    }
+                }
+            }
+        }
+
         when {
             uiState.isLoading -> {
                 Box(
