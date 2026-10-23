@@ -307,8 +307,10 @@ fun ResultScreenContent(outputPath: String) {
                     val device = monitorState.selectedDevice
                     val deviceDeployment = device?.let { deployments.forSerial(it.id) }
                     val linkState = device?.let { linkStates[it.id] }
+                    // Do not offer link mutation for a merely present/unverified app
+                    // on the newly selected device.
                     if (outputPackage != null && device?.isReady == true &&
-                        deviceDeployment?.installed == true) {
+                        deviceDeployment?.installedOutputMatchesCurrent == true) {
                         LinkHandlingSection(
                             stockPackage = stockPackage?.takeIf { it != outputPackage },
                             disableStockLinks = disableStockLinks,
