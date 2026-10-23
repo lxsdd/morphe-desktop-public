@@ -1,0 +1,34 @@
+name: Verified APK relink UI qualification
+
+on:
+  push:
+    branches:
+      - integration/1-19-relink-gui-20261022
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  test:
+    name: Relink UI source tests (${{ matrix.os }})
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Test only; no public binaries
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: ./gradlew test --no-daemon

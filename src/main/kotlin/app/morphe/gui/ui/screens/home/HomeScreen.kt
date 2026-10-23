@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.currentBackStackEntryAsState
 import app.morphe.engine.model.PatchedAppRecord
+import app.morphe.engine.patches.PatchResolver
+import app.morphe.engine.util.AdbException
 import app.morphe.gui.LocalNavController
 import app.morphe.gui.PatchSelectionParams
 import app.morphe.gui.PatchSelectionScreenRoute
@@ -30,30 +32,31 @@ import app.morphe.gui.ui.screens.home.components.ForgetConfirmDialog
 import app.morphe.gui.ui.screens.home.components.FullScreenDropZone
 import app.morphe.gui.ui.screens.home.components.HeaderBar
 import app.morphe.gui.ui.screens.home.components.HomeBanners
+import app.morphe.gui.ui.screens.home.DeviceInventoryRefreshStage
+import app.morphe.gui.ui.screens.home.components.AppListFilter
 import app.morphe.gui.ui.screens.home.components.HomeSplitLayout
+import app.morphe.gui.ui.screens.home.components.DeviceAppDetailsDialog
+import app.morphe.gui.ui.screens.home.components.DevicePatchSourceDetails
+import app.morphe.gui.ui.screens.home.components.availableDevicePatches
 import app.morphe.gui.ui.screens.home.components.PatchedAppDetailDialog
-import app.morphe.gui.ui.screens.home.components.RepatchMissingApkDialog
 import app.morphe.gui.ui.screens.home.components.UninstallConfirmDialog
 import app.morphe.gui.ui.screens.home.components.VersionWarningDialog
 import app.morphe.gui.ui.screens.home.components.handleContinue
 import app.morphe.gui.ui.screens.home.components.openFilePicker
-import app.morphe.gui.ui.screens.patches.PatchSelectionScreen
-import app.morphe.gui.ui.screens.patches.PatchesScreen
-import app.morphe.gui.util.AdbException
-import app.morphe.gui.util.EnabledSourcesLoader
+import app.morphe.gui.util.DeviceMonitor
+import app.morphe.gui.util.captureOperationTarget
 import app.morphe.gui.util.PatchException
+import app.morphe.gui.util.getUserMessage
 import app.morphe.gui.util.humanizePatchLoadError
 import app.morphe.gui.util.sourceChannelMap
 import app.morphe.gui.util.sourceErrorMap
 import app.morphe.gui.util.sourceVersionMap
-import app.morphe.morphe_desktop.generated.resources.*
 import java.awt.Desktop
 import java.io.File
 import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -70,8 +73,20 @@ fun HomeScreenContent(
 ) {
     val navController = LocalNavController.current
     val uiState by viewModel.uiState.collectAsState()
+    val monitoredDevices by DeviceMonitor.state.collectAsState()
+    val selectedSerial = monitoredDevices.captureOperationTarget()?.serial
+    // Synchronously mask the previous serial's data before the ViewModel's ADB
+    // collector has completed its asynchronous refresh for the new selection.
+    val visibleDeviceUiState = if (selectedSerial != null &&
+        (uiState.deviceInventorySerial == selectedSerial ||
+            uiState.deviceRefreshSerial == selectedSerial)) uiState
+        else uiState.copy(
+            deviceAppInfo = emptyMap(), deviceInstalledPackages = emptySet(),
+            deviceInventorySerial = null, deviceRefreshSerial = null,
+            deviceRefreshStage = DeviceInventoryRefreshStage.IDLE,
+        )
 
-    // Device install-state is polled (adb), not streamed.
+    // Poll device installation state on initial load.
     LaunchedEffect(Unit) { viewModel.refreshDeviceInfo() }
 
     val coroutineScope = rememberCoroutineScope()
@@ -81,19 +96,14 @@ fun HomeScreenContent(
     var showSourceManagementSheet by rememberSaveable { mutableStateOf(false) }
     var pendingReopenSheet by rememberSaveable { mutableStateOf(false) }
 
-    // One-click repatch: a patched-app row's "Re-patch" action. Jump straight to
-    // patch selection with the input APK + the record's saved selection, using
-    // the CURRENT resolved sources (so it repatches against current bundle versions).
-    var repatchMissingRecord by remember { mutableStateOf<PatchedAppRecord?>(null) }
-    // Launch patch selection for a record with explicit patch files (re-patch uses
-    // the current resolved set. Update passes freshly-resolved latest files).
+    // Navigates to patch selection using resolved patch bundles.
     fun launchPatch(
         record: PatchedAppRecord,
         apkPath: String,
         patchFilePaths: List<String>,
         sourceNames: List<String>,
     ) {
-        if (patchFilePaths.isEmpty()) return // patches not loaded yet
+        if (patchFilePaths.isEmpty()) return
         navController.navigateComplex(
             PatchSelectionScreenRoute,
             PatchSelectionParams(
@@ -110,23 +120,6 @@ fun HomeScreenContent(
         )
     }
 
-    fun repatchWithApk(record: PatchedAppRecord, apkPath: String) {
-        launchPatch(
-            record, apkPath,
-            viewModel.getAllResolvedPatchFiles().map { it.absolutePath },
-            viewModel.getAllResolvedPatchSourceNames(),
-        )
-    }
-    val onRepatch: (String) -> Unit = onRepatch@{ pkg ->
-        val record = viewModel.getPatchedRecord(pkg) ?: return@onRepatch
-        if (File(record.inputApkPath).exists()) {
-            repatchWithApk(record, record.inputApkPath)
-        } else {
-            repatchMissingRecord = record
-        }
-    }
-
-    // Explicit "Forget" recovery action. Removes a record from the history.
     var forgetConfirm by remember { mutableStateOf<PatchedAppRecord?>(null) }
     val onForget: (String) -> Unit = { pkg -> forgetConfirm = viewModel.getPatchedRecord(pkg) }
     forgetConfirm?.let { record ->
@@ -140,8 +133,6 @@ fun HomeScreenContent(
         )
     }
 
-    // "Uninstall" removes the patched app from the connected device. The dialog
-    // offers the keep-history vs delete-history choice via a checkbox.
     var uninstallConfirm by remember { mutableStateOf<PatchedAppRecord?>(null) }
     var uninstallAlsoForget by remember { mutableStateOf(false) }
     val onUninstall: (String) -> Unit = { pkg ->
@@ -161,17 +152,52 @@ fun HomeScreenContent(
         )
     }
 
-    repatchMissingRecord?.let { record ->
-        RepatchMissingApkDialog(
-            record = record,
-            onDismiss = { repatchMissingRecord = null },
-            onApkPicked = { path -> repatchWithApk(record, path) },
-        )
+    var detailRecord by remember { mutableStateOf<PatchedAppRecord?>(null) }
+    var detailOriginSerial by remember { mutableStateOf<String?>(null) }
+    var untrackedDevicePackage by remember { mutableStateOf<String?>(null) }
+    var untrackedOriginSerial by remember { mutableStateOf<String?>(null) }
+    val onShowDetail: (PatchedAppRecord) -> Unit = { record ->
+        detailOriginSerial = selectedSerial.takeIf { uiState.appListFilter == AppListFilter.DEVICE }
+        detailRecord = record
+    }
+    val onShowDeviceApp: (String) -> Unit = { pkg ->
+        untrackedOriginSerial = selectedSerial
+        untrackedDevicePackage = pkg
+    }
+    LaunchedEffect(selectedSerial) {
+        if (detailOriginSerial != null && detailOriginSerial != selectedSerial) detailRecord = null
+        if (untrackedOriginSerial != selectedSerial) untrackedDevicePackage = null
     }
 
-    // Phase 7. Tap a "Your apps" row to see the full recall breakdown.
-    var detailRecord by remember { mutableStateOf<PatchedAppRecord?>(null) }
-    val onShowDetail: (PatchedAppRecord) -> Unit = { detailRecord = it }
+    untrackedDevicePackage?.let { pkg ->
+        val installed = selectedSerial != null && untrackedOriginSerial == selectedSerial &&
+            visibleDeviceUiState.deviceInventorySerial == selectedSerial &&
+            pkg in visibleDeviceUiState.deviceInstalledPackages
+        if (!installed) {
+            // A switched/disconnected device must never display stale package details.
+            untrackedDevicePackage = null
+        } else {
+            val version = visibleDeviceUiState.deviceAppInfo[pkg]?.installedVersion
+            val snapshot = viewModel.getResolvedSourcesSnapshot()
+            val byId = snapshot?.resolved.orEmpty().associateBy { it.source.id }
+            val sources = snapshot?.patchesBySource.orEmpty().mapNotNull { (id, patches) ->
+                val available = availableDevicePatches(patches, pkg, version)
+                if (available.isEmpty()) null else DevicePatchSourceDetails(
+                    sourceName = byId[id]?.source?.name
+                        ?: allSources.firstOrNull { it.id == id }?.name ?: id,
+                    sourceVersion = byId[id]?.resolvedVersion,
+                    patches = available,
+                )
+            }.sortedBy { it.sourceName.lowercase() }
+            DeviceAppDetailsDialog(
+                packageName = pkg,
+                app = uiState.supportedApps.firstOrNull { it.packageName == pkg },
+                deviceInfo = visibleDeviceUiState.deviceAppInfo[pkg],
+                patchSources = sources,
+                onDismiss = { untrackedDevicePackage = null },
+            )
+        }
+    }
     var bundleVersionsBySource by remember { mutableStateOf(emptyMap<String, List<BundleRelease>>()) }
     var showAddSourceDialog by remember { mutableStateOf(false) }
     var preparingPatch by remember { mutableStateOf(false) }
@@ -196,12 +222,12 @@ fun HomeScreenContent(
             },
         )
     }
-    detailRecord?.let { record ->
+    detailRecord?.takeIf { detailOriginSerial == null || detailOriginSerial == selectedSerial }?.let { record ->
         val updateInfo = remember(record) { viewModel.recallUpdateInfo(record) }
         PatchedAppDetailDialog(
             record = record,
             state = uiState.patchedStates[record.packageName] ?: PatchedAppState.PATCHED,
-            deviceInfo = uiState.deviceAppInfo[record.packageName],
+            deviceInfo = visibleDeviceUiState.deviceAppInfo[record.packageName],
             updateInfo = updateInfo,
             supportedApp = uiState.supportedApps.find { it.packageName == record.packageName },
             activeSources = activeSources,
@@ -232,7 +258,6 @@ fun HomeScreenContent(
             onSupportedAppFor = { pkg, overrides -> viewModel.supportedAppFor(pkg, overrides) },
             onDownloadBundle = { name, tag, onProgress -> viewModel.downloadBundle(name, tag, onProgress) },
             onDismiss = { detailRecord = null },
-            onRepatch = { onRepatch(record.packageName) },
             preparingPatch = preparingPatch,
             patchPrepProgress = patchPrepProgress,
             onPatchWith = { apkPath, overrides ->
@@ -266,6 +291,11 @@ fun HomeScreenContent(
                     if (parent != null && parent.exists()) Desktop.getDesktop().open(parent)
                 }
             },
+            onRelinkApk = { path ->
+                viewModel.relinkPatchedApk(record.packageName, path) { updated ->
+                    detailRecord = updated
+                }
+            },
             onInstall = { viewModel.installPatchedApp(record.packageName) },
             onUninstall = { onUninstall(record.packageName) },
             installing = uiState.installingPackage == record.packageName,
@@ -273,8 +303,7 @@ fun HomeScreenContent(
         )
     }
 
-    // Re-show the sheet after the pop animation finishes, NOT immediately on
-    // re-entry. Without the delay the sheet flashes in mid-transition.
+    // Delay sheet re-opening until transition completes to prevent visual flashing.
     LaunchedEffect(Unit) {
         if (pendingReopenSheet) {
             delay(220.milliseconds)
@@ -299,8 +328,7 @@ fun HomeScreenContent(
             onToggleEnabled = { id, enabled ->
                 coroutineScope.launch {
                     patchSourceManager.setSourceEnabled(id, enabled)
-                    // Re-resolve releases + reload patches so badges, versions,
-                    // and the union app list reflect the new enabled set.
+                    // Reload patches to update available apps and version badges.
                     viewModel.retryLoadPatches()
                 }
             },
@@ -316,20 +344,17 @@ fun HomeScreenContent(
             onReorder = { orderedIds ->
                 coroutineScope.launch {
                     patchSourceManager.reorderSources(orderedIds)
-                    // Reload so the union app list + display-name tiebreak reflect
-                    // the new source priority.
+                    // Reload patches to reflect updated source priority.
                     viewModel.retryLoadPatches()
                 }
             },
             onOpenPatches = { sourceId ->
-                // Hide sheet immediately so it doesn't ride the push animation.
-                // Mark it as pending-reopen so it returns smoothly after pop.
+                // Hide sheet during transition and schedule reopen upon return.
                 showSourceManagementSheet = false
                 pendingReopenSheet = true
                 coroutineScope.launch {
                     patchSourceManager.switchSource(sourceId)
                     navController.navigate(PatchesScreenRoute(
-                        apkPath = uiState.apkInfo?.filePath ?: "",
                         apkName = uiState.apkInfo?.appName ?: ""
                     ))
                 }
@@ -340,9 +365,7 @@ fun HomeScreenContent(
         )
     }
 
-    // Full screen drop zone wrapper
     FullScreenDropZone(
-        isDragHovering = uiState.isDragHovering,
         onDragHoverChange = { viewModel.setDragHover(it) },
         onFilesDropped = { viewModel.onFilesDropped(it) },
         enabled = !uiState.isAnalyzing
@@ -351,12 +374,8 @@ fun HomeScreenContent(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            // Single side-by-side layout: APK drop zone on one side, supported-apps
-            // list on the other. The window enforces a minimum width wide enough for
-            // it (see GuiMain), so there's no narrow/stacked variant to maintain.
             val padding = 24.dp
 
-            // Version warning dialog state
             var showVersionWarningDialog by remember { mutableStateOf(false) }
 
             if (showVersionWarningDialog && uiState.apkInfo != null) {
@@ -404,20 +423,15 @@ fun HomeScreenContent(
             }
 
             val resolvedSnapshot = viewModel.getResolvedSourcesSnapshot()
-//            val versionsBySource: Map<String, String?> = resolvedSnapshot
-//                ?.resolved
-//                ?.associate { it.source.id to it.resolvedVersion }
-//                ?: emptyMap()
-            val channelsBySource: Map<String, EnabledSourcesLoader.Channel?> =
+            val channelsBySource: Map<String, PatchResolver.Channel?> =
                 resolvedSnapshot
                     ?.resolved
                     ?.associate { it.source.id to it.channel }
                     ?: emptyMap()
-            // Source names whose patches target the currently-selected APK's package.
-            // Used by ApkInfoCard's "FROM" row to surface multi-source provenance.
+            // Patch sources providing patches for the selected APK.
             val patchSourcesForSelectedApk: List<String> = uiState.apkInfo?.let { info ->
                 val snapshot = resolvedSnapshot ?: return@let null
-                snapshot.guiPatchesBySource.entries
+                snapshot.patchesBySource.entries
                     .filter { (_, patches) ->
                         patches.any { p -> p.compatiblePackages.any { it.name == info.packageName } }
                     }
@@ -426,14 +440,13 @@ fun HomeScreenContent(
                     }
             } ?: emptyList()
 
-            // Per-package source attribution map used by the supported-apps cards.
-            // Built once per recomposition so each card just looks up its own list.
+            // Map of package names to their providing patch sources.
             val sourceNamesByPackage: Map<String, List<String>> = if (resolvedSnapshot == null) {
                 emptyMap()
             } else {
                 val sourceIdToName = allSources.associate { it.id to it.name }
                 val accum = mutableMapOf<String, MutableList<String>>()
-                resolvedSnapshot.guiPatchesBySource.forEach { (sourceId, patches) ->
+                resolvedSnapshot.patchesBySource.forEach { (sourceId, patches) ->
                     val name = sourceIdToName[sourceId] ?: return@forEach
                     val packages = patches.flatMap { it.compatiblePackages.map { p -> p.name } }
                         .filter { it.isNotBlank() }
@@ -449,7 +462,6 @@ fun HomeScreenContent(
             }
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // ── Pinned header (not scrollable) ──
                     HeaderBar(
                         uiState = uiState,
                         onRetry = onRetry,
@@ -458,8 +470,6 @@ fun HomeScreenContent(
                         sourceStates = sourceStates,
                     )
 
-                    // ── Body: drop zone / APK info on one side, supported-apps
-                    // list on the other. The list pane owns its own scroll. ──
                     Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         HomeBanners(
                             uiState = uiState,
@@ -470,15 +480,17 @@ fun HomeScreenContent(
                             onDismissSourcesFailed = { viewModel.dismissSourcesFailedBanner() },
                         )
                         HomeSplitLayout(
-                            uiState = uiState,
+                            uiState = visibleDeviceUiState,
                             padding = padding,
                             sourceNamesByPackage = sourceNamesByPackage,
                             patchSourcesForSelectedApk = patchSourcesForSelectedApk,
                             patchesLoaded = patchesLoaded,
                             onSortModeChange = { viewModel.setSortMode(it) },
                             onShowDetail = onShowDetail,
+                            onShowDeviceApp = onShowDeviceApp,
                             onFilterChange = { viewModel.setAppListFilter(it) },
                             onRetry = onRetry,
+                            onRefreshDeviceInfo = { viewModel.refreshDeviceInfo() },
                             onManageSources = { showSourceManagementSheet = true },
                             onClearClick = onClearClick,
                             onChangeClick = onChangeClick,
@@ -488,10 +500,7 @@ fun HomeScreenContent(
                     }
                 }
 
-                // Error/warning bar, custom Morphe-styled, avoids Material3
-                // SnackbarHost (whose internal SnackbarKt invocation path the
-                // shadow `minimize` analyzer can't trace, causing runtime
-                // NoClassDefFoundError in the packaged jar).
+                // Custom error notification bar replacing Material3 Snackbar.
                 uiState.error?.let { error ->
                     MorpheErrorBar(
                         message = error,

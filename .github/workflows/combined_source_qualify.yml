@@ -1,0 +1,38 @@
+name: Combined Custom 1.19 source qualification
+
+on:
+  push:
+    branches:
+      - integration/1-19-combined-source-candidate-20261022
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: combined-source-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Combined source tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Build all source and regression tests; no binary upload
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew test --no-daemon

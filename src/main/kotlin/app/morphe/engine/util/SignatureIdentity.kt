@@ -5,69 +5,74 @@
 
 package app.morphe.engine.util
 
+import com.android.apksig.ApkVerifier
 import java.io.File
+import java.security.MessageDigest
 import java.security.KeyStore
+import java.security.Provider
 import java.security.Security
 import java.security.cert.Certificate
 
-/**
- * Identifies a signing certificate by the same value Android reports in
- * `dumpsys package <pkg>`:
- *
- * ```
- * signatures=PackageSignatures{… signatures:[a7001add], past signatures:[]}
- * ```
- *
- * That `a7001add` is `Integer.toHexString(certDER.contentHashCode())` of the
- * signing cert (Android's `Signature.hashCode()`). Computing the same value from
- * Morphe's keystore cert lets us tell, from a connected device, whether an
- * installed app was signed by Morphe — without pulling the APK.
- *
- * The `signatures:[HEX]` format has been stable across Android 7→15. If a device
- * emits something we don't recognise, [parseDeviceSignatureId] returns null and
- * callers fall back to the version-robust "installed?" check (no false verdicts).
- */
+/** Computes and parses Android package signature hashes (`dumpsys package`) for device matching. */
 object SignatureIdentity {
 
-    /** Android's signature id for [cert]: `toHexString(DER.contentHashCode())`. */
+    /** Computes Android signature hash for [cert]. */
     fun idForCert(cert: Certificate): String =
         Integer.toHexString(cert.encoded.contentHashCode())
 
-    /**
-     * Signature id of the cert under [alias] in the BKS [keystoreFile], or null
-     * if it can't be read. Only the public certificate is needed, so the key
-     * (entry) password is irrelevant — just the store password.
-     */
+    /** Computes signature hash for [alias] in [keystoreFile], or null if unreadable. */
     fun idForKeystore(keystoreFile: File, storePassword: String?, alias: String): String? = try {
-        if (!keystoreFile.exists()) {
-            null
-        } else {
-            ensureBouncyCastle()
-            val ks = KeyStore.getInstance("BKS")
-            keystoreFile.inputStream().use { ks.load(it, storePassword?.toCharArray()) }
-            val realAlias = ks.aliases().toList().firstOrNull { it.equals(alias, ignoreCase = true) } ?: alias
-            ks.getCertificate(realAlias)?.let { idForCert(it) }
-        }
-    } catch (e: Exception) {
+        certificateForKeystore(keystoreFile, storePassword, alias)?.let(::idForCert)
+    } catch (_: Exception) {
+        null
+    }
+
+
+    /** Collision-resistant fingerprint for matching verified APKs against signing identities. */
+    fun sha256ForCert(cert: Certificate): String =
+        MessageDigest.getInstance("SHA-256").digest(cert.encoded)
+            .joinToString("") { "%02x".format(it) }
+
+    /** Public certificate fingerprint of the selected keystore alias, if readable. */
+    fun sha256ForKeystore(keystoreFile: File, storePassword: String?, alias: String): String? = try {
+        certificateForKeystore(keystoreFile, storePassword, alias)?.let(::sha256ForCert)
+    } catch (_: Exception) {
         null
     }
 
     /**
-     * Parse the signing-cert id from `dumpsys package` output. Matches the
-     * `signatures:[HEX]` form (lowercased). Null if not present/unrecognised.
+     * Read-only APK signer verification. A bad APK, unverifiable certificate
+     * or empty signer set is UNKNOWN (null), never an ownership success.
+     * Handles v1/v2/v3/v3.1 signatures through Android's APK verifier.
      */
+    fun sha256ForApkSigners(apkFile: File): Set<String>? = try {
+        val verification = ApkVerifier.Builder(apkFile).build().verify()
+        if (!verification.isVerified || verification.signerCertificates.isEmpty()) null
+        else verification.signerCertificates.mapTo(linkedSetOf(), ::sha256ForCert)
+    } catch (_: Exception) {
+        null
+    }
+
+    /** Parses signing certificate hash from `dumpsys package` output. */
     fun parseDeviceSignatureId(dumpsysOutput: String): String? =
-        Regex("""signatures:\[([0-9a-fA-F]+)\]""").find(dumpsysOutput)?.groupValues?.get(1)?.lowercase()
+        Regex("""signatures:\[([0-9a-fA-F]+)]""").find(dumpsysOutput)?.groupValues?.get(1)?.lowercase()
+
+    private fun certificateForKeystore(file: File, password: String?, alias: String): Certificate? {
+        if (!file.isFile) return null
+        ensureBouncyCastle()
+        val store = KeyStore.getInstance("BKS")
+        file.inputStream().use { store.load(it, password?.toCharArray()) }
+        val selectedAlias = store.aliases().toList().firstOrNull { it.equals(alias, ignoreCase = true) }
+            ?: alias
+        return store.getCertificate(selectedAlias)
+    }
 
     private fun ensureBouncyCastle() {
         if (Security.getProvider("BC") != null) return
         try {
             val provider = Class.forName("org.bouncycastle.jce.provider.BouncyCastleProvider")
-                .getDeclaredConstructor().newInstance() as java.security.Provider
+                .getDeclaredConstructor().newInstance() as Provider
             Security.addProvider(provider)
-        } catch (_: Exception) {
-            // BC ships transitively with the patcher; if absent, BKS load fails
-            // and idForKeystore returns null — graceful.
-        }
+        } catch (_: Exception) {}
     }
 }
