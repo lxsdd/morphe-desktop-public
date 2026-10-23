@@ -225,6 +225,30 @@ fun PatchedAppDetailDialog(
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
                 IdentityBand(record, state, deviceInfo, updateInfo)
+                if (deviceInfo?.installed == true) {
+                    val owner = when {
+                        !deviceInfo.updateOwnerChecked ->
+                            stringResource(Res.string.device_play_owner_unknown)
+                        deviceInfo.updateOwnerPackage.isNullOrBlank() ->
+                            stringResource(Res.string.device_play_owner_none)
+                        else -> deviceInfo.updateOwnerPackage
+                    }
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            stringResource(Res.string.device_play_owner_label, owner),
+                            style = MorpheTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            stringResource(Res.string.device_play_owner_is_not_play_detachment),
+                            style = MorpheTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 BandDivider()
 
                 Column(
