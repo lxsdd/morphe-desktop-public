@@ -123,7 +123,8 @@ internal fun AdbInstallSection(
                 }
             }
         } else if (selectedState?.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING) {
-            ResultProgressRow(selectedState.installMessage ?: stringResource(Res.string.installing))
+            Text(selectedState.installMessage ?: stringResource(Res.string.installing),
+                style = MorpheTheme.typography.bodySmall)
         } else if (selected != null) {
             MorpheButton(
                 label = if (selectedState?.installed == true)
