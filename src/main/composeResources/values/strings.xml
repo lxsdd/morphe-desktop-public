@@ -309,6 +309,8 @@
     <string name="home_your_apps_install_ready_hint">Patched v%1$s ready to install (no repatch needed)</string>
     <string name="home_action_install">Install</string>
     <string name="home_action_install_to_device">Install to device</string>
+    <string name="home_action_reinstall_to_device">Reinstall on device</string>
+    <string name="home_detail_reinstall_same_version">v%1$s already installed · reinstall saved patched APK</string>
     <string name="home_action_installing">Installing…</string>
     <string name="home_action_preparing">Preparing…</string>
     <string name="home_action_update">Update</string>

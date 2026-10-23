@@ -293,6 +293,8 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="home_your_apps_install_ready_hint">Gepatchte v%1$s zur Installation bereit (kein erneutes Patchen nötig)</string>
     <string name="home_action_install">Installieren</string>
     <string name="home_action_install_to_device">Auf Gerät installieren</string>
+    <string name="home_action_reinstall_to_device">Auf Gerät erneut installieren</string>
+    <string name="home_detail_reinstall_same_version">v%1$s bereits installiert · gespeicherte gepatchte APK erneut installieren</string>
     <string name="home_action_installing">Installieren…</string>
     <string name="home_action_preparing">Wird vorbereitet…</string>
     <string name="home_action_update">Update</string>

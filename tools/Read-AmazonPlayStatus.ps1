@@ -1,6 +1,7 @@
 #requires -Version 5.1
 <#
-Read-only Amazon Shopping update diagnosis for Pixel 6a.
+Read-only Amazon Shopping update diagnosis for Pixel 6a or Pixel 9.
+Works with already paired and connected Wireless ADB; USB is not required.
 No install, uninstall, patch, Play setting change, APK pull, or device write.
 The report omits the ADB serial.
 #>
@@ -8,6 +9,7 @@ The report omits the ADB serial.
 param(
     [string]$AdbPath = "",
     [string]$DeviceSerial = "",
+    [ValidateSet("Pixel 6a", "Pixel 9")][string]$TargetModel = "Pixel 9",
     [switch]$SelfTest
 )
 
@@ -70,7 +72,9 @@ if ([string]::IsNullOrWhiteSpace($AdbPath)) {
         $candidates = @(
             (Join-Path $localData "Android\Sdk\platform-tools\adb.exe"),
             (Join-Path $localData "platform-tools\adb.exe"),
-            (Join-Path $localData "Morphe Desktop\platform-tools\adb.exe")
+            (Join-Path $localData "Morphe Desktop\platform-tools\adb.exe"),
+            "C:\Android\sdk\platform-tools\adb.exe",
+            "C:\Program Files\Android\platform-tools\adb.exe"
         )
         $AdbPath = $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
             Select-Object -First 1
@@ -97,24 +101,24 @@ foreach ($line in $deviceLines) {
     }
 }
 if ($connectedSerials.Count -eq 0) {
-    throw "No authorized ADB device. Connect Pixel 6a via USB and allow USB debugging."
+    throw "No authorized ADB device. Ensure Wireless ADB is paired and connected in Morphe Desktop, then rerun."
 }
 
-$pixel6a = @()
+$matchingDevices = @()
 foreach ($serial in $connectedSerials) {
     if (-not [string]::IsNullOrWhiteSpace($DeviceSerial) -and $serial -ne $DeviceSerial) {
         continue
     }
     $model = ((Invoke-ReadOnlyAdb -Arguments @("-s", $serial, "shell", "getprop", "ro.product.model")) -join "").Trim()
-    if ($model -eq "Pixel 6a") {
-        $pixel6a += [pscustomobject]@{ Serial = $serial; Model = $model }
+    if ($model -eq $TargetModel) {
+        $matchingDevices += [pscustomobject]@{ Serial = $serial; Model = $model }
     }
 }
-if ($pixel6a.Count -ne 1) {
-    throw "Expected exactly one authorized Pixel 6a, found $($pixel6a.Count)."
+if ($matchingDevices.Count -ne 1) {
+    throw "Expected exactly one authorized $TargetModel, found $($matchingDevices.Count)."
 }
 
-$selectedSerial = $pixel6a[0].Serial
+$selectedSerial = $matchingDevices[0].Serial
 $androidVersion = ((Invoke-ReadOnlyAdb -Arguments @("-s", $selectedSerial, "shell", "getprop", "ro.build.version.release")) -join "").Trim()
 $androidSdk = ((Invoke-ReadOnlyAdb -Arguments @("-s", $selectedSerial, "shell", "getprop", "ro.build.version.sdk")) -join "").Trim()
 $packageLines = @(Invoke-ReadOnlyAdb -Arguments @("-s", $selectedSerial, "shell", "pm", "list", "packages", "-i", $packageName))
@@ -129,10 +133,23 @@ $installer = if ($installerMatch.Success) { $installerMatch.Groups[1].Value } el
 $dump = (Invoke-ReadOnlyAdb -Arguments @("-s", $selectedSerial, "shell", "dumpsys", "package", $packageName)) -join [Environment]::NewLine
 $details = Get-ExactPackageDetails -Dump $dump -PackageName $packageName
 
+$playStoreVersion = "UNBEKANNT"
+$playStoreVersionCode = "UNBEKANNT"
+try {
+    $playDump = (Invoke-ReadOnlyAdb -Arguments @("-s", $selectedSerial, "shell", "dumpsys", "package", "com.android.vending")) -join [Environment]::NewLine
+    $playDetails = Get-ExactPackageDetails -Dump $playDump -PackageName "com.android.vending"
+    $playStoreVersion = $playDetails.VersionName
+    $playStoreVersionCode = $playDetails.VersionCode
+} catch {
+    # Play Store diagnostics are supplementary; never block Amazon report.
+}
+
+$adbTransport = if ($selectedSerial.Contains(":") -or $selectedSerial -like "adb-*-*") { "WIRELESS" } else { "USB_ODER_ANDERES" }
+
 $report = @(
     "MORPHE_AMAZON_READ_ONLY_DIAGNOSTIC=1",
     "Datum=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz')",
-    "Geraet=Pixel 6a",
+    "Geraet=$TargetModel",
     "Android=$androidVersion",
     "AndroidSDK=$androidSdk",
     "Paket=$packageName",
@@ -140,6 +157,9 @@ $report = @(
     "VersionCode=$($details.VersionCode)",
     "InstallerOfRecord=$installer",
     "UpdateOwner=$($details.UpdateOwner)",
+    "PlayStoreVersion=$playStoreVersion",
+    "PlayStoreVersionCode=$playStoreVersionCode",
+    "ADB_Transport=$adbTransport",
     "ADB_Serial=NICHT_AUSGEGEBEN",
     "Aktion=READ_ONLY"
 ) -join [Environment]::NewLine
