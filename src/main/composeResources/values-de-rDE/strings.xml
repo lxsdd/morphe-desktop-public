@@ -949,4 +949,8 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="patch_play_version_code_warning">Optionaler Patch: setzt den Versionscode auf den Höchstwert und kann spätere App-Updates erschweren.</string>
     <string name="patch_play_select">Patch aktivieren</string>
     <string name="patch_play_selected">Patch deaktivieren</string>
+    <string name="patch_play_suppression_title">Play-Store-Updates unterdrücken (optional)</string>
+    <string name="patch_play_suppression_caution">Setzt den Versionscode auf den Maximalwert. Kann spätere Updates und das Entfernen des Patches erschweren. Kein garantierter Schutz.</string>
+    <string name="patch_play_suppression_selected">Bereits ausgewählt</string>
+    <string name="patch_play_suppression_enable">Bewusst aktivieren</string>
 </resources>
