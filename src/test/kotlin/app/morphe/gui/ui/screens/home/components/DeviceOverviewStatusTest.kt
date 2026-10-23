@@ -42,6 +42,17 @@ class DeviceOverviewStatusTest {
         assertEquals(DeviceOverviewStatus.LOCAL_BUILD_REVIEW,
             classifyDeviceOverview(evidence(localNewer = true)))
     }
+    @Test fun `matching exact SHA verifies local build only when signer and version agree`() {
+        assertEquals(DeviceOverviewStatus.EXACT_BUILD_VERIFIED,
+            classifyDeviceOverview(evidence().copy(exactBuildVerified = true)))
+        assertEquals(DeviceOverviewStatus.SIGNER_CONFLICT,
+            classifyDeviceOverview(evidence(signer = false).copy(exactBuildVerified = true)))
+        assertEquals(DeviceOverviewStatus.REVIEW_REQUIRED,
+            classifyDeviceOverview(evidence(installed = "1.2").copy(exactBuildVerified = true)))
+        assertEquals(DeviceOverviewStatus.PATCH_UPDATE,
+            classifyDeviceOverview(evidence(patchUpdate = true).copy(exactBuildVerified = true)))
+    }
+
     @Test fun `unknown signer with equal version cannot be marked current`() {
         assertEquals(DeviceOverviewStatus.REVIEW_REQUIRED,
             classifyDeviceOverview(evidence(signer = null)))
