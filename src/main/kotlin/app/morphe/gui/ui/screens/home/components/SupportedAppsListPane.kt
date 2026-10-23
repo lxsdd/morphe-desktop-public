@@ -53,6 +53,7 @@ internal fun SupportedAppsListPane(
     deviceInventorySerial: String? = null,
     updateInfoByPackage: Map<String, RecallUpdateInfo> = emptyMap(),
     onShowDetail: (PatchedAppRecord) -> Unit = {},
+    onShowDeviceApp: (String) -> Unit = {},
     filter: AppListFilter = AppListFilter.ALL,
     onFilterChange: (AppListFilter) -> Unit = {},
     sourceNamesByPackage: Map<String, List<String>>,
@@ -181,6 +182,7 @@ internal fun SupportedAppsListPane(
                 searchQuery = searchQuery,
                 paneMaxHeight = paneMaxHeight,
                 onShowDetail = onShowDetail,
+                onShowDeviceApp = onShowDeviceApp,
                 onRefreshDeviceInfo = onRefreshDeviceInfo,
             )
         } else if (filter != AppListFilter.ALL) {

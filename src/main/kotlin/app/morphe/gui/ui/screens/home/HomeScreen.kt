@@ -33,6 +33,9 @@ import app.morphe.gui.ui.screens.home.components.FullScreenDropZone
 import app.morphe.gui.ui.screens.home.components.HeaderBar
 import app.morphe.gui.ui.screens.home.components.HomeBanners
 import app.morphe.gui.ui.screens.home.components.HomeSplitLayout
+import app.morphe.gui.ui.screens.home.components.DeviceAppDetailsDialog
+import app.morphe.gui.ui.screens.home.components.DevicePatchSourceDetails
+import app.morphe.gui.ui.screens.home.components.availableDevicePatches
 import app.morphe.gui.ui.screens.home.components.PatchedAppDetailDialog
 import app.morphe.gui.ui.screens.home.components.UninstallConfirmDialog
 import app.morphe.gui.ui.screens.home.components.VersionWarningDialog
@@ -134,7 +137,37 @@ fun HomeScreenContent(
     }
 
     var detailRecord by remember { mutableStateOf<PatchedAppRecord?>(null) }
+    var untrackedDevicePackage by remember { mutableStateOf<String?>(null) }
     val onShowDetail: (PatchedAppRecord) -> Unit = { detailRecord = it }
+    val onShowDeviceApp: (String) -> Unit = { untrackedDevicePackage = it }
+
+    untrackedDevicePackage?.let { pkg ->
+        val installed = uiState.deviceInventorySerial != null && pkg in uiState.deviceInstalledPackages
+        if (!installed) {
+            // A switched/disconnected device must never display stale package details.
+            untrackedDevicePackage = null
+        } else {
+            val version = uiState.deviceAppInfo[pkg]?.installedVersion
+            val snapshot = viewModel.getResolvedSourcesSnapshot()
+            val byId = snapshot?.resolved.orEmpty().associateBy { it.source.id }
+            val sources = snapshot?.patchesBySource.orEmpty().mapNotNull { (id, patches) ->
+                val available = availableDevicePatches(patches, pkg, version)
+                if (available.isEmpty()) null else DevicePatchSourceDetails(
+                    sourceName = byId[id]?.source?.name
+                        ?: allSources.firstOrNull { it.id == id }?.name ?: id,
+                    sourceVersion = byId[id]?.resolvedVersion,
+                    patches = available,
+                )
+            }.sortedBy { it.sourceName.lowercase() }
+            DeviceAppDetailsDialog(
+                packageName = pkg,
+                app = uiState.supportedApps.firstOrNull { it.packageName == pkg },
+                deviceInfo = uiState.deviceAppInfo[pkg],
+                patchSources = sources,
+                onDismiss = { untrackedDevicePackage = null },
+            )
+        }
+    }
     var bundleVersionsBySource by remember { mutableStateOf(emptyMap<String, List<BundleRelease>>()) }
     var showAddSourceDialog by remember { mutableStateOf(false) }
     var preparingPatch by remember { mutableStateOf(false) }
@@ -424,6 +457,7 @@ fun HomeScreenContent(
                             patchesLoaded = patchesLoaded,
                             onSortModeChange = { viewModel.setSortMode(it) },
                             onShowDetail = onShowDetail,
+                            onShowDeviceApp = onShowDeviceApp,
                             onFilterChange = { viewModel.setAppListFilter(it) },
                             onRetry = onRetry,
                             onRefreshDeviceInfo = { viewModel.refreshDeviceInfo() },

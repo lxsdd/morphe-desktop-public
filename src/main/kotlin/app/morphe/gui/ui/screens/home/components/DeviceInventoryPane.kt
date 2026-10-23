@@ -76,6 +76,7 @@ internal fun DeviceInventoryPane(
     searchQuery: String,
     paneMaxHeight: Dp,
     onShowDetail: (PatchedAppRecord) -> Unit,
+    onShowDeviceApp: (String) -> Unit,
     onRefreshDeviceInfo: () -> Unit,
 ) {
     if (selectedDeviceSerial == null) {
@@ -233,11 +234,14 @@ internal fun DeviceInventoryPane(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     items(visible, key = { it.packageName }) { row ->
-                        Card(modifier = Modifier.fillMaxWidth().then(
-                            row.record?.let { record ->
-                                Modifier.clickable { onShowDetail(record) }
-                            } ?: Modifier
-                        )) {
+                        // Every installed app has details. Existing local-history
+                        // entries keep their full patched-app editor; other entries
+                        // open a read-only catalog/device dialog instead.
+                        Card(modifier = Modifier.fillMaxWidth().clickable {
+                            val record = row.record
+                            if (record != null) onShowDetail(record)
+                            else onShowDeviceApp(row.packageName)
+                        }) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
