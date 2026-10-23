@@ -982,4 +982,10 @@
     <string name="patch_play_store_details">Optional “Disable Play Store updates” patch: sets the APK version code to the maximum. May complicate later APK upgrades; verify the effect on the device.</string>
     <string name="patch_play_store_enable">Enable patch</string>
     <string name="patch_play_store_disable">Deselect patch</string>
+    <string name="device_android_version_code">Android version code on device: %1$s</string>
+    <string name="patch_play_amazon_title">Amazon: Play Store updates</string>
+    <string name="patch_play_source_missing">Optional “Disable Play Store updates” patch is not present in the loaded patch sources.</string>
+    <string name="patch_play_version_code_warning">Optional patch: sets the APK version code to the maximum and may complicate later app updates.</string>
+    <string name="patch_play_select">Enable patch</string>
+    <string name="patch_play_selected">Disable patch</string>
 </resources>
