@@ -59,7 +59,10 @@ object DeviceMonitor {
     }
 
     fun selectDevice(device: AdbDevice) {
-        _state.value = _state.value.copy(selectedDevice = device)
+        // Reject an obsolete device object from a previously rendered menu.
+        val current = _state.value
+        val ready = current.devices.firstOrNull { it.id == device.id && it.isReady } ?: return
+        _state.value = current.copy(selectedDevice = ready)
     }
 
     private suspend fun refreshDevices() {
@@ -83,16 +86,8 @@ object DeviceMonitor {
                     if (prev.id !in currentById) Logger.info("Device disconnected: ${prev.id}")
                 }
 
-                val readyDevices = devices.filter { it.isReady }
-
-                val selected = when {
-                    currentState.selectedDevice != null &&
-                        readyDevices.any { it.id == currentState.selectedDevice.id } ->
-                        readyDevices.first { it.id == currentState.selectedDevice.id }
-                    readyDevices.size == 1 -> readyDevices.first()
-                    readyDevices.isEmpty() -> null
-                    else -> currentState.selectedDevice
-                }
+                // Never carry a disconnected selection into a new device's view.
+                val selected = resolveSelectedDevice(devices, currentState.selectedDevice)
 
                 _state.value = currentState.copy(
                     devices = devices,
