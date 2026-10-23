@@ -41,6 +41,26 @@ function Get-ExactPackageDetails {
     }
 }
 
+function Invoke-ReadOnlyAdb {
+    param([Parameter(Mandatory = $true)][string[]]$Arguments)
+    # Windows PowerShell 5.1 wraps native stderr as NativeCommandError when
+    # 2>&1 is used. ADB legitimately writes its first daemon-start notice there.
+    # Capture stderr without letting ErrorActionPreference=Stop abort a
+    # successful native command; still reject every non-zero exit code.
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $lines = @(& $AdbPath @Arguments 2>&1 | ForEach-Object { [string]$_ })
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    if ($exitCode -ne 0) {
+        throw ("ADB read-only command failed (exit $exitCode): " + ($lines -join " "))
+    }
+    return $lines
+}
+
 if ($SelfTest) {
     $fixture = @'
 Packages:
@@ -58,7 +78,26 @@ Packages:
         $parsed.UpdateOwner -ne "com.android.shell") {
         throw "FAIL: Exact-package parser self-test."
     }
-    Write-Output "PASS: Exact-package parser self-test. No ADB or device operation."
+    # Native stderr may be informational (ADB daemon startup). It must not
+    # become a terminating PowerShell error while exit-code failure still fails.
+    $AdbPath = $env:ComSpec
+    if ([string]::IsNullOrWhiteSpace($AdbPath)) {
+        throw "FAIL: Windows command processor not available for native stderr self-test."
+    }
+    $mockOutput = @(Invoke-ReadOnlyAdb -Arguments @("/d", "/c", "echo daemon-start 1>&2 && echo ADB_OK"))
+    if (-not ($mockOutput -match "ADB_OK")) {
+        throw "FAIL: Native stderr startup message prevented a successful command."
+    }
+    $rejected = $false
+    try {
+        $null = Invoke-ReadOnlyAdb -Arguments @("/d", "/c", "echo rejected 1>&2 && exit /b 7")
+    } catch {
+        $rejected = $_.Exception.Message -match "exit 7"
+    }
+    if (-not $rejected) {
+        throw "FAIL: Non-zero native exit code was not rejected."
+    }
+    Write-Output "PASS: Exact-package parser and native-stderr self-tests. No ADB or device operation."
     exit 0
 }
 
@@ -82,15 +121,6 @@ if ([string]::IsNullOrWhiteSpace($AdbPath)) {
 }
 if ([string]::IsNullOrWhiteSpace($AdbPath) -or -not (Test-Path -LiteralPath $AdbPath -PathType Leaf)) {
     throw "ADB not found. Rerun with -AdbPath 'C:\path\to\adb.exe'."
-}
-
-function Invoke-ReadOnlyAdb {
-    param([Parameter(Mandatory = $true)][string[]]$Arguments)
-    $lines = @(& $AdbPath @Arguments 2>&1)
-    if ($LASTEXITCODE -ne 0) {
-        throw ("ADB read-only command failed: " + ($lines -join " "))
-    }
-    return $lines
 }
 
 $deviceLines = @(Invoke-ReadOnlyAdb -Arguments @("devices"))
