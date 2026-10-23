@@ -5,6 +5,8 @@
 
 package app.morphe.engine.util
 
+import app.morphe.engine.installation.AdbPackageOwnershipProbe
+import app.morphe.engine.installation.InstalledPackageOwnership
 import app.morphe.library.installation.installer.AdbRootInstaller
 import app.morphe.library.installation.installer.DeviceNotFoundException
 import app.morphe.library.installation.installer.Installer
@@ -816,14 +818,42 @@ class AdbManager {
         }
     }
 
-    /** Returns installed version name and signing certificate ID for [pkg] on [deviceId]. */
-    suspend fun getInstalledPackageInfo(deviceId: String, pkg: String): Pair<String?, String?>? =
+    /**
+     * Read-only facts for the requested package on one ADB serial.
+     * An update owner is NOT evidence that Play no longer lists this package.
+     */
+    data class InstalledPackageSnapshot(
+        val version: String?,
+        val signatureId: String?,
+        val updateOwnerPackage: String?,
+        val updateOwnerVerified: Boolean,
+    )
+
+    internal fun parseInstalledPackageSnapshot(pkg: String, dump: String): InstalledPackageSnapshot? {
+        val ownership = AdbPackageOwnershipProbe.parseInstalledPackageDump(pkg, dump)
+        if (ownership == InstalledPackageOwnership.NotInstalled) return null
+        val owner = (ownership as? InstalledPackageOwnership.OwnedBy)?.packageName
+        val version = Regex("""(?m)^[ \\t]*versionName=(\\S+)""")
+            .find(dump)?.groupValues?.get(1)
+        return InstalledPackageSnapshot(
+            version = version,
+            signatureId = SignatureIdentity.parseDeviceSignatureId(dump),
+            updateOwnerPackage = owner,
+            updateOwnerVerified = true,
+        )
+    }
+
+    suspend fun getInstalledPackageSnapshot(deviceId: String, pkg: String): InstalledPackageSnapshot? =
         withContext(Dispatchers.IO) {
             val out = dumpsysPackage(deviceId, pkg) ?: return@withContext null
-            val version = Regex("""versionName=(\S+)""").find(out)?.groupValues?.get(1)
-            val signatureId = SignatureIdentity.parseDeviceSignatureId(out)
-            version to signatureId
+            parseInstalledPackageSnapshot(pkg, out)
         }
+
+    /** Existing API used by non-ownership-aware views. */
+    suspend fun getInstalledPackageInfo(deviceId: String, pkg: String): Pair<String?, String?>? {
+        val info = getInstalledPackageSnapshot(deviceId, pkg) ?: return null
+        return info.version to info.signatureId
+    }
 
     private suspend fun dumpsysPackage(deviceId: String, pkg: String): String? = withContext(Dispatchers.IO) {
         val adb = findAdb() ?: return@withContext null
