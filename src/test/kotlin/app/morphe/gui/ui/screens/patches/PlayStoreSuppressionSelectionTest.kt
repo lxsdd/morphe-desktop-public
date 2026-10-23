@@ -45,6 +45,44 @@ class PlayStoreSuppressionSelectionTest {
     }
 
     @Test
+    fun `selected legacy Change version code is warned even from another source`() {
+        val legacy = PatchMetadata(
+            name = "Change version code",
+            description = "Turns off app store updates",
+            compatiblePackages = listOf(app.morphe.engine.model.CompatiblePackage("com.instagram.android")),
+            isEnabled = true,
+        )
+        val bundles = listOf(bundle("legacy", "Older Patch Bundle", listOf(legacy)))
+        assertEquals(
+            listOf(legacy.uniqueId),
+            selectedVersionCodeUpdateSuppressionPatches(
+                bundles, mapOf("legacy" to setOf(legacy.uniqueId))
+            ).map { it.uniqueId },
+        )
+    }
+
+    @Test
+    fun `unselected version code patch does not block ordinary patching`() {
+        val bundles = listOf(bundle("official", "Morphe Patches", listOf(optionalPlayPatch)))
+        assertEquals(
+            emptyList(),
+            selectedVersionCodeUpdateSuppressionPatches(bundles, emptyMap()),
+        )
+    }
+
+    @Test
+    fun `similar patch names do not trigger version code warning`() {
+        val unrelated = PatchMetadata(name = "Display app version code")
+        val bundles = listOf(bundle("other", "Other Patches", listOf(unrelated)))
+        assertEquals(
+            emptyList(),
+            selectedVersionCodeUpdateSuppressionPatches(
+                bundles, mapOf("other" to setOf(unrelated.uniqueId))
+            ),
+        )
+    }
+
+    @Test
     fun `absent optional patch never becomes silently selected`() {
         assertNull(findPlayStoreSuppressionPatch(
             listOf(bundle("official", "Morphe Patches", listOf(PatchMetadata("Another patch"))))))
