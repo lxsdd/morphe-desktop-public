@@ -1,0 +1,70 @@
+name: Custom 1.19 home views and device inventory qualification
+
+on:
+  push:
+    branches:
+      - feature/home-update-views-and-device-inventory-20261022
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: custom-1-19-home-views-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    name: Verified Custom tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Run tests with simulated ADB, no real device access
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew test --no-daemon
+
+  package-preflight:
+    name: Inspect ephemeral desktop JAR (do not upload)
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Build ephemeral fat JAR without distribution
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew shadowJar --no-daemon
+      - name: Verify archive, entrypoint and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=$(find build/libs -maxdepth 1 -type f -name '*-all.jar' -print -quit)
+          test -n "$file" && test -s "$file"
+          unzip -t "$file" > /dev/null
+          unzip -Z -1 "$file" > "$RUNNER_TEMP/morphe-jar-entries.txt"
+          grep -Fqx 'app/morphe/MorpheLauncherKt.class' "$RUNNER_TEMP/morphe-jar-entries.txt"
+          sha256sum "$file"
+          echo "PASS: ephemeral desktop archive verified. No artifact has been uploaded."

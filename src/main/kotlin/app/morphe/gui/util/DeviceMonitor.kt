@@ -5,6 +5,9 @@
 
 package app.morphe.gui.util
 
+import app.morphe.engine.util.AdbDevice
+import app.morphe.engine.util.AdbManager
+import app.morphe.engine.util.Logger
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,18 +32,12 @@ object DeviceMonitor {
         if (pollingJob?.isActive == true) return
 
         pollingJob = scope.launch {
-            // Initial ADB check
             val adbAvailable = adbManager.isAdbAvailable()
             _state.value = _state.value.copy(isAdbAvailable = adbAvailable)
 
             if (!adbAvailable) return@launch
 
-            // Re-detect ownership on every poll. startServer() is cheap when
-            // the daemon's already alive (TCP port probe + early-return),
-            // and when the daemon has died externally + Morphe respawns it,
-            // ownership correctly flips to true — so a later kill on toggle
-            // OFF / window close tears down the daemon Morphe is actively
-            // keeping alive instead of leaking it.
+            // Re-probe server and update ownership on every poll.
             while (isActive) {
                 adbManager.startServer()
                 refreshDevices()
@@ -54,14 +51,7 @@ object DeviceMonitor {
         pollingJob = null
     }
 
-    /**
-     * Stop polling AND kill the ADB daemon if Morphe owns it. Use this when
-     * the user toggles auto-start ADB OFF or closes the window. The owned-check
-     * lives in [AdbManager.killServerIfOwned] — if the daemon was already
-     * running when Morphe attached, this is a no-op.
-     *
-     * Clears device state immediately so UI doesn't flash stale entries.
-     */
+    /** Stops polling and kills the ADB daemon if Morphe spawned it. */
     suspend fun stopMonitoringAndKillIfOwned() {
         stopMonitoring()
         _state.value = DeviceMonitorState(isAdbAvailable = _state.value.isAdbAvailable)
@@ -69,7 +59,10 @@ object DeviceMonitor {
     }
 
     fun selectDevice(device: AdbDevice) {
-        _state.value = _state.value.copy(selectedDevice = device)
+        // Reject an obsolete device object from a previously rendered menu.
+        val current = _state.value
+        val ready = current.devices.firstOrNull { it.id == device.id && it.isReady } ?: return
+        _state.value = current.copy(selectedDevice = ready)
     }
 
     private suspend fun refreshDevices() {
@@ -78,9 +71,7 @@ object DeviceMonitor {
             onSuccess = { devices ->
                 val currentState = _state.value
 
-                // Log only transitions, not the (unchanged) result of every 5s poll.
-                // Connect / disconnect / authorization-status changes are the events worth
-                // recording; a steady state produces no log lines.
+                // Log connection and status transitions.
                 val previousById = currentState.devices.associateBy { it.id }
                 val currentById = devices.associateBy { it.id }
                 devices.forEach { dev ->
@@ -95,21 +86,8 @@ object DeviceMonitor {
                     if (prev.id !in currentById) Logger.info("Device disconnected: ${prev.id}")
                 }
 
-                val readyDevices = devices.filter { it.isReady }
-
-                // Determine selected device
-                val selected = when {
-                    // Keep current selection if it's still available
-                    currentState.selectedDevice != null &&
-                        readyDevices.any { it.id == currentState.selectedDevice.id } ->
-                        readyDevices.first { it.id == currentState.selectedDevice.id }
-                    // Auto-select if only one ready device
-                    readyDevices.size == 1 -> readyDevices.first()
-                    // Clear selection if no ready devices
-                    readyDevices.isEmpty() -> null
-                    // Keep null if multiple devices and no prior selection
-                    else -> currentState.selectedDevice
-                }
+                // Never carry a disconnected selection into a new device's view.
+                val selected = resolveSelectedDevice(devices, currentState.selectedDevice)
 
                 _state.value = currentState.copy(
                     devices = devices,

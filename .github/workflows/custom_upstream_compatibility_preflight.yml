@@ -1,0 +1,128 @@
+name: Custom Upstream Compatibility (read-only preflight)
+
+# On a dedicated source branch only. Workflow never changes remote refs,
+# opens PRs, publishes APK/JAR artifacts, or creates a release.
+on:
+  push:
+    branches:
+      - integration/upstream-readiness-audit-20261023
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: custom-upstream-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    name: Compare official dev with exact Custom source
+    runs-on: ubuntu-latest
+    outputs:
+      pending: ${{ steps.check.outputs.pending }}
+      upstream_sha: ${{ steps.check.outputs.upstream_sha }}
+      candidate_sha: ${{ steps.check.outputs.candidate_sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch official dev and inspect overlap; local merge only
+        id: check
+        shell: bash
+        env:
+          BASELINE: 69ee025a40a9c180b4cd59717fd30b37e1295880
+        run: |
+          set -euo pipefail
+          git remote add official https://github.com/MorpheApp/morphe-desktop.git
+          git fetch --no-tags official dev
+          official_sha="$(git rev-parse FETCH_HEAD)"
+          local_sha="$(git rev-parse HEAD)"
+          echo "upstream_sha=$official_sha" >> "$GITHUB_OUTPUT"
+          echo "candidate_sha=$local_sha" >> "$GITHUB_OUTPUT"
+          git merge-base --is-ancestor "$BASELINE" "$local_sha" || {
+            echo "::error::Custom candidate no longer descends from recorded official 1.19.0 baseline."
+            exit 1
+          }
+          git merge-base --is-ancestor "$BASELINE" "$official_sha" || {
+            echo "::error::Official dev rewrote history since the recorded 1.19.0 baseline. Review manually."
+            exit 1
+          }
+          {
+            echo "## Custom / official upstream compatibility"
+            echo
+            echo "- Custom candidate (never modified remotely): \`$local_sha\`"
+            echo "- Last established official baseline: \`$BASELINE\` (1.19.0)"
+            echo "- Official dev currently: \`$official_sha\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if git merge-base --is-ancestor "$official_sha" "$local_sha"; then
+            echo "pending=false" >> "$GITHUB_OUTPUT"
+            echo "- Status: already includes current official dev; no upstream delta to merge." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "pending=true" >> "$GITHUB_OUTPUT"
+          git diff --name-only "$BASELINE" "$local_sha" | sort -u > "$RUNNER_TEMP/custom-files.txt"
+          git diff --name-only "$BASELINE" "$official_sha" | sort -u > "$RUNNER_TEMP/upstream-files.txt"
+          comm -12 "$RUNNER_TEMP/custom-files.txt" "$RUNNER_TEMP/upstream-files.txt" > "$RUNNER_TEMP/overlap.txt"
+          {
+            echo "- Official changed files since baseline: $(wc -l < "$RUNNER_TEMP/upstream-files.txt")"
+            echo "- Custom changed files since baseline: $(wc -l < "$RUNNER_TEMP/custom-files.txt")"
+            echo "- Paths touched by both: $(wc -l < "$RUNNER_TEMP/overlap.txt")"
+            echo
+            echo "### Shared paths requiring focused review"
+            if test -s "$RUNNER_TEMP/overlap.txt"; then
+              sed -n '1,60p' "$RUNNER_TEMP/overlap.txt" | sed 's/^/- \`/;s/$/\`/'
+            else
+              echo "No same-path changes. Behavioral compatibility still requires tests."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if ! git -c user.name=upstream-preflight -c user.email=preflight@localhost \
+                 merge --no-commit --no-ff "$official_sha"; then
+            {
+              echo
+              echo "### Conflict: manual integration required"
+              git diff --name-only --diff-filter=U | sed 's/^/- \`/;s/$/\`/'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Official changes conflict with Custom. No remote branch was changed."
+            exit 1
+          fi
+          echo "- Dry-run merge: clean. This is NOT proof of runtime compatibility." >> "$GITHUB_STEP_SUMMARY"
+          git merge --abort || true
+
+  candidate-tests:
+    name: Dry-merged candidate synthetic tests (${{ matrix.os }})
+    if: needs.compare.outputs.pending == 'true'
+    needs: compare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Recreate same upstream merge locally (never push)
+        shell: bash
+        env:
+          EXPECTED_OFFICIAL: ${{ needs.compare.outputs.upstream_sha }}
+        run: |
+          set -euo pipefail
+          git remote add official https://github.com/MorpheApp/morphe-desktop.git
+          git fetch --no-tags official dev
+          test "$(git rev-parse FETCH_HEAD)" = "$EXPECTED_OFFICIAL"
+          git -c user.name=upstream-preflight -c user.email=preflight@localhost \
+            merge --no-commit --no-ff "$EXPECTED_OFFICIAL"
+      - name: Test candidate; no Android device access, no distribution
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew test --no-daemon
