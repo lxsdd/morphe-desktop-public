@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
@@ -139,5 +140,19 @@ internal fun AdbInstallSection(
         } else if (devices.any { it.isReady }) {
             Text(stringResource(Res.string.result_adb_select_device_button))
         }
+    }
+}
+
+/** Shared ADB and link-handling progress row, reused by result components. */
+@Composable
+internal fun ResultProgressRow(text: String, modifier: Modifier = Modifier) {
+    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(16.dp),
+            strokeWidth = 2.dp,
+            color = MorpheTheme.colors.primary,
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(text, style = MorpheTheme.typography.labelSmall, color = MorpheTheme.colors.primary)
     }
 }
