@@ -934,4 +934,5 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="device_scan_catalog">Patchfähige Apps werden abgeglichen</string>
     <string name="device_scan_old_hidden">Der bisherige Gerätestand ist während der Prüfung ausgeblendet.</string>
     <string name="device_scan_failed">Gerät konnte nicht vollständig eingelesen werden. Keine alten Daten werden angezeigt.</string>
+    <string name="result_play_updates_cannot_be_excluded">Google Play kann die gepatchte App trotz erfolgreicher Installation weiterhin als Update anbieten. Die Installationsquelle verhindert dies nicht zuverlässig; ein Play-Update kann wegen abweichender Signatur scheitern.</string>
 </resources>
