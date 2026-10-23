@@ -986,6 +986,7 @@
     <string name="patch_version_code_warning_details">“Change version code” or “Disable Play Store updates” can make the APK appear newer than official releases. The Play Store may stop offering updates. This is separate from Android update ownership. Continue with this patch enabled?</string>
     <string name="patch_version_code_warning_proceed">Patch anyway</string>
     <string name="patch_version_code_warning_back">Review patches</string>
+    <string name="device_version_code_update_warning">This app reports the maximum 32-bit version code. A patch suppressing Play Store updates was likely applied. This does not prove anything about Android update ownership.</string>
     <string name="patch_play_store_enable">Enable patch</string>
     <string name="patch_play_store_disable">Deselect patch</string>
     <string name="device_android_version_code">Android version code on device: %1$s</string>
