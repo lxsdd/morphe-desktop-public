@@ -872,4 +872,5 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="device_overview_version_unknown">Version unbekannt</string>
     <string name="device_overview_local_version">Lokal gepatcht: %1$s</string>
     <string name="device_overview_target_version">Kompatibles Ziel: %1$s</string>
+    <string name="device_overview_refresh">Gerät neu einlesen</string>
 </resources>
