@@ -78,7 +78,6 @@ jobs:
   package-preflight:
     name: Inspect ephemeral desktop JAR (do not upload)
     if: github.repository == 'lxsdd/morphe-desktop-public'
-    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
