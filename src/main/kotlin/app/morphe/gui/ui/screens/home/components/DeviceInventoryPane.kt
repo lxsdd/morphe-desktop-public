@@ -46,6 +46,8 @@ private data class DeviceOverviewRow(
     val targetVersion: String?,
     val record: PatchedAppRecord?,
     val sourceCount: Int,
+    val appUpdateAvailable: Boolean,
+    val confirmedPatchUpdate: Boolean,
     val status: DeviceOverviewStatus,
 )
 
@@ -117,6 +119,9 @@ internal fun DeviceInventoryPane(
                 targetVersion = target?.takeIf { newerVersion },
                 record = record,
                 sourceCount = sourceNamesByPackage[pkg]?.size ?: 0,
+                appUpdateAvailable = newerVersion,
+                confirmedPatchUpdate = metadata?.exactBuildVerified == true &&
+                    hasConfirmedPatchUpdate(update),
                 status = status,
             )
         }.sortedWith(compareBy<DeviceOverviewRow>(
@@ -126,8 +131,10 @@ internal fun DeviceInventoryPane(
     val supportedPackages = remember(supportedApps) { supportedApps.map { it.packageName }.toSet() }
     val relevantCount = rows.count { it.packageName in supportedPackages || it.record != null }
     val supportedCount = rows.count { it.packageName in supportedPackages }
-    val appUpdateCount = rows.count { it.status == DeviceOverviewStatus.APP_UPDATE }
-    val patchUpdateCount = rows.count { it.status == DeviceOverviewStatus.PATCH_UPDATE }
+    // A device can have both an app update and a patch update. Each dimension
+    // is counted independently, even when app upgrade takes visual priority.
+    val appUpdateCount = rows.count { it.appUpdateAvailable }
+    val patchUpdateCount = rows.count { it.confirmedPatchUpdate }
     val needsCount = rows.count { deviceOverviewPriority(it.status) <= 3 }
     val patchableCount = rows.count { it.status == DeviceOverviewStatus.PATCH_CANDIDATE }
     val verifiedCount = rows.count { it.status == DeviceOverviewStatus.EXACT_BUILD_VERIFIED }
@@ -144,8 +151,8 @@ internal fun DeviceInventoryPane(
                 when (filter) {
                     DeviceViewFilter.RELEVANT ->
                         row.packageName in supportedPackages || row.record != null
-                    DeviceViewFilter.APP_UPDATES -> row.status == DeviceOverviewStatus.APP_UPDATE
-                    DeviceViewFilter.PATCH_UPDATES -> row.status == DeviceOverviewStatus.PATCH_UPDATE
+                    DeviceViewFilter.APP_UPDATES -> row.appUpdateAvailable
+                    DeviceViewFilter.PATCH_UPDATES -> row.confirmedPatchUpdate
                     DeviceViewFilter.ALL -> true
                     DeviceViewFilter.NEEDS_ATTENTION -> deviceOverviewPriority(row.status) <= 3
                     DeviceViewFilter.PATCHABLE -> row.status == DeviceOverviewStatus.PATCH_CANDIDATE
