@@ -1,0 +1,102 @@
+name: Custom 1.19 version-code warning preview ZIP (public, 2 days)
+
+on:
+  push:
+    branches:
+      - delivery/version-code-warning-preview-20261023
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: morphe-version-code-warning-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview-jar:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    name: Build tested version-code warning desktop ZIP
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      VERIFIED_CODE_SHA: b11a3b4e43f2b7c265e6d6e0e6560ab6d01c9dce
+    steps:
+      - name: Checkout exact public source without persisted credentials
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Verify delivery branch changes only this workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$VERIFIED_CODE_SHA"
+          changed="$(git diff-tree --no-commit-id --name-only -r HEAD)"
+          test "$changed" = '.github/workflows/public_version_code_warning_preview.yml'
+          test -z "$(git status --porcelain --untracked-files=no)"
+          echo "Verified source baseline: $VERIFIED_CODE_SHA"
+      - name: Set up JetBrains JDK 21
+        uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Route Maven Central reads via shared GCS mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.m2"
+          path="$HOME/.m2/settings.xml"
+          if [ ! -f "$path" ]; then
+            printf '%s\n' '<settings></settings>' > "$path"
+          fi
+          sed -i 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
+      - name: Run tests and build desktop fat JAR
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew test shadowJar --no-daemon -Dorg.gradle.mirror.maven.settings=true
+      - name: Verify JAR, SHA-256 and prepare two-day ZIP content
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p preview
+          mapfile -t jars < <(find build/libs -maxdepth 1 -type f -name '*-all.jar' -print)
+          test "${#jars[@]}" -eq 1
+          test -s "${jars[0]}"
+          unzip -t "${jars[0]}" > /dev/null
+          unzip -Z -1 "${jars[0]}" > "$RUNNER_TEMP/preview-entries.txt"
+          grep -Fqx 'app/morphe/MorpheLauncherKt.class' "$RUNNER_TEMP/preview-entries.txt"
+          cp "${jars[0]}" preview/morphe-desktop-custom-1.19.0-versioncode-warning.jar
+          (
+            cd preview
+            sha256sum morphe-desktop-custom-1.19.0-versioncode-warning.jar > SHA256.txt
+            {
+              echo "MORPHE CUSTOM 1.19 - VERSION-CODE WARNING PREVIEW"
+              echo "This is a short-lived public GitHub Actions artifact, not a release."
+              echo "Other signed-in GitHub users can download it while retained (2 days)."
+              echo "It contains a desktop JAR only, not any Android APK or signing key."
+              echo "Patch selection now warns before applying either version-code update suppression patch name."
+              echo "For a newly installed app, Morphe requests and verifies Android update ownership."
+              echo "For an already installed app without shell update ownership, Morphe stops and explains that one-time clean migration is necessary; it does not silently uninstall or erase app data."
+              echo "No automatic Android-device installation or migration was performed in CI."
+              echo "Source baseline SHA: $VERIFIED_CODE_SHA"
+              echo "Delivery commit SHA: $GITHUB_SHA"
+              echo "Source CI: https://github.com/lxsdd/morphe-desktop-public/actions/runs/40029311209"
+              echo "Build verification: ./gradlew test shadowJar --no-daemon"
+              echo "SHA256.txt contains the actual JAR digest."
+            } > README-PREVIEW.txt
+          )
+          echo "PASS: version-code-warning desktop preview JAR checked"
+      - name: Upload requested public preview ZIP for 2 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: morphe-desktop-custom-1.19.0-VERSIONCODE-WARNING-b11a3b4e43f2
+          path: |
+            preview/morphe-desktop-custom-1.19.0-versioncode-warning.jar
+            preview/SHA256.txt
+            preview/README-PREVIEW.txt
+          if-no-files-found: error
+          retention-days: 2
+          compression-level: 0
