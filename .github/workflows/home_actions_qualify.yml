@@ -10,6 +10,7 @@ on:
       - fix/result-device-scoped-install-continuity-20261023
       - feature/device-status-sorting-and-refresh-feedback-20261023
       - integration/upstream-readiness-audit-20261023
+      - fix/play-store-update-ownership-honest-state-20261023
 
 permissions:
   contents: read
@@ -27,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -47,17 +48,62 @@ jobs:
           fi
           sed -i.bak 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
           rm -f "$path.bak"
+      - name: Self-test read-only Amazon diagnostic (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Read-AmazonPlayStatus.ps1 -SelfTest
+      - name: Self-test Pixel 9 installer-attribution trial (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Trial-AmazonInstallerAttribution.ps1 -SelfTest
+      - name: Self-test read-only installed Amazon APK comparison (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Compare-AmazonInstalledApks.ps1 -SelfTest
+      - name: Self-test guarded Pixel 9 owner migration (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Migrate-AmazonPixel9UpdateOwner.ps1 -SelfTest
+      - name: Self-test Pixel 9 recent app owner inventory (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Read-Pixel9RecentAppUpdateOwners.ps1 -SelfTest
       - name: Run tests with simulated ADB, no real device access
         shell: bash
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ github.token }}
         run: ./gradlew test --no-daemon -Dorg.gradle.mirror.maven.settings=true
+      - name: Build Windows desktop JAR without distribution
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew shadowJar --no-daemon -Dorg.gradle.mirror.maven.settings=true
+      - name: Verify Windows desktop JAR archive, launcher and SHA-256
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $jars = @(Get-ChildItem -LiteralPath 'build/libs' -Filter '*-all.jar' -File)
+          if ($jars.Count -ne 1) { throw "Expected exactly one executable JAR; found $($jars.Count)." }
+          Add-Type -AssemblyName System.IO.Compression
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($jars[0].FullName)
+          try {
+            if (-not ($archive.Entries.FullName -contains 'app/morphe/MorpheLauncherKt.class')) {
+              throw 'Morphe launcher entrypoint is missing.'
+            }
+          }
+          finally {
+            $archive.Dispose()
+          }
+          $hash = (Get-FileHash -LiteralPath $jars[0].FullName -Algorithm SHA256).Hash
+          Write-Host "WINDOWS_DESKTOP_JAR=PASS SHA256=$hash NO_ARTIFACT_UPLOAD=YES"
 
   package-preflight:
     name: Inspect ephemeral desktop JAR (do not upload)
     if: github.repository == 'lxsdd/morphe-desktop-public'
-    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

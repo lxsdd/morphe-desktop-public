@@ -293,6 +293,8 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="home_your_apps_install_ready_hint">Gepatchte v%1$s zur Installation bereit (kein erneutes Patchen nötig)</string>
     <string name="home_action_install">Installieren</string>
     <string name="home_action_install_to_device">Auf Gerät installieren</string>
+    <string name="home_action_reinstall_to_device">Auf Gerät erneut installieren</string>
+    <string name="home_detail_reinstall_same_version">v%1$s bereits installiert · gespeicherte gepatchte APK erneut installieren</string>
     <string name="home_action_installing">Installieren…</string>
     <string name="home_action_preparing">Wird vorbereitet…</string>
     <string name="home_action_update">Update</string>
@@ -934,4 +936,23 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="device_scan_catalog">Patchfähige Apps werden abgeglichen</string>
     <string name="device_scan_old_hidden">Der bisherige Gerätestand ist während der Prüfung ausgeblendet.</string>
     <string name="device_scan_failed">Gerät konnte nicht vollständig eingelesen werden. Keine alten Daten werden angezeigt.</string>
+    <string name="result_play_updates_cannot_be_excluded">Google Play kann die gepatchte App trotz erfolgreicher Installation weiterhin als Update anbieten. Die Installationsquelle verhindert dies nicht zuverlässig; ein Play-Update kann wegen abweichender Signatur scheitern.</string>
+    <string name="device_play_owner_label">Android-Update-Eigentümer: %1$s</string>
+    <string name="device_play_owner_unknown">Nicht geprüft</string>
+    <string name="device_play_owner_none">Keiner eingetragen</string>
+    <string name="device_play_owner_is_not_play_detachment">Diese Angabe bestätigt nicht, dass die App aus den Google-Play-Updates entfernt wurde.</string>
+    <string name="patch_play_store_title">Play-Store-Updateangebote unterdrücken</string>
+    <string name="patch_play_store_details">Optionaler Patch „Disable Play Store updates“: setzt den APK-Versionscode auf das Maximum. Kann spätere APK-Updates erschweren; die Wirkung muss auf dem Gerät geprüft werden.</string>
+    <string name="patch_play_store_enable">Patch aktivieren</string>
+    <string name="patch_play_store_disable">Patch abwählen</string>
+    <string name="device_android_version_code">Android-Versionscode auf dem Gerät: %1$s</string>
+    <string name="patch_play_amazon_title">Amazon: Play-Store-Updates</string>
+    <string name="patch_play_source_missing">Zusätzlicher Schutzpatch „Disable Play Store updates“ ist in den geladenen Quellen nicht vorhanden.</string>
+    <string name="patch_play_version_code_warning">Optionaler Patch: setzt den Versionscode auf den Höchstwert und kann spätere App-Updates erschweren.</string>
+    <string name="patch_play_select">Patch aktivieren</string>
+    <string name="patch_play_selected">Patch deaktivieren</string>
+    <string name="patch_play_suppression_title">Play-Store-Updates unterdrücken (optional)</string>
+    <string name="patch_play_suppression_caution">Setzt den Versionscode auf den Maximalwert. Kann spätere Updates und das Entfernen des Patches erschweren. Kein garantierter Schutz.</string>
+    <string name="patch_play_suppression_selected">Bereits ausgewählt</string>
+    <string name="patch_play_suppression_enable">Bewusst aktivieren</string>
 </resources>

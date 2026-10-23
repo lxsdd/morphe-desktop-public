@@ -79,6 +79,14 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
     val engineConfigRepository: EngineConfigRepository = koinInject()
     val uiState by viewModel.uiState.collectAsState()
     val targetPackage = viewModel.targetPackage()
+    // Exact patch metadata is resolved from the loaded source; no extra
+    // network fetch and no unconsented selection/patch/device operation.
+    val playStorePatch = remember(uiState.bundles) {
+        findPlayStoreSuppressionPatch(uiState.bundles)
+    }
+    val playStorePatchSelected = playStorePatch?.let { patch ->
+        patch.patchId in uiState.selectedByBundle[patch.bundleId].orEmpty()
+    } == true
 
     val engineConfig by produceState<EngineConfig?>(initialValue = null) {
         value = engineConfigRepository.loadConfig()
@@ -157,6 +165,88 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
             onShowOnlySelectedChange = { viewModel.setShowOnlySelected(it) },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
         )
+
+        // Optional last-resort versionCode workaround. The user's older Amazon
+        // build worked without this patch, so it must not be treated as the
+        // demonstrated cause or automatically enabled.
+        if (!uiState.isLoading && playStorePatch != null && targetPackage.isNotBlank()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 5.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shape = MorpheTheme.shapes.medium,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                    if (maxWidth < 620.dp) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(stringResource(Res.string.patch_play_store_title),
+                                style = MorpheTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(Res.string.patch_play_store_details),
+                                style = MorpheTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            OutlinedButton(onClick = {
+                                viewModel.togglePatch(playStorePatch.bundleId, playStorePatch.patchId)
+                            }) {
+                                Text(stringResource(if (playStorePatchSelected)
+                                    Res.string.patch_play_store_disable
+                                    else Res.string.patch_play_store_enable))
+                            }
+                        }
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Column(modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(stringResource(Res.string.patch_play_store_title),
+                                    style = MorpheTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(Res.string.patch_play_store_details),
+                                    style = MorpheTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            OutlinedButton(onClick = {
+                                viewModel.togglePatch(playStorePatch.bundleId, playStorePatch.patchId)
+                            }) {
+                                Text(stringResource(if (playStorePatchSelected)
+                                    Res.string.patch_play_store_disable
+                                    else Res.string.patch_play_store_enable))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Amazon-specific guidance is only shown when the optional official
+        // universal patch is absent. When present, the single card above owns
+        // its selection state and warning; never render duplicate controls.
+        if (!uiState.isLoading &&
+            targetPackage == "com.amazon.mShop.android.shopping" &&
+            playStorePatch == null) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                shape = MorpheTheme.shapes.small,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                    Text(
+                        stringResource(Res.string.patch_play_amazon_title),
+                        style = MorpheTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        stringResource(Res.string.patch_play_source_missing),
+                        style = MorpheTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
 
         when {
             uiState.isLoading -> {

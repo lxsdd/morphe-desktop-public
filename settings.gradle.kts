@@ -1,5 +1,8 @@
 pluginManagement {
     repositories {
+        // Resolve Maven Central plugin transitive artifacts through the same
+        // mirror used by CI; Gradle Plugin Portal remains available for markers.
+        maven("https://maven-central.storage-download.googleapis.com/maven2/")
         gradlePluginPortal()
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
         google()

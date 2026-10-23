@@ -5,6 +5,10 @@
 
 package app.morphe.engine.util
 
+import app.morphe.engine.installation.AdbApkInstaller
+import app.morphe.engine.installation.AdbInstallRequest
+import app.morphe.engine.installation.AdbPackageOwnershipProbe
+import app.morphe.engine.installation.InstalledPackageOwnership
 import app.morphe.library.installation.installer.AdbRootInstaller
 import app.morphe.library.installation.installer.DeviceNotFoundException
 import app.morphe.library.installation.installer.Installer
@@ -23,7 +27,8 @@ class AdbManager {
     companion object {
         const val AUTO_SPOOF = "__AUTO_SPOOF__"
 
-        // Candidate store packages to spoof installer attribution when blocking Play Store updates.
+        // Legacy installer-of-record attribution. Android/Google Play do NOT
+        // promise that this removes a known app from the Play update catalog.
         internal val SPOOF_STORE_CANDIDATES = listOf(
             "com.amazon.venezia", // Amazon Appstore
             "com.sec.android.app.samsungapps", // Samsung Galaxy Store
@@ -333,112 +338,70 @@ class AdbManager {
     }
 
     /**
-     * Pick an installer-source package to spoof for [deviceId]: the most-popular
-     * store NOT installed on the device, so nothing real tries to manage the app
-     * (and the Play Store won't auto-update it). Falls back to Amazon if all present.
+     * Choose a legacy installer-of-record identifier. This is NOT Play Store
+     * detachment and does NOT prove that Play will stop offering updates.
+     * Prefer an identifier absent from the device to avoid representing a real
+     * installed store; install failures must not silently erase attribution.
      */
     suspend fun resolveSpoofInstaller(deviceId: String): String {
         val installed = listInstalledPackages(deviceId).getOrNull() ?: emptySet()
         return selectSpoofInstaller(installed)
     }
 
-    /** Installs an APK on [deviceId], optionally spoofing the installer package to block Play updates. */
+    /**
+     * Installs via the SAME capability-checked non-root backend as the earlier
+     * private Custom version. This is vital on Android versions that support
+     * Update Ownership: using bare `adb install -i` bypassed owner verification
+     * and silently regressed the device's update-handling safeguards.
+     *
+     * Installer source attribution and Play's update offers are independent.
+     * The legacy `AUTO_SPOOF` option is no longer the default.
+     */
     suspend fun installApk(
         apkPath: String,
         deviceId: String,
         allowDowngrade: Boolean = true,
-        installerPackage: String? = AUTO_SPOOF,
-        onProgress: (String) -> Unit = {}
+        installerPackage: String? = null,
+        onProgress: (String) -> Unit = {},
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val adb = findAdb() ?: return@withContext Result.failure(
             AdbException("ADB binary not found", AdbErrorCode.ADB_NOT_FOUND)
         )
-
         val apkFile = File(apkPath)
-        if (!apkFile.exists()) {
-            val msg = "APK file not found: $apkPath"
-            Logger.error(msg)
+        if (!apkFile.isFile) {
             return@withContext Result.failure(
-                AdbException(msg, AdbErrorCode.APK_NOT_FOUND, listOf(apkPath))
+                AdbException("APK file not found: $apkPath", AdbErrorCode.APK_NOT_FOUND, listOf(apkPath))
             )
         }
-
-        val targetDevice = resolveTargetDevice(deviceId).getOrElse {
+        val target = resolveTargetDevice(deviceId).getOrElse {
             return@withContext Result.failure(it)
         }
+        // Preserve an explicit legacy request without inventing a fake installer.
+        val requestedInstaller = if (installerPackage == AUTO_SPOOF) {
+            resolveSpoofInstaller(target.id)
+        } else installerPackage
 
-        val effectiveInstaller = if (installerPackage == AUTO_SPOOF) {
-            resolveSpoofInstaller(targetDevice.id)
-        } else {
-            installerPackage
-        }
-
-        // Retries install without '-i' if the device rejects unknown installer packages.
-        fun attemptInstall(withInstaller: Boolean): Result<Unit> {
-            val command = mutableListOf(adb, "-s", targetDevice.id, "install", "-r")
-            if (allowDowngrade) command.add("-d") // Allow downgrade
-            if (withInstaller && !effectiveInstaller.isNullOrBlank()) {
-                command.add("-i") // Record installer source (blocks Play auto-update)
-                command.add(effectiveInstaller)
-            }
-            command.add(apkPath)
-
-            Logger.info("Running: ${command.joinToString(" ")}")
-
-            return try {
-                val process = ProcessBuilder(command)
-                    .redirectErrorStream(true)
-                    .start()
-
-                // Read output in real-time
-                val output = StringBuilder()
-                process.inputStream.bufferedReader().forEachLine { line ->
-                    output.appendLine(line)
-                    onProgress(line)
-                    Logger.debug("ADB: $line")
-                }
-
-                val exitCode = process.waitFor()
-                val outputStr = output.toString()
-
-                if (exitCode == 0 && outputStr.contains("Success")) {
-                    Logger.info("APK installed successfully")
-                    Result.success(Unit)
-                } else {
-                    val errorInfo = parseInstallError(outputStr)
-                    Result.failure(AdbException(errorInfo.technicalMessage, errorInfo.errorCode, errorInfo.formatArgs))
-                }
-            } catch (e: Exception) {
-                Logger.error("Error installing APK", e)
-                Result.failure(
-                    AdbException(
-                        "Error installing APK: ${e.message ?: ""}",
-                        AdbErrorCode.INSTALL_GENERIC,
-                        listOf(e.message ?: ""),
-                        cause = e,
-                    )
-                )
-            }
-        }
-
-        val withInstaller = !effectiveInstaller.isNullOrBlank()
-        val first = attemptInstall(withInstaller = withInstaller)
-        val finalResult = if (
-            first.isFailure &&
-            withInstaller &&
-            (first.exceptionOrNull() as? AdbException)?.errorCode == AdbErrorCode.INSTALL_GENERIC
-        ) {
-            Logger.info("Install with '-i $effectiveInstaller' failed; retrying without installer attribution")
-            attemptInstall(withInstaller = false)
-        } else {
-            first
-        }
-        finalResult.onFailure { e ->
-            if (e is AdbException && e.cause == null) {
-                Logger.error("Installation failed: ${e.message}")
-            }
-        }
-        finalResult
+        onProgress("Checking Android Update Ownership on ${target.displayName}...")
+        AdbApkInstaller().install(
+            request = AdbInstallRequest(
+                adbPath = adb,
+                apk = apkFile,
+                deviceSerial = target.id,
+                allowDowngrade = allowDowngrade,
+                installerPackage = requestedInstaller,
+            ),
+            onProgress = onProgress,
+            onDebug = Logger::debug,
+        ).fold(
+            onSuccess = { mode ->
+                Logger.info("APK installed on ${target.id} with ${mode.name} backend")
+                Result.success(Unit)
+            },
+            onFailure = { error ->
+                Logger.error("Installation blocked or failed on ${target.id}: ${error.message}")
+                Result.failure(error)
+            },
+        )
     }
 
     /** Verifies that the target device is connected and ready for installation. */
@@ -822,14 +785,56 @@ class AdbManager {
         }
     }
 
-    /** Returns installed version name and signing certificate ID for [pkg] on [deviceId]. */
-    suspend fun getInstalledPackageInfo(deviceId: String, pkg: String): Pair<String?, String?>? =
+    /**
+     * Read-only facts for the requested package on one ADB serial.
+     * An update owner is NOT evidence that Play no longer lists this package.
+     */
+    data class InstalledPackageSnapshot(
+        val version: String?,
+        val signatureId: String?,
+        val updateOwnerPackage: String?,
+        val updateOwnerVerified: Boolean,
+        /** Android manifest versionCode, not a semantic versionName. */
+        val versionCode: Long?,
+    )
+
+    internal fun parseInstalledPackageSnapshot(pkg: String, dump: String): InstalledPackageSnapshot? {
+        val ownership = AdbPackageOwnershipProbe.parseInstalledPackageDump(pkg, dump)
+        if (ownership == InstalledPackageOwnership.NotInstalled) return null
+        val owner = (ownership as? InstalledPackageOwnership.OwnedBy)?.packageName
+        // Scope version parsing to this package; never borrow a version from
+        // an adjacent package in a multi-package dumpsys response.
+        val lines = dump.lines()
+        val start = lines.indexOfFirst { it.trimStart().startsWith("Package [$pkg] (") }
+        if (start < 0) return null
+        val end = (start + 1 until lines.size).firstOrNull { index ->
+            lines[index].trimStart().startsWith("Package [")
+        } ?: lines.size
+        val packageLines = lines.subList(start, end)
+        val version = packageLines.firstOrNull { it.trim().startsWith("versionName=") }
+            ?.trim()?.removePrefix("versionName=")?.substringBefore(' ')
+        val versionCode = packageLines.firstOrNull { it.trim().startsWith("versionCode=") }
+            ?.trim()?.removePrefix("versionCode=")?.substringBefore(' ')?.toLongOrNull()
+        return InstalledPackageSnapshot(
+            version = version,
+            signatureId = SignatureIdentity.parseDeviceSignatureId(dump),
+            updateOwnerPackage = owner,
+            updateOwnerVerified = true,
+            versionCode = versionCode,
+        )
+    }
+
+    suspend fun getInstalledPackageSnapshot(deviceId: String, pkg: String): InstalledPackageSnapshot? =
         withContext(Dispatchers.IO) {
             val out = dumpsysPackage(deviceId, pkg) ?: return@withContext null
-            val version = Regex("""versionName=(\S+)""").find(out)?.groupValues?.get(1)
-            val signatureId = SignatureIdentity.parseDeviceSignatureId(out)
-            version to signatureId
+            parseInstalledPackageSnapshot(pkg, out)
         }
+
+    /** Existing API used by non-ownership-aware views. */
+    suspend fun getInstalledPackageInfo(deviceId: String, pkg: String): Pair<String?, String?>? {
+        val info = getInstalledPackageSnapshot(deviceId, pkg) ?: return null
+        return info.version to info.signatureId
+    }
 
     private suspend fun dumpsysPackage(deviceId: String, pkg: String): String? = withContext(Dispatchers.IO) {
         val adb = findAdb() ?: return@withContext null

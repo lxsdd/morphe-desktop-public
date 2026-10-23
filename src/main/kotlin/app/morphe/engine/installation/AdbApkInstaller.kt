@@ -135,7 +135,7 @@ class AdbApkInstaller(
                     }
                 }
             }
-            installWithUpdateOwnership(prefix, request, onProgress, onDebug)
+            installWithUpdateOwnership(prefix, request, packageName, onProgress, onDebug)
             AdbInstallMode.UPDATE_OWNERSHIP
         } else {
             installLegacy(prefix, request, onProgress, onDebug)
@@ -146,6 +146,7 @@ class AdbApkInstaller(
     private fun installWithUpdateOwnership(
         prefix: List<String>,
         request: AdbInstallRequest,
+        packageName: String,
         onProgress: (String) -> Unit,
         onDebug: (String) -> Unit,
     ) {
@@ -163,6 +164,29 @@ class AdbApkInstaller(
             }
             onProgress("Installing APK...")
             runChecked(install, true, onProgress, onDebug)
+
+            // A successful pm install only proves that Package Manager accepted the APK.
+            // Verify the desired update owner on the exact target before telling the UI
+            // that an owner-protected installation succeeded.
+            val observedOwner = AdbPackageOwnershipProbe(runner).probe(
+                request.adbPath,
+                request.deviceSerial,
+                packageName,
+                onDebug,
+            )
+            if (observedOwner != InstalledPackageOwnership.OwnedBy(ADB_SHELL_PACKAGE)) {
+                val observed = when (observedOwner) {
+                    InstalledPackageOwnership.NotInstalled -> "package not installed"
+                    InstalledPackageOwnership.NoOwner -> "no update owner"
+                    is InstalledPackageOwnership.OwnedBy -> "owner ${observedOwner.packageName}"
+                }
+                throw AdbInstallException(
+                    "APK installation completed, but Android did not establish the required " +
+                        "update owner for '$packageName' ($observed). " +
+                        "Do not treat this installation as Play-update protected."
+                )
+            }
+            onDebug("Verified update owner for $packageName: $ADB_SHELL_PACKAGE")
         } catch (error: Throwable) {
             installFailure = error
             throw error
@@ -202,20 +226,9 @@ class AdbApkInstaller(
             add(request.apk.absolutePath)
         }
         onProgress("Installing APK...")
-        try {
-            runChecked(command, true, onProgress, onDebug)
-        } catch (error: AdbInstallException) {
-            if (request.installerPackage.isNullOrBlank()) throw error
-            onDebug("Legacy install with installer attribution failed; retrying without it")
-            val withoutInstaller = command.toMutableList().apply {
-                val installerIndex = indexOf("-i")
-                if (installerIndex >= 0) {
-                    removeAt(installerIndex)
-                    removeAt(installerIndex)
-                }
-            }
-            runChecked(withoutInstaller, true, onProgress, onDebug)
-        }
+        // Attribution failure is NOT permission to install invisibly without it.
+        // The caller must see an installation error, not a false protection claim.
+        runChecked(command, true, onProgress, onDebug)
     }
 
     private fun runChecked(

@@ -125,6 +125,32 @@ internal fun DeviceAppDetailsDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
+                        stringResource(
+                            Res.string.device_play_owner_label,
+                            when {
+                                deviceInfo?.updateOwnerChecked != true ->
+                                    stringResource(Res.string.device_play_owner_unknown)
+                                deviceInfo?.updateOwnerPackage.isNullOrBlank() ->
+                                    stringResource(Res.string.device_play_owner_none)
+                                else -> deviceInfo?.updateOwnerPackage.orEmpty()
+                            },
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    deviceInfo?.androidVersionCode?.let { code ->
+                        Text(
+                            stringResource(Res.string.device_android_version_code, code.toString()),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        stringResource(Res.string.device_play_owner_is_not_play_detachment),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
                         stringResource(Res.string.device_details_no_local_history),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

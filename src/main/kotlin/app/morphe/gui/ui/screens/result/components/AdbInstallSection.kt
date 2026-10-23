@@ -107,6 +107,15 @@ internal fun AdbInstallSection(
                 )
             }
         }
+        if (deployments.values.any {
+                it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLED
+            }) {
+            Text(
+                text = stringResource(Res.string.result_play_updates_cannot_be_excluded),
+                style = MorpheTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         val error = selectedState?.installError
         if (error != null) {
             Text(error, color = MorpheTheme.colors.danger,

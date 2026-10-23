@@ -110,6 +110,10 @@ fun PatchedAppDetailDialog(
     val hasPatchChanges = hasConfirmedPatchUpdate(updateInfo)
     val hasNewAppTarget = hasConfirmedAppUpdate(updateInfo)
     val installPending = deviceInfo?.installPending == true
+    val sameVersionInstalled = deviceInfo?.let {
+        it.installed && it.installedVersion?.removePrefix("v") == record.apkVersion.removePrefix("v")
+    } == true
+    val canInstallExistingApk = shouldOfferPatchedAppInstall(state, installPending, sameVersionInstalled)
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -225,6 +229,37 @@ fun PatchedAppDetailDialog(
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
                 IdentityBand(record, state, deviceInfo, updateInfo)
+                if (deviceInfo?.installed == true) {
+                    val owner = when {
+                        !deviceInfo.updateOwnerChecked ->
+                            stringResource(Res.string.device_play_owner_unknown)
+                        deviceInfo.updateOwnerPackage.isNullOrBlank() ->
+                            stringResource(Res.string.device_play_owner_none)
+                        else -> deviceInfo.updateOwnerPackage
+                    }
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            stringResource(Res.string.device_play_owner_label, owner),
+                            style = MorpheTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        deviceInfo.androidVersionCode?.let { code ->
+                            Text(
+                                stringResource(Res.string.device_android_version_code, code.toString()),
+                                style = MorpheTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            stringResource(Res.string.device_play_owner_is_not_play_detachment),
+                            style = MorpheTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 BandDivider()
 
                 Column(
@@ -329,14 +364,20 @@ fun PatchedAppDetailDialog(
                         }
                     }
 
-                    if (installPending) {
+                    if (canInstallExistingApk) {
                         ActionBar(
-                            label = if (installing) stringResource(Res.string.home_action_installing) else stringResource(Res.string.home_action_install_to_device),
+                            label = when {
+                                installing -> stringResource(Res.string.home_action_installing)
+                                sameVersionInstalled -> stringResource(Res.string.home_action_reinstall_to_device)
+                                else -> stringResource(Res.string.home_action_install_to_device)
+                            },
                             icon = MorpheIcons.Download,
                             color = accents.primary,
                             filled = true,
                             sublabels = listOf(
-                                if (deviceInfo.installed)
+                                if (sameVersionInstalled)
+                                    stringResource(Res.string.home_detail_reinstall_same_version, record.apkVersion.removePrefix("v"))
+                                else if (deviceInfo?.installed == true)
                                     stringResource(
                                         Res.string.home_detail_ready_device_version,
                                         record.apkVersion.removePrefix("v"),
@@ -347,7 +388,7 @@ fun PatchedAppDetailDialog(
                                     record.apkVersion.removePrefix("v"),
                                 )
                             ),
-                            onClick = if (installing) ({}) else ({ onInstall() }),
+                            onClick = if (installing || uninstalling) ({}) else ({ onInstall() }),
                         )
                     }
 
@@ -403,7 +444,7 @@ fun PatchedAppDetailDialog(
                         },
                         icon = null,
                         color = accents.primary,
-                        filled = !installPending,
+                        filled = !canInstallExistingApk,
                         sublabels = patchSubs,
                         progress = if (preparingPatch) (patchPrepProgress?.second ?: 0f) else null,
                         onClick = if (preparingPatch) ({}) else if (chooseNewApk) ({
@@ -595,3 +636,12 @@ fun PatchedAppDetailDialog(
         }
     }
 }
+
+/** Reinstall is explicit and safe to offer only for a known, reusable output APK. */
+internal fun shouldOfferPatchedAppInstall(
+    state: PatchedAppState,
+    installPending: Boolean,
+    sameVersionInstalled: Boolean,
+): Boolean = state != PatchedAppState.APK_MISSING &&
+    state != PatchedAppState.MODIFIED_EXTERNALLY &&
+    (installPending || sameVersionInstalled)
