@@ -10,6 +10,7 @@ on:
       - fix/result-device-scoped-install-continuity-20261023
       - feature/device-status-sorting-and-refresh-feedback-20261023
       - integration/upstream-readiness-audit-20261023
+      - fix/play-store-update-ownership-honest-state-20261023
 
 permissions:
   contents: read
