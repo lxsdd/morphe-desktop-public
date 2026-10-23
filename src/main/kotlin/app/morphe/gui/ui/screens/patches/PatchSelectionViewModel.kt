@@ -44,6 +44,23 @@ data class BundlePatches(
     val patches: List<PatchMetadata>,
 )
 
+/**
+ * Optional official-source universal patch that changes the manifest versionCode.
+ * Kept opt-in: it may complicate future in-place installs and is NOT equivalent
+ * to Android update-owner / installer-of-record metadata.
+ */
+internal data class PlayStoreSuppressionPatch(val bundleId: String, val patchId: String)
+
+internal fun findPlayStoreSuppressionPatch(bundles: List<BundlePatches>): PlayStoreSuppressionPatch? =
+    bundles.firstNotNullOfOrNull { bundle ->
+        if (!bundle.bundleName.equals("Morphe Patches", ignoreCase = true)) return@firstNotNullOfOrNull null
+        bundle.patches.firstOrNull { patch ->
+            patch.isUniversal && patch.name == "Disable Play Store updates"
+        }?.let { patch ->
+            PlayStoreSuppressionPatch(bundle.bundleId, patch.uniqueId)
+        }
+    }
+
 class PatchSelectionViewModel(
     private val apkPath: String,
     private val apkName: String,
