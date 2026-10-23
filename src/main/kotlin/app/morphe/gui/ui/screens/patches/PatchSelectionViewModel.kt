@@ -53,8 +53,11 @@ internal data class PlayStoreSuppressionPatch(val bundleId: String, val patchId:
 
 internal fun findPlayStoreSuppressionPatch(bundles: List<BundlePatches>): PlayStoreSuppressionPatch? =
     bundles.firstNotNullOfOrNull { bundle ->
-        // Only the metadata loaded from enabled sources may expose this patch.
-        // Do not infer source authenticity from a mutable display name.
+        // Never offer a same-named patch from arbitrary third-party sources.
+        // This exact display-name gate is not cryptographic source verification;
+        // the source resolver must still validate configured repository identity.
+        if (!bundle.bundleName.equals("Morphe Patches", ignoreCase = true))
+            return@firstNotNullOfOrNull null
         bundle.patches.firstOrNull { patch ->
             patch.isUniversal && patch.name == "Disable Play Store updates"
         }?.let { patch ->
