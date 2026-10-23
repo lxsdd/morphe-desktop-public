@@ -48,6 +48,10 @@ jobs:
           fi
           sed -i.bak 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
           rm -f "$path.bak"
+      - name: Self-test read-only Amazon diagnostic (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Read-AmazonPlayStatus.ps1 -SelfTest
       - name: Run tests with simulated ADB, no real device access
         shell: bash
         env:
