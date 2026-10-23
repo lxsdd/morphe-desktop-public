@@ -978,4 +978,8 @@
     <string name="device_play_owner_unknown">Not verified</string>
     <string name="device_play_owner_none">None recorded</string>
     <string name="device_play_owner_is_not_play_detachment">This does not establish that Google Play has stopped offering updates for this app.</string>
+    <string name="patch_play_store_title">Suppress Google Play update offers</string>
+    <string name="patch_play_store_details">Optional “Disable Play Store updates” patch: sets the APK version code to the maximum. May complicate later APK upgrades; verify the effect on the device.</string>
+    <string name="patch_play_store_enable">Enable patch</string>
+    <string name="patch_play_store_disable">Deselect patch</string>
 </resources>
