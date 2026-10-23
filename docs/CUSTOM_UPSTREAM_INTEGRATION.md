@@ -40,3 +40,24 @@ The present source candidate descends from the precise official v1.19.0 commit a
 ## Approved UI terminology
 
 Use **Technical priority** for the mechanical sort order (highest-first / lowest-first); use **Needs attention** for confirmed actionable/review-required states. A signer mismatch requires **review**, not an unqualified assertion of a security incident. Unknown install/patch state must not be shown as proven up to date.
+
+## Required GitHub `main` merge checks (administrator action)
+
+The public ruleset `Protect main` (id `25657280`) currently enforces PR-based changes and blocks deletion/force-push but does **not** require any status checks. The GitHub connector for this project has repository-content and PR access but **no administration/write-ruleset permission**. The new generic `build_pull_request.yml` workflow checks ALL PRs to `main`, instead of only special development branches, and performs an additional non-distributed JAR integrity preflight.
+
+In GitHub repository Settings → Rules → Rulesets → **Protect main**, add the **Require status checks to pass before merging** rule with these exact GitHub Actions job contexts (after the new workflow finishes):
+
+- `Source and tests (ubuntu-latest)`
+- `Source and tests (windows-latest)`
+- `Source and tests (macos-latest)`
+- `PR desktop JAR integrity`
+
+Enable the up-to-date-branch option and do not set broad bypass permissions. Preserve existing PR-only/no-deletion/non-fast-forward rules. If exact check names vary, select the corresponding results in PR #39 Checks, rather than inventing contexts. The upstream-readiness preflight is an additional source gate; it must pass on the consolidated candidate but is not always triggered on unrelated feature PRs, so do not make a branch-specific check universally mandatory.
+
+**This is currently an outstanding administrator action, not a completed setting change.** Successful CI alone does not enforce it. Do not mark this requirement passed until ruleset GET returns a `required_status_checks` rule with all four contexts.
+
+## Cross-repository private rollback comparison
+
+On 2026-10-23, comparing private 1.18.1 `main` to official 1.18.1 showed **144 modified paths**; comparing the public Custom 1.19 candidate to official 1.19.0 showed **96 modified paths**. Exactly **52 paths overlap**, including device import, installation, app/version updates and both patch-completion flows. Further private-only changes cannot be assumed to be present in the public candidate merely because some safety routines were ported. The private migration Draft PR #9 contains the review gate and keeps private `main` unchanged.
+
+The private read-only CI preflight failed before useful job steps/logs became available on GitHub; therefore a true Git merge/conflict verdict is **not yet established**. Do not call this a source-merge failure or a successful integration. Never replace the private rollback with the public head without full safety/UX parity and a separately reviewed migration.
