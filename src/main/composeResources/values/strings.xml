@@ -974,4 +974,8 @@
     <string name="device_scan_old_hidden">Previous device data is hidden until scanning finishes.</string>
     <string name="device_scan_failed">Device inventory could not be loaded. Previous data remains hidden.</string>
     <string name="result_play_updates_cannot_be_excluded">Google Play may still offer updates for a patched app after a successful installation. Installer attribution does not reliably suppress Play listings, and an update may fail due to a different signing certificate.</string>
+    <string name="device_play_owner_label">Android update owner: %1$s</string>
+    <string name="device_play_owner_unknown">Not verified</string>
+    <string name="device_play_owner_none">None recorded</string>
+    <string name="device_play_owner_is_not_play_detachment">This does not establish that Google Play has stopped offering updates for this app.</string>
 </resources>
