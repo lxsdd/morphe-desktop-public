@@ -1,7 +1,25 @@
 package app.morphe.gui.util
 
 import app.morphe.engine.installation.AdbCommandRunner
-import app.morphe.engine.installation.ProcessAdbCommandRunner
+import app.morphe.engine.installation.AdbCommandResult
+import java.util.concurrent.TimeUnit
+
+/** Bound shell reads: an unresponsive ADB endpoint must not hang Home indefinitely. */
+private class BoundedReadOnlyAdbRunner : AdbCommandRunner {
+    override fun run(command: List<String>, onOutput: (String) -> Unit): AdbCommandResult {
+        val process = ProcessBuilder(command).redirectErrorStream(true).start()
+        try {
+            if (!process.waitFor(12, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                return AdbCommandResult(-1, "")
+            }
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            return AdbCommandResult(process.exitValue(), output.take(16384))
+        } finally {
+            if (process.isAlive) process.destroyForcibly()
+        }
+    }
+}
 
 /**
  * Ported and tightened from private Custom 1.18.1 read-only base APK SHA-256 probing.
@@ -9,7 +27,7 @@ import app.morphe.engine.installation.ProcessAdbCommandRunner
  * installations remain unknown; no fallback guesses or device writes are allowed.
  */
 internal class ReadOnlyDeviceBuildVerifier(
-    private val runner: AdbCommandRunner = ProcessAdbCommandRunner(),
+    private val runner: AdbCommandRunner = BoundedReadOnlyAdbRunner(),
 ) {
     fun installedSingleApkSha256(
         adbPath: String,
