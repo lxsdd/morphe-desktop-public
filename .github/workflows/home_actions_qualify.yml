@@ -60,6 +60,10 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: ./tools/Compare-AmazonInstalledApks.ps1 -SelfTest
+      - name: Self-test guarded Pixel 9 owner migration (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Migrate-AmazonPixel9UpdateOwner.ps1 -SelfTest
       - name: Run tests with simulated ADB, no real device access
         shell: bash
         env:
