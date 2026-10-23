@@ -263,13 +263,25 @@ internal fun DeviceInventoryPane(
                                             stringResource(Res.string.device_overview_patch_candidate_count,
                                                 row.sourceCount)
                                         deviceAppInfo[row.record.packageName]?.exactBuildVerified == true -> {
+                                            val relevantUpdates = updateInfoByPackage[row.record.packageName]
+                                                ?.sources.orEmpty()
+                                                .filter { src -> src.hasRelevantChanges &&
+                                                    !src.latestAvailableVersion.isNullOrBlank() }
+                                                .joinToString(" · ") { src ->
+                                                    "${src.name} v${src.usedVersion.removePrefix("v")} → " +
+                                                        "v${src.latestAvailableVersion!!.removePrefix("v")}"
+                                                }
                                             val versions = row.record.sourcesSnapshot
                                                 .joinToString(" · ") { src ->
                                                     "${src.sourceName} v${src.version.removePrefix("v")}"
                                                 }
-                                            if (versions.isBlank())
-                                                stringResource(Res.string.device_overview_patch_unverified)
-                                            else stringResource(Res.string.device_overview_installed_patches, versions)
+                                            when {
+                                                relevantUpdates.isNotBlank() ->
+                                                    stringResource(Res.string.device_overview_patch_change, relevantUpdates)
+                                                versions.isNotBlank() ->
+                                                    stringResource(Res.string.device_overview_installed_patches, versions)
+                                                else -> stringResource(Res.string.device_overview_patch_unverified)
+                                            }
                                         }
                                         else -> stringResource(Res.string.device_overview_patch_unverified)
                                     }
