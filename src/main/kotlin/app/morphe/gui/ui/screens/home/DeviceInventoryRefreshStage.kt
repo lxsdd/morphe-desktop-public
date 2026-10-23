@@ -1,7 +1,7 @@
 package app.morphe.gui.ui.screens.home
 
 /** Explicit state of a read-only inventory scan of one selected ADB serial. */
-internal enum class DeviceInventoryRefreshStage {
+enum class DeviceInventoryRefreshStage {
     IDLE,
     READING_PACKAGES,
     READING_VERSIONS,
