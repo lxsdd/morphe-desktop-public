@@ -29,6 +29,10 @@ internal fun classifyDeviceOverview(e: DeviceOverviewEvidence): DeviceOverviewSt
     e.hasLocalPatchHistory && e.relevantPatchChange && e.exactBuildVerified == true ->
         DeviceOverviewStatus.PATCH_UPDATE
     e.hasLocalPatchHistory && e.localBuildVersionNewer -> DeviceOverviewStatus.LOCAL_BUILD_REVIEW
+    // A Morphe-signed device build without local history could have been patched
+    // elsewhere; do not silently classify it as an unpatched candidate.
+    !e.hasLocalPatchHistory && e.patchSupported && e.signerMatchesMorphe == true ->
+        DeviceOverviewStatus.REVIEW_REQUIRED
     !e.hasLocalPatchHistory && e.patchSupported -> DeviceOverviewStatus.PATCH_CANDIDATE
     e.hasLocalPatchHistory && e.exactBuildVerified == true &&
         e.signerMatchesMorphe == true && e.installedVersion != null &&
