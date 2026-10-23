@@ -53,7 +53,8 @@ internal data class PlayStoreSuppressionPatch(val bundleId: String, val patchId:
 
 internal fun findPlayStoreSuppressionPatch(bundles: List<BundlePatches>): PlayStoreSuppressionPatch? =
     bundles.firstNotNullOfOrNull { bundle ->
-        if (!bundle.bundleName.equals("Morphe Patches", ignoreCase = true)) return@firstNotNullOfOrNull null
+        // Only the metadata loaded from enabled sources may expose this patch.
+        // Do not infer source authenticity from a mutable display name.
         bundle.patches.firstOrNull { patch ->
             patch.isUniversal && patch.name == "Disable Play Store updates"
         }?.let { patch ->
