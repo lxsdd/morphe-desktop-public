@@ -37,12 +37,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.model.SupportedApp
+import app.morphe.engine.util.isNewerVersion
 import app.morphe.gui.data.model.PatchSource
 import app.morphe.gui.ui.components.LocalCardFills
 import app.morphe.gui.ui.components.MorpheButton
@@ -102,7 +104,9 @@ fun PatchedAppDetailDialog(
 ) {
     val accents = MorpheTheme.colors
     val cardFills = LocalCardFills.current
+    val uriHandler = LocalUriHandler.current
     val patchCount = record.patchSelectionByBundle.values.sumOf { it.size }
+    val appTarget = updateInfo?.appSuggestedVersion?.takeIf { hasConfirmedAppUpdate(updateInfo) }
     val hasPatchChanges = hasConfirmedPatchUpdate(updateInfo)
     val hasNewAppTarget = hasConfirmedAppUpdate(updateInfo)
     val installPending = deviceInfo?.installPending == true
@@ -128,7 +132,7 @@ fun PatchedAppDetailDialog(
         var bundleChoices by remember(record.packageName) {
             mutableStateOf(emptyMap<String, BundleChoice>())
         }
-        var apkExpanded by remember(record.packageName) { mutableStateOf(false) }
+        var apkExpanded by remember(record.packageName) { mutableStateOf(hasNewAppTarget) }
         var patchExpanded by remember(record.packageName) { mutableStateOf(false) }
 
         var selectedApkVersion by remember(record.packageName) {
@@ -356,16 +360,35 @@ fun PatchedAppDetailDialog(
                     }
                     // A newer supported *app* version needs a new APK input. Changing
                     // patches on the same old APK must never pretend to upgrade it.
-                    val newAppApkRequired = hasNewAppTarget &&
-                        selectedApkPath == record.inputApkPath &&
-                        stagedVersion?.removePrefix("v") == record.apkVersion.removePrefix("v")
+                    val newAppApkRequired = hasNewAppTarget && appTarget != null &&
+                        (stagedVersion == null ||
+                            (stagedVersion.removePrefix("v") != appTarget.removePrefix("v") &&
+                                !isNewerVersion(stagedVersion, appTarget)))
                     if (newAppApkRequired) {
                         InfoNote(stringResource(
                             Res.string.home_detail_app_update_requires_input,
                             "v" + updateInfo!!.appSuggestedVersion!!.removePrefix("v")
                         ))
                     }
-                    val chooseNewApk = newAppApkRequired && !hasPatchChanges && bundleChoices.isEmpty()
+                    // An app-version upgrade ALWAYS needs new input bytes, even if patches
+                    // also changed. Never offer to re-patch the old APK as an app upgrade.
+                    val chooseNewApk = newAppApkRequired
+                    if (chooseNewApk && appTarget != null) {
+                        val versionSearchUrl = remember(record.packageName, appTarget) {
+                            SupportedApp.getDownloadUrl(record.packageName, appTarget)
+                        }
+                        if (!versionSearchUrl.isNullOrBlank()) {
+                            MorpheButton(
+                                label = stringResource(
+                                    Res.string.home_guided_find_app_version, appTarget.removePrefix("v")),
+                                icon = MorpheIcons.OpenInNew,
+                                variant = MorpheButtonVariant.OUTLINED,
+                                size = MorpheButtonSize.DEFAULT,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { uriHandler.openUri(versionSearchUrl) },
+                            )
+                        }
+                    }
                     ActionBar(
                         label = when {
                             patchPrepProgress != null ->
@@ -384,7 +407,13 @@ fun PatchedAppDetailDialog(
                         sublabels = patchSubs,
                         progress = if (preparingPatch) (patchPrepProgress?.second ?: 0f) else null,
                         onClick = if (preparingPatch) ({}) else if (chooseNewApk) ({
-                            apkExpanded = true
+                            scope.launch {
+                                val picked = MorpheFilePicker.pickFile(
+                                    title = relinkPickerTitle,
+                                    extensions = listOf("apk", "apkm", "xapk", "apks"),
+                                )
+                                if (picked?.isFile == true) selectedApkPath = picked.absolutePath
+                            }
                         }) else ({ onPatchWith(selectedApkPath, bundleChoices) }),
                     )
 

@@ -20,7 +20,11 @@ class DeviceOverviewStatusTest {
         assertEquals(DeviceOverviewStatus.APP_UPDATE,
             classifyDeviceOverview(evidence(appUpdate = true, patchUpdate = true)))
         assertEquals(DeviceOverviewStatus.PATCH_UPDATE,
+            classifyDeviceOverview(evidence(patchUpdate = true).copy(exactBuildVerified = true)))
+        assertEquals(DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED,
             classifyDeviceOverview(evidence(patchUpdate = true)))
+        assertEquals(DeviceOverviewStatus.REVIEW_REQUIRED,
+            classifyDeviceOverview(evidence(patchUpdate = true, installed = "1.2")))
     }
     @Test fun `missing installed version blocks certainty`() {
         assertEquals(DeviceOverviewStatus.REVIEW_REQUIRED,
@@ -34,6 +38,11 @@ class DeviceOverviewStatusTest {
         assertEquals(DeviceOverviewStatus.PATCH_CANDIDATE,
             classifyDeviceOverview(evidence(history = false, local = null, signer = null)))
     }
+    @Test fun `unknown local history cannot mark Morphe signed device app as unpatched`() {
+        assertEquals(DeviceOverviewStatus.REVIEW_REQUIRED,
+            classifyDeviceOverview(evidence(history = false, local = null, signer = true)))
+    }
+
     @Test fun `non catalog packages remain visible`() {
         assertEquals(DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG,
             classifyDeviceOverview(evidence(supported = false, history = false)))

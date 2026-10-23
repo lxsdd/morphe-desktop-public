@@ -99,7 +99,16 @@ fun YourAppRow(
                     onGradient = true,
                 )
             }
-            if (state != PatchedAppState.NEVER_PATCHED) {
+            if (hasConfirmedAppUpdate(updateInfo)) {
+                Spacer(Modifier.width(8.dp))
+                MorpheBadge(
+                    text = stringResource(
+                        Res.string.home_guided_new_version_badge,
+                        updateInfo!!.appSuggestedVersion!!.removePrefix("v")),
+                    containerColor = cardChipInk,
+                    onGradient = true,
+                )
+            } else if (state != PatchedAppState.NEVER_PATCHED) {
                 Spacer(Modifier.width(8.dp))
                 PatchedStateBadge(state)
             }

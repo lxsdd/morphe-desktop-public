@@ -107,6 +107,8 @@ class HomeViewModel(
     /** All resolved patch files across enabled sources. */
     private var cachedAllPatchFiles: List<File> = emptyList()
     private var loadJob: Job? = null
+    /** Automatic device-first navigation must never override a tab chosen by the user. */
+    private var tabSelectedThisSession = false
 
     fun getAllResolvedPatchFiles(): List<File> =
         cachedAllPatchFiles.takeIf { it.isNotEmpty() }
@@ -131,9 +133,10 @@ class HomeViewModel(
                 updateInfo = info,
                 dismissedUpdateVersion = dismissed,
                 showMultiSourceHint = multiSourceShouldShow,
-                appListFilter = runCatching {
-                    AppListFilter.valueOf(config.homeAppListFilter)
-                }.getOrDefault(AppListFilter.ALL),
+                appListFilter = if (tabSelectedThisSession) _uiState.value.appListFilter
+                    else if (DeviceMonitor.state.value.captureOperationTarget() != null) AppListFilter.DEVICE
+                    else runCatching { AppListFilter.valueOf(config.homeAppListFilter) }
+                        .getOrDefault(AppListFilter.ALL),
                 sortMode = HomeAppSortMode.fromPreference(config.homeAppSortMode),
             )
         }
@@ -341,6 +344,7 @@ class HomeViewModel(
 
     /** Switches the home apps tab and persists the preference. */
     fun setAppListFilter(filter: AppListFilter) {
+        tabSelectedThisSession = true
         if (_uiState.value.appListFilter == filter) return
         _uiState.value = _uiState.value.copy(appListFilter = filter)
         viewModelScope.launch { configRepository.setHomeAppListFilter(filter.name) }
@@ -927,6 +931,10 @@ class HomeViewModel(
     fun refreshDeviceInfo() {
         val generation = ++deviceRefreshGeneration
         val target = DeviceMonitor.state.value.captureOperationTarget()
+        if (target != null && !tabSelectedThisSession &&
+            _uiState.value.appListFilter != AppListFilter.DEVICE) {
+            _uiState.value = _uiState.value.copy(appListFilter = AppListFilter.DEVICE)
+        }
         // A device-switch must never briefly expose the previous device's catalog.
         if (target == null || _uiState.value.deviceInventorySerial != target.serial) {
             _uiState.value = _uiState.value.copy(

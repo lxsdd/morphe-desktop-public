@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -36,7 +37,7 @@ import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
-private enum class DeviceViewFilter { ALL, NEEDS_ATTENTION, PATCHABLE, VERIFIED, VERSION_MATCH, OTHER }
+private enum class DeviceViewFilter { RELEVANT, APP_UPDATES, PATCH_UPDATES, NEEDS_ATTENTION, PATCHABLE, VERIFIED, VERSION_MATCH, OTHER, ALL }
 
 private data class DeviceOverviewRow(
     val packageName: String,
@@ -44,6 +45,9 @@ private data class DeviceOverviewRow(
     val installedVersion: String?,
     val targetVersion: String?,
     val record: PatchedAppRecord?,
+    val sourceCount: Int,
+    val appUpdateAvailable: Boolean,
+    val confirmedPatchUpdate: Boolean,
     val status: DeviceOverviewStatus,
 )
 
@@ -68,6 +72,7 @@ internal fun DeviceInventoryPane(
     patchedRecords: List<PatchedAppRecord>,
     deviceAppInfo: Map<String, DeviceAppInfo>,
     updateInfoByPackage: Map<String, RecallUpdateInfo>,
+    sourceNamesByPackage: Map<String, List<String>>,
     searchQuery: String,
     paneMaxHeight: Dp,
     onShowDetail: (PatchedAppRecord) -> Unit,
@@ -80,8 +85,9 @@ internal fun DeviceInventoryPane(
         )
         return
     }
+    val uriHandler = LocalUriHandler.current
     val rows = remember(selectedDeviceSerial, installedPackages, supportedApps,
-        patchedRecords, deviceAppInfo, updateInfoByPackage) {
+        patchedRecords, deviceAppInfo, updateInfoByPackage, sourceNamesByPackage) {
         val supported = supportedApps.associateBy { it.packageName }
         val history = patchedRecords.associateBy { it.installedPackageName }
         installedPackages.map { pkg ->
@@ -112,14 +118,23 @@ internal fun DeviceInventoryPane(
                 installedVersion = installedVersion,
                 targetVersion = target?.takeIf { newerVersion },
                 record = record,
+                sourceCount = sourceNamesByPackage[pkg]?.size ?: 0,
+                appUpdateAvailable = newerVersion,
+                confirmedPatchUpdate = metadata?.exactBuildVerified == true &&
+                    hasConfirmedPatchUpdate(update),
                 status = status,
             )
         }.sortedWith(compareBy<DeviceOverviewRow>(
             { deviceOverviewPriority(it.status) }, { it.displayName.lowercase() }, { it.packageName }))
     }
-    var filter by remember(selectedDeviceSerial) { mutableStateOf(DeviceViewFilter.ALL) }
+    var filter by remember(selectedDeviceSerial) { mutableStateOf(DeviceViewFilter.RELEVANT) }
     val supportedPackages = remember(supportedApps) { supportedApps.map { it.packageName }.toSet() }
+    val relevantCount = rows.count { it.packageName in supportedPackages || it.record != null }
     val supportedCount = rows.count { it.packageName in supportedPackages }
+    // A device can have both an app update and a patch update. Each dimension
+    // is counted independently, even when app upgrade takes visual priority.
+    val appUpdateCount = rows.count { it.appUpdateAvailable }
+    val patchUpdateCount = rows.count { it.confirmedPatchUpdate }
     val needsCount = rows.count { deviceOverviewPriority(it.status) <= 3 }
     val patchableCount = rows.count { it.status == DeviceOverviewStatus.PATCH_CANDIDATE }
     val verifiedCount = rows.count { it.status == DeviceOverviewStatus.EXACT_BUILD_VERIFIED }
@@ -128,12 +143,16 @@ internal fun DeviceInventoryPane(
         it.status == DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG ||
             it.status == DeviceOverviewStatus.REVIEW_REQUIRED
     }
-    val visible = remember(rows, searchQuery, filter) {
+    val visible = remember(rows, searchQuery, filter, supportedPackages) {
         rows.filter { row ->
             (searchQuery.isBlank() ||
                 row.packageName.contains(searchQuery, ignoreCase = true) ||
                 row.displayName.contains(searchQuery, ignoreCase = true)) &&
                 when (filter) {
+                    DeviceViewFilter.RELEVANT ->
+                        row.packageName in supportedPackages || row.record != null
+                    DeviceViewFilter.APP_UPDATES -> row.appUpdateAvailable
+                    DeviceViewFilter.PATCH_UPDATES -> row.confirmedPatchUpdate
                     DeviceViewFilter.ALL -> true
                     DeviceViewFilter.NEEDS_ATTENTION -> deviceOverviewPriority(row.status) <= 3
                     DeviceViewFilter.PATCHABLE -> row.status == DeviceOverviewStatus.PATCH_CANDIDATE
@@ -172,6 +191,15 @@ internal fun DeviceInventoryPane(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            MorpheChoiceChip(text = stringResource(Res.string.device_overview_relevant, relevantCount),
+                active = filter == DeviceViewFilter.RELEVANT,
+                onClick = { filter = DeviceViewFilter.RELEVANT })
+            MorpheChoiceChip(text = stringResource(Res.string.device_overview_apps_to_update, appUpdateCount),
+                active = filter == DeviceViewFilter.APP_UPDATES,
+                onClick = { filter = DeviceViewFilter.APP_UPDATES })
+            MorpheChoiceChip(text = stringResource(Res.string.device_overview_patches_to_update, patchUpdateCount),
+                active = filter == DeviceViewFilter.PATCH_UPDATES,
+                onClick = { filter = DeviceViewFilter.PATCH_UPDATES })
             MorpheChoiceChip(text = stringResource(Res.string.device_overview_all, rows.size),
                 active = filter == DeviceViewFilter.ALL, onClick = { filter = DeviceViewFilter.ALL })
             MorpheChoiceChip(text = stringResource(Res.string.device_overview_needs, needsCount),
@@ -233,6 +261,44 @@ internal fun DeviceInventoryPane(
                                             style = MorpheTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
+                                    // Only an exact installed APK hash match proves the local
+                                    // patch-source snapshot is also installed on this device.
+                                    val patchInfo = when {
+                                        row.status == DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG ->
+                                            stringResource(Res.string.device_overview_outside_source)
+                                        row.record == null ->
+                                            stringResource(Res.string.device_overview_patch_candidate_count,
+                                                row.sourceCount)
+                                        deviceAppInfo[row.record.packageName]?.exactBuildVerified == true -> {
+                                            val relevantUpdates = updateInfoByPackage[row.record.packageName]
+                                                ?.sources.orEmpty()
+                                                .filter { src -> src.hasRelevantChanges &&
+                                                    !src.latestAvailableVersion.isNullOrBlank() }
+                                                .joinToString(" · ") { src ->
+                                                    "${src.name} v${src.usedVersion.removePrefix("v")} → " +
+                                                        "v${src.latestAvailableVersion!!.removePrefix("v")}"
+                                                }
+                                            val versions = row.record.sourcesSnapshot
+                                                .joinToString(" · ") { src ->
+                                                    "${src.sourceName} v${src.version.removePrefix("v")}"
+                                                }
+                                            when {
+                                                relevantUpdates.isNotBlank() ->
+                                                    stringResource(Res.string.device_overview_patch_change, relevantUpdates)
+                                                versions.isNotBlank() ->
+                                                    stringResource(Res.string.device_overview_installed_patches, versions)
+                                                else -> stringResource(Res.string.device_overview_patch_unverified)
+                                            }
+                                        }
+                                        else -> stringResource(Res.string.device_overview_patch_unverified)
+                                    }
+                                    Text(
+                                        text = patchInfo,
+                                        style = MorpheTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
                                 }
                                 Column(
                                     horizontalAlignment = Alignment.End,
@@ -241,8 +307,10 @@ internal fun DeviceInventoryPane(
                                     Text(stringResource(deviceLabel(row.status)),
                                         style = MorpheTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary)
-                                    Text(row.installedVersion?.let { "v" + it.removePrefix("v") }
-                                            ?: stringResource(Res.string.device_overview_version_unknown),
+                                    Text(stringResource(
+                                            Res.string.device_overview_installed_app_version,
+                                            row.installedVersion?.let { "v" + it.removePrefix("v") }
+                                                ?: stringResource(Res.string.device_overview_version_unknown)),
                                         style = MorpheTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     row.targetVersion?.let { target ->
@@ -250,6 +318,17 @@ internal fun DeviceInventoryPane(
                                             "v" + target.removePrefix("v")),
                                             style = MorpheTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        val searchUrl = remember(row.packageName, target) {
+                                            SupportedApp.getDownloadUrl(row.packageName, target)
+                                        }
+                                        if (row.status == DeviceOverviewStatus.APP_UPDATE &&
+                                            !searchUrl.isNullOrBlank()) {
+                                            OutlinedButton(onClick = { uriHandler.openUri(searchUrl) }) {
+                                                Text(stringResource(
+                                                    Res.string.home_guided_find_app_version,
+                                                    target.removePrefix("v")))
+                                            }
+                                        }
                                     }
                                 }
                             }
