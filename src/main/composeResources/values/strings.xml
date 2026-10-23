@@ -981,7 +981,11 @@
     <string name="device_play_owner_none">None recorded</string>
     <string name="device_play_owner_is_not_play_detachment">This does not establish that Google Play has stopped offering updates for this app.</string>
     <string name="patch_play_store_title">Suppress Google Play update offers</string>
-    <string name="patch_play_store_details">Optional “Disable Play Store updates” patch: sets the APK version code to the maximum. May complicate later APK upgrades; verify the effect on the device.</string>
+    <string name="patch_play_store_details">Optional version-code patch: can hide official Play Store update offers and complicate later APK upgrades. Separate from Android update ownership.</string>
+    <string name="patch_version_code_warning_title">Selected patch can hide Play Store updates</string>
+    <string name="patch_version_code_warning_details">“Change version code” or “Disable Play Store updates” can make the APK appear newer than official releases. The Play Store may stop offering updates. This is separate from Android update ownership. Continue with this patch enabled?</string>
+    <string name="patch_version_code_warning_proceed">Patch anyway</string>
+    <string name="patch_version_code_warning_back">Review patches</string>
     <string name="patch_play_store_enable">Enable patch</string>
     <string name="patch_play_store_disable">Deselect patch</string>
     <string name="device_android_version_code">Android version code on device: %1$s</string>
