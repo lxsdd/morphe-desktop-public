@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -82,6 +83,7 @@ internal fun DeviceInventoryPane(
         )
         return
     }
+    val uriHandler = LocalUriHandler.current
     val rows = remember(selectedDeviceSerial, installedPackages, supportedApps,
         patchedRecords, deviceAppInfo, updateInfoByPackage, sourceNamesByPackage) {
         val supported = supportedApps.associateBy { it.packageName }
@@ -297,6 +299,17 @@ internal fun DeviceInventoryPane(
                                             "v" + target.removePrefix("v")),
                                             style = MorpheTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        val searchUrl = remember(row.packageName, target) {
+                                            SupportedApp.getDownloadUrl(row.packageName, target)
+                                        }
+                                        if (row.status == DeviceOverviewStatus.APP_UPDATE &&
+                                            !searchUrl.isNullOrBlank()) {
+                                            OutlinedButton(onClick = { uriHandler.openUri(searchUrl) }) {
+                                                Text(stringResource(
+                                                    Res.string.home_guided_find_app_version,
+                                                    target.removePrefix("v")))
+                                            }
+                                        }
                                     }
                                 }
                             }
