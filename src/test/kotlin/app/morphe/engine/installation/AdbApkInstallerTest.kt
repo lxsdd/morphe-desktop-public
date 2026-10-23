@@ -24,17 +24,8 @@ class AdbApkInstallerTest {
     }
 
     @Test
-    fun `supported device uses update ownership and removes remote APK`() {
-        val installer = installer { command ->
-            when {
-                command.takeLast(3) == listOf("shell", "pm", "help") -> ok("install [--update-ownership]")
-                isPackageList(command) -> ok()
-                "push" in command -> ok("1 file pushed")
-                "install" in command -> ok("Success")
-                "rm" in command -> ok()
-                else -> error("Unexpected command: $command")
-            }
-        }
+    fun `supported device uses update ownership and verifies the installed owner`() {
+        val installer = freshOwnershipInstaller()
 
         val result = installer.install(request())
 
@@ -42,6 +33,41 @@ class AdbApkInstallerTest {
         val install = commands.single { "install" in it }
         assertContains(install, "--update-ownership")
         assertTrue(commands.any { "push" in it })
+        assertTrue(commands.any(::isPackageDump), "post-install owner must be read from device")
+        assertTrue(commands.last().contains("rm"))
+    }
+
+    @Test
+    fun `successful pm install with missing owner is reported as failure`() {
+        val installer = freshOwnershipInstaller(postOwner = null)
+
+        val result = installer.install(request())
+
+        assertTrue(result.isFailure)
+        assertContains(result.exceptionOrNull()?.message.orEmpty(), "did not establish the required")
+        assertContains(result.exceptionOrNull()?.message.orEmpty(), "no update owner")
+        assertTrue(commands.last().contains("rm"))
+    }
+
+    @Test
+    fun `successful pm install with a foreign owner is reported as failure`() {
+        val installer = freshOwnershipInstaller(postOwner = "com.android.vending")
+
+        val result = installer.install(request())
+
+        assertTrue(result.isFailure)
+        assertContains(result.exceptionOrNull()?.message.orEmpty(), "com.android.vending")
+        assertTrue(commands.last().contains("rm"))
+    }
+
+    @Test
+    fun `successful pm install without installed target is reported as failure`() {
+        val installer = freshOwnershipInstaller(postInstalled = false)
+
+        val result = installer.install(request())
+
+        assertTrue(result.isFailure)
+        assertContains(result.exceptionOrNull()?.message.orEmpty(), "did not contain the requested package record")
         assertTrue(commands.last().contains("rm"))
     }
 
@@ -106,16 +132,7 @@ class AdbApkInstallerTest {
 
     @Test
     fun `cleanup failure is reported after successful install`() {
-        val installer = installer { command ->
-            when {
-                command.takeLast(3) == listOf("shell", "pm", "help") -> ok("--update-ownership")
-                isPackageList(command) -> ok()
-                "push" in command -> ok("1 file pushed")
-                "install" in command -> ok("Success")
-                "rm" in command -> AdbCommandResult(1, "permission denied")
-                else -> error("Unexpected command: $command")
-            }
-        }
+        val installer = freshOwnershipInstaller(cleanupFailure = true)
 
         val result = installer.install(request())
 
@@ -208,6 +225,37 @@ class AdbApkInstallerTest {
         remoteName = { "fixed.apk" },
         packageNameReader = { "test.package" },
     )
+
+    private fun freshOwnershipInstaller(
+        postOwner: String? = "com.android.shell",
+        postInstalled: Boolean = true,
+        cleanupFailure: Boolean = false,
+    ): AdbApkInstaller {
+        var installed = false
+        return installer { command ->
+            when {
+                command.takeLast(3) == listOf("shell", "pm", "help") -> ok("--update-ownership")
+                isPackageList(command) ->
+                    if (installed && postInstalled) ok("package:test.package") else ok()
+                isPackageDump(command) -> ok(
+                    """
+                    Packages:
+                      Package [test.package] (123abc):
+                        versionName=1.0
+                        ${postOwner?.let { "updateOwnerPackageName=$it" }.orEmpty()}
+                    """.trimIndent()
+                )
+                "push" in command -> ok("1 file pushed")
+                "install" in command -> {
+                    installed = true
+                    ok("Success")
+                }
+                "rm" in command ->
+                    if (cleanupFailure) AdbCommandResult(1, "permission denied") else ok()
+                else -> error("Unexpected command: $command")
+            }
+        }
+    }
 
     private fun ownershipInstaller(owner: String?) = installer { command ->
         when {
