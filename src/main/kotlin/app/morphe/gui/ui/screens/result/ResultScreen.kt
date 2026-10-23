@@ -83,7 +83,7 @@ fun ResultScreenContent(outputPath: String) {
     var linkStates by remember(outputPath) { mutableStateOf<Map<String, AsyncActionState>>(emptyMap()) }
 
     // Check if the patched package is already installed on the target device.
-    var outputPackage by remember { mutableStateOf<String?>(null) }
+    var outputPackage by remember(outputPath) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(outputPath) {
         outputPackage = withContext(Dispatchers.IO) {
@@ -114,7 +114,7 @@ fun ResultScreenContent(outputPath: String) {
     }
 
     // Link-handling state loaded from the patched app recall record.
-    var stockPackage by remember { mutableStateOf<String?>(null) }
+    var stockPackage by remember(outputPath) { mutableStateOf<String?>(null) }
     var disableStockLinks by remember { mutableStateOf(false) }
     var autoRouteLinks by remember { mutableStateOf(false) }
     LaunchedEffect(outputPath, outputPackage) {
