@@ -1,20 +1,22 @@
-/*
- * Copyright 2026 Morphe.
- * https://github.com/MorpheApp/morphe-desktop
- */
 package app.morphe.gui.ui.screens.home.components
 
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -23,17 +25,39 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.model.SupportedApp
-import app.morphe.gui.ui.screens.home.DeviceAppInfo
-import app.morphe.gui.ui.theme.MorpheTheme
+import app.morphe.engine.util.isNewerVersion
+import app.morphe.gui.ui.components.MorpheChoiceChip
 import app.morphe.gui.ui.components.MorpheScrollbarStyle
+import app.morphe.gui.ui.screens.home.DeviceAppInfo
+import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.morphe_desktop.generated.resources.*
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
-/**
- * Read-only inventory of ALL packages returned by the exact selected ADB device,
- * not only Morphe-patched or currently supported applications.
- * No install/uninstall action can be triggered from this inventory.
- */
+private enum class DeviceViewFilter { ALL, NEEDS_ATTENTION, PATCHABLE, VERSION_MATCH, OTHER }
+
+private data class DeviceOverviewRow(
+    val packageName: String,
+    val displayName: String,
+    val installedVersion: String?,
+    val targetVersion: String?,
+    val record: PatchedAppRecord?,
+    val status: DeviceOverviewStatus,
+)
+
+private fun deviceLabel(status: DeviceOverviewStatus): StringResource = when (status) {
+    DeviceOverviewStatus.APP_UPDATE -> Res.string.device_overview_app_update
+    DeviceOverviewStatus.PATCH_UPDATE -> Res.string.device_overview_patch_update
+    DeviceOverviewStatus.LOCAL_BUILD_REVIEW -> Res.string.device_overview_local_build
+    DeviceOverviewStatus.PATCH_CANDIDATE -> Res.string.device_overview_patchable
+    DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED -> Res.string.device_overview_version_match
+    DeviceOverviewStatus.SIGNER_CONFLICT -> Res.string.device_overview_signer_conflict
+    DeviceOverviewStatus.REVIEW_REQUIRED -> Res.string.device_overview_review
+    DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG -> Res.string.device_overview_other
+}
+
+/** Device-first, read-only inventory. Never mutates packages or installs an APK. */
 @Composable
 internal fun DeviceInventoryPane(
     installedPackages: Set<String>,
@@ -41,8 +65,10 @@ internal fun DeviceInventoryPane(
     supportedApps: List<SupportedApp>,
     patchedRecords: List<PatchedAppRecord>,
     deviceAppInfo: Map<String, DeviceAppInfo>,
+    updateInfoByPackage: Map<String, RecallUpdateInfo>,
     searchQuery: String,
     paneMaxHeight: Dp,
+    onShowDetail: (PatchedAppRecord) -> Unit,
 ) {
     if (selectedDeviceSerial == null) {
         YourAppsEmptyHint(
@@ -51,73 +77,172 @@ internal fun DeviceInventoryPane(
         )
         return
     }
-    val supportedByPackage = remember(supportedApps) { supportedApps.associateBy { it.packageName } }
-    val recordsByInstalled = remember(patchedRecords) { patchedRecords.associateBy { it.installedPackageName } }
-    val visible = remember(installedPackages, searchQuery, supportedByPackage, recordsByInstalled) {
-        installedPackages.asSequence().map { pkg ->
-            val title = recordsByInstalled[pkg]?.displayName ?: supportedByPackage[pkg]?.displayName ?: pkg
-            pkg to title
-        }.filter { (pkg, title) ->
-            searchQuery.isBlank() ||
-                pkg.contains(searchQuery, ignoreCase = true) ||
-                title.contains(searchQuery, ignoreCase = true)
-        }.sortedWith(compareBy<Pair<String, String>>({ it.second.lowercase() }, { it.first.lowercase() })).toList()
+    val rows = remember(selectedDeviceSerial, installedPackages, supportedApps,
+        patchedRecords, deviceAppInfo, updateInfoByPackage) {
+        val supported = supportedApps.associateBy { it.packageName }
+        val history = patchedRecords.associateBy { it.installedPackageName }
+        installedPackages.map { pkg ->
+            val record = history[pkg]
+            val app = supported[pkg]
+            val metadata = deviceAppInfo[record?.packageName ?: pkg]
+            val installedVersion = metadata?.installedVersion?.takeIf { it.isNotBlank() }
+            val update = record?.let { updateInfoByPackage[it.packageName] }
+            val target = if (record != null && hasConfirmedAppUpdate(update)) {
+                update?.appSuggestedVersion
+            } else app?.recommendedVersion
+            val newerVersion = installedVersion != null &&
+                !target.isNullOrBlank() && isNewerVersion(target, installedVersion)
+            val status = classifyDeviceOverview(DeviceOverviewEvidence(
+                patchSupported = app != null,
+                hasLocalPatchHistory = record != null,
+                installedVersion = installedVersion?.removePrefix("v"),
+                locallyPatchedVersion = record?.apkVersion?.removePrefix("v"),
+                signerMatchesMorphe = metadata?.signedByMorphe,
+                newerCompatibleAppVersion = newerVersion,
+                relevantPatchChange = hasConfirmedPatchUpdate(update),
+                localBuildVersionNewer = metadata?.installPending == true,
+            ))
+            DeviceOverviewRow(
+                packageName = pkg,
+                displayName = record?.displayName ?: app?.displayName ?: pkg,
+                installedVersion = installedVersion,
+                targetVersion = target?.takeIf { newerVersion },
+                record = record,
+                status = status,
+            )
+        }.sortedWith(compareBy<DeviceOverviewRow>(
+            { deviceOverviewPriority(it.status) }, { it.displayName.lowercase() }, { it.packageName }))
     }
-    if (visible.isEmpty()) {
-        YourAppsEmptyHint(
-            title = stringResource(Res.string.no_matches),
-            subtitle = if (searchQuery.isBlank()) stringResource(Res.string.home_device_inventory_empty)
-                else stringResource(Res.string.home_your_apps_no_matches_subtitle, searchQuery),
-        )
-        return
+    var filter by remember(selectedDeviceSerial) { mutableStateOf(DeviceViewFilter.ALL) }
+    val supportedPackages = remember(supportedApps) { supportedApps.map { it.packageName }.toSet() }
+    val supportedCount = rows.count { it.packageName in supportedPackages }
+    val needsCount = rows.count { deviceOverviewPriority(it.status) <= 3 }
+    val patchableCount = rows.count { it.status == DeviceOverviewStatus.PATCH_CANDIDATE }
+    val versionMatchCount = rows.count { it.status == DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED }
+    val otherCount = rows.count {
+        it.status == DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG ||
+            it.status == DeviceOverviewStatus.REVIEW_REQUIRED
     }
-    val listState = rememberLazyListState()
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val visible = remember(rows, searchQuery, filter) {
+        rows.filter { row ->
+            (searchQuery.isBlank() ||
+                row.packageName.contains(searchQuery, ignoreCase = true) ||
+                row.displayName.contains(searchQuery, ignoreCase = true)) &&
+                when (filter) {
+                    DeviceViewFilter.ALL -> true
+                    DeviceViewFilter.NEEDS_ATTENTION -> deviceOverviewPriority(row.status) <= 3
+                    DeviceViewFilter.PATCHABLE -> row.status == DeviceOverviewStatus.PATCH_CANDIDATE
+                    DeviceViewFilter.VERSION_MATCH -> row.status == DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED
+                    DeviceViewFilter.OTHER ->
+                        row.status == DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG ||
+                        row.status == DeviceOverviewStatus.REVIEW_REQUIRED
+                }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = stringResource(Res.string.home_device_inventory_title),
+            text = stringResource(Res.string.device_overview_summary,
+                installedPackages.size, supportedCount, needsCount),
+            style = MorpheTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = stringResource(Res.string.device_overview_disclaimer),
             style = MorpheTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Box(
-            modifier = Modifier.fillMaxWidth()
-                .heightIn(max = (paneMaxHeight - 130.dp).coerceAtLeast(120.dp)),
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth().padding(end = 12.dp),
-                state = listState,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                items(visible, key = { it.first }) { (pkg, name) ->
-                    val record = recordsByInstalled[pkg]
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(name, fontWeight = FontWeight.Medium, maxLines = 1,
-                                overflow = TextOverflow.Ellipsis)
-                            if (name != pkg) {
-                                Text(pkg, style = MorpheTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            if (record != null) {
-                                Text(stringResource(Res.string.home_device_inventory_patched_record),
-                                    style = MorpheTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary)
-                                deviceAppInfo[record.packageName]?.installedVersion?.let { version ->
-                                    Text(stringResource(Res.string.home_device_installed_version, "v" + version.removePrefix("v")),
+            MorpheChoiceChip(text = stringResource(Res.string.device_overview_all, rows.size),
+                active = filter == DeviceViewFilter.ALL, onClick = { filter = DeviceViewFilter.ALL })
+            MorpheChoiceChip(text = stringResource(Res.string.device_overview_needs, needsCount),
+                active = filter == DeviceViewFilter.NEEDS_ATTENTION,
+                onClick = { filter = DeviceViewFilter.NEEDS_ATTENTION })
+            MorpheChoiceChip(text = stringResource(Res.string.device_overview_patchable_count, patchableCount),
+                active = filter == DeviceViewFilter.PATCHABLE,
+                onClick = { filter = DeviceViewFilter.PATCHABLE })
+            MorpheChoiceChip(text = stringResource(Res.string.device_overview_version_count, versionMatchCount),
+                active = filter == DeviceViewFilter.VERSION_MATCH,
+                onClick = { filter = DeviceViewFilter.VERSION_MATCH })
+            MorpheChoiceChip(text = stringResource(Res.string.device_overview_other_count, otherCount),
+                active = filter == DeviceViewFilter.OTHER,
+                onClick = { filter = DeviceViewFilter.OTHER })
+        }
+        if (visible.isEmpty()) {
+            YourAppsEmptyHint(
+                title = stringResource(Res.string.no_matches),
+                subtitle = stringResource(Res.string.device_overview_no_results),
+            )
+        } else {
+            val listState = rememberLazyListState()
+            Box(modifier = Modifier.fillMaxWidth()
+                .heightIn(max = (paneMaxHeight - 175.dp).coerceAtLeast(120.dp))) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().padding(end = 12.dp),
+                    state = listState,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    items(visible, key = { it.packageName }) { row ->
+                        Card(modifier = Modifier.fillMaxWidth().then(
+                            row.record?.let { record ->
+                                Modifier.clickable { onShowDetail(record) }
+                            } ?: Modifier
+                        )) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                                ) {
+                                    Text(row.displayName, fontWeight = FontWeight.Medium,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    if (row.displayName != row.packageName) {
+                                        Text(row.packageName,
+                                            style = MorpheTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    row.record?.let { record ->
+                                        Text(stringResource(Res.string.device_overview_local_version,
+                                            "v" + record.apkVersion.removePrefix("v")),
+                                            style = MorpheTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                                ) {
+                                    Text(stringResource(deviceLabel(row.status)),
                                         style = MorpheTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary)
+                                    Text(row.installedVersion?.let { "v" + it.removePrefix("v") }
+                                            ?: stringResource(Res.string.device_overview_version_unknown),
+                                        style = MorpheTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    row.targetVersion?.let { target ->
+                                        Text(stringResource(Res.string.device_overview_target_version,
+                                            "v" + target.removePrefix("v")),
+                                            style = MorpheTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                VerticalScrollbar(
+                    adapter = rememberScrollbarAdapter(listState),
+                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                    style = MorpheScrollbarStyle(),
+                )
             }
-            VerticalScrollbar(
-                adapter = rememberScrollbarAdapter(listState),
-                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
-                style = MorpheScrollbarStyle(),
-            )
         }
     }
 }
