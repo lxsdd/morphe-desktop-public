@@ -214,13 +214,7 @@ internal fun DeviceInventoryPane(
     val appUpdateCount = rows.count { it.appUpdateAvailable }
     val patchUpdateCount = rows.count { it.confirmedPatchUpdate }
     val needsCount = rows.count { deviceOverviewPriority(it.status) <= 3 }
-    val patchableCount = rows.count { it.status == DeviceOverviewStatus.PATCH_CANDIDATE }
     val verifiedCount = rows.count { it.status == DeviceOverviewStatus.EXACT_BUILD_VERIFIED }
-    val versionMatchCount = rows.count { it.status == DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED }
-    val otherCount = rows.count {
-        it.status == DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG ||
-            it.status == DeviceOverviewStatus.REVIEW_REQUIRED
-    }
     val visible = remember(rows, searchQuery, filter, sort, supportedPackages) {
         val matching = 
         rows.filter { row ->
@@ -333,18 +327,9 @@ internal fun DeviceInventoryPane(
             MorpheChoiceChip(text = stringResource(Res.string.device_overview_needs, needsCount),
                 active = filter == DeviceViewFilter.NEEDS_ATTENTION,
                 onClick = { filter = DeviceViewFilter.NEEDS_ATTENTION })
-            MorpheChoiceChip(text = stringResource(Res.string.device_overview_patchable_count, patchableCount),
-                active = filter == DeviceViewFilter.PATCHABLE,
-                onClick = { filter = DeviceViewFilter.PATCHABLE })
             MorpheChoiceChip(text = stringResource(Res.string.device_overview_verified_count, verifiedCount),
                 active = filter == DeviceViewFilter.VERIFIED,
                 onClick = { filter = DeviceViewFilter.VERIFIED })
-            MorpheChoiceChip(text = stringResource(Res.string.device_overview_version_count, versionMatchCount),
-                active = filter == DeviceViewFilter.VERSION_MATCH,
-                onClick = { filter = DeviceViewFilter.VERSION_MATCH })
-            MorpheChoiceChip(text = stringResource(Res.string.device_overview_other_count, otherCount),
-                active = filter == DeviceViewFilter.OTHER,
-                onClick = { filter = DeviceViewFilter.OTHER })
         }
         if (visible.isEmpty()) {
             YourAppsEmptyHint(
