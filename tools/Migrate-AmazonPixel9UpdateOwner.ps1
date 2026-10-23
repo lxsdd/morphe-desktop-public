@@ -244,7 +244,11 @@ try {
     Write-Output "MODE=FULL_UNINSTALL_AND_FRESH_INSTALL"
     Write-Output "APP_LOCAL_DATA_LOSS=YES"
     $removed = @(Invoke-Adb -Arguments @("-s", $selectedSerial, "uninstall", $packageName))
-    if (-not ($removed -match '(?i)^Success
+    if (-not ($removed -match '(?i)^Success$')) {
+        throw "Uninstall was not confirmed. Installation not attempted."
+    }
+    Write-Output "UNINSTALL=SUCCESS"
+    try {
         $installed = @(Invoke-Adb -Arguments @("-s", $selectedSerial, "shell", "pm", "install", "-r", "-d", "--update-ownership", $remoteTemp))
         if (-not ($installed -match '(?i)^Success$')) {
             throw "Package Manager did not confirm success."
