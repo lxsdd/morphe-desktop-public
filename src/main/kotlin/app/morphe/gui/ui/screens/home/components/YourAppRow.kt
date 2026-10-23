@@ -55,7 +55,7 @@ fun YourAppRow(
     AppCard(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = MorpheTheme.shapes.mediumDp,
-        appIconColorHex = appIconColorHex,
+        appIconColorHex = null, // neutral default; custom saved fills preserved
         fill = cardFills[record.packageName],
         onClick = onClick,
         onCustomise = {

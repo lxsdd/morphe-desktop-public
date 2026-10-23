@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/home-actions-clarity-20261022
+      - feature/morphe-device-first-home-20261023
 
 permissions:
   contents: read

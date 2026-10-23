@@ -27,6 +27,7 @@ internal fun HomeSplitLayout(
     onShowDetail: (PatchedAppRecord) -> Unit,
     onFilterChange: (AppListFilter) -> Unit,
     onRetry: () -> Unit,
+    onRefreshDeviceInfo: () -> Unit,
     onManageSources: () -> Unit,
     onClearClick: () -> Unit,
     onChangeClick: () -> Unit,
@@ -41,7 +42,7 @@ internal fun HomeSplitLayout(
                 top = 4.dp,
                 bottom = padding,
             ),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.TopStart,
     ) {
         val bodyViewport = this.maxHeight
         Row(
@@ -66,6 +67,7 @@ internal fun HomeSplitLayout(
                 isLoading = uiState.isLoadingPatches,
                 loadError = uiState.patchLoadError,
                 onRetry = onRetry,
+                onRefreshDeviceInfo = onRefreshDeviceInfo,
                 onManageSources = onManageSources,
                 modifier = (if (uiState.appListFilter == AppListFilter.DEVICE) {
                     // Device inventory is read-only: use the full workspace instead
@@ -78,7 +80,7 @@ internal fun HomeSplitLayout(
             if (uiState.appListFilter != AppListFilter.DEVICE) Column(
                 modifier = Modifier
                     .weight(1f)
-                    .align(Alignment.CenterVertically)
+                    .align(Alignment.Top)
                     .heightIn(max = bodyViewport)
                     .padding(top = 16.dp)
                     .verticalScroll(rememberScrollState()),

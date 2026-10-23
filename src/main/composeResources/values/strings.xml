@@ -890,4 +890,28 @@
     <string name="home_action_patch_selected_apk">Patch selected APK</string>
     <string name="home_detail_app_update_requires_input">A newer supported app version (%1$s) exists. Select its APK first; repatching the current APK will not upgrade the app.</string>
     <string name="home_your_apps_patched_date_label">Patched on</string>
+
+    <!-- Device-first read-only overview -->
+    <string name="device_overview_app_update">Update app version</string>
+    <string name="device_overview_patch_update">Update patches</string>
+    <string name="device_overview_local_build">Check local APK</string>
+    <string name="device_overview_patchable">Patch source available – check version</string>
+    <string name="device_overview_version_match">Version matches – build unverified</string>
+    <string name="device_overview_signer_conflict">Different signer – review</string>
+    <string name="device_overview_review">Review needed</string>
+    <string name="device_overview_other">Outside patch catalog</string>
+    <string name="device_overview_summary">%1$d installed · %2$d in patch catalog · %3$d need attention</string>
+    <string name="device_overview_disclaimer">Device data is read only. Equal version and signer do not prove identical APK bytes.</string>
+    <string name="device_overview_all">All %1$d</string>
+    <string name="device_overview_needs">Needs attention %1$d</string>
+    <string name="device_overview_patchable_count">Not patched yet %1$d</string>
+    <string name="device_overview_version_count">Matching version %1$d</string>
+    <string name="device_overview_other_count">Other %1$d</string>
+    <string name="device_overview_no_results">No installed apps match this filter.</string>
+    <string name="device_overview_version_unknown">Version unknown</string>
+    <string name="device_overview_local_version">Patched locally: %1$s</string>
+    <string name="device_overview_target_version">Compatible target: %1$s</string>
+    <string name="device_overview_refresh">Refresh device</string>
+    <string name="device_overview_exact_build">Installed APK build verified</string>
+    <string name="device_overview_verified_count">Verified builds %1$d</string>
 </resources>
