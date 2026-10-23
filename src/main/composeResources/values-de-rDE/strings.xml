@@ -943,4 +943,10 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="patch_play_store_details">Optionaler Patch „Disable Play Store updates“: setzt den APK-Versionscode auf das Maximum. Kann spätere APK-Updates erschweren; die Wirkung muss auf dem Gerät geprüft werden.</string>
     <string name="patch_play_store_enable">Patch aktivieren</string>
     <string name="patch_play_store_disable">Patch abwählen</string>
+    <string name="device_android_version_code">Android-Versionscode auf dem Gerät: %1$s</string>
+    <string name="patch_play_amazon_title">Amazon: Play-Store-Updates</string>
+    <string name="patch_play_source_missing">Zusätzlicher Schutzpatch „Disable Play Store updates“ ist in den geladenen Quellen nicht vorhanden.</string>
+    <string name="patch_play_version_code_warning">Optionaler Patch: setzt den Versionscode auf den Höchstwert und kann spätere App-Updates erschweren.</string>
+    <string name="patch_play_select">Patch aktivieren</string>
+    <string name="patch_play_selected">Patch deaktivieren</string>
 </resources>
