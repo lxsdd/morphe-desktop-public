@@ -59,6 +59,7 @@ internal fun SupportedAppsListPane(
     isLoading: Boolean,
     loadError: String?,
     onRetry: () -> Unit,
+    onRefreshDeviceInfo: () -> Unit,
     onManageSources: () -> Unit = {},
     sortMode: HomeAppSortMode = HomeAppSortMode.RECOMMENDED,
     onSortModeChange: (HomeAppSortMode) -> Unit = {},
@@ -179,6 +180,7 @@ internal fun SupportedAppsListPane(
                 searchQuery = searchQuery,
                 paneMaxHeight = paneMaxHeight,
                 onShowDetail = onShowDetail,
+                onRefreshDeviceInfo = onRefreshDeviceInfo,
             )
         } else if (filter != AppListFilter.ALL) {
             YourAppsListBody(
