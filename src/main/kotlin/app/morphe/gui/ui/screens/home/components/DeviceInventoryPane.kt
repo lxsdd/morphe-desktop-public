@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material3.Card
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -69,6 +70,7 @@ internal fun DeviceInventoryPane(
     searchQuery: String,
     paneMaxHeight: Dp,
     onShowDetail: (PatchedAppRecord) -> Unit,
+    onRefreshDeviceInfo: () -> Unit,
 ) {
     if (selectedDeviceSerial == null) {
         YourAppsEmptyHint(
@@ -141,12 +143,22 @@ internal fun DeviceInventoryPane(
     }
 
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(Res.string.device_overview_summary,
-                installedPackages.size, supportedCount, needsCount),
-            style = MorpheTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.device_overview_summary,
+                    installedPackages.size, supportedCount, needsCount),
+                style = MorpheTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedButton(onClick = onRefreshDeviceInfo) {
+                Text(stringResource(Res.string.device_overview_refresh))
+            }
+        }
         Text(
             text = stringResource(Res.string.device_overview_disclaimer),
             style = MorpheTheme.typography.bodySmall,
