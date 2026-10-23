@@ -138,6 +138,13 @@ internal fun DeviceAppDetailsDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    deviceInfo?.androidVersionCode?.let { code ->
+                        Text(
+                            stringResource(Res.string.device_android_version_code, code.toString()),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Text(
                         stringResource(Res.string.device_play_owner_is_not_play_detachment),
                         style = MaterialTheme.typography.bodySmall,
