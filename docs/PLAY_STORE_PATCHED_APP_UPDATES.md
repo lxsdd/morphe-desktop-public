@@ -27,6 +27,18 @@ On the affected device only when explicitly user-authorized, inspect:
 
 Keep the Play app-library association, visible offer, automatic update attempt, update-owner proof and Android install failure as **five separate signals**. Do not infer one from another or claim a successful fix without confirming the user-visible Play behavior.
 
+## Existing official patch: the direct opt-in solution
+
+The stable, official **Morphe Patches v1.48.0** contains the universal **`Disable Play Store updates`** patch in
+`patches/src/main/kotlin/app/morphe/patches/all/misc/updates/DisablePlayStoreUpdatesPatch.kt`
+(verified against tag `v1.48.0`, not an assumption from current dev branch).
+
+It is **disabled by default**. On explicit selection it updates the output APK's manifest `android:versionCode` to `Int.MAX_VALUE` (`2147483647`). The accompanying bytecode extension attempts to return the original versionCode to app-internal PackageInfo lookups. Because Play treats an app as outdated by comparing versionCode, this is a direct mechanism for suppressing the user-reported repeated update offer and failed install attempts. Unlike `-i` attribution or update ownership, it targets the Play version comparison itself. It is not a guarantee against all Play maintenance or unusual device/store behavior.
+
+The Custom patch-selection UI now exposes this **only when** a bundle named `Morphe Patches` contains that exact universal patch. It offers an explicit, persistent selection; the user must still inspect/apply the patch and choose installation on a device separately. Amazon-specific patches from `rushiranpise/morphe-patches` can be selected in the same multi-source patch workflow when loaded, but actual cross-bundle application and Play behavior are **not yet physically qualified**.
+
+**Tradeoffs:** the patch itself warns of unpredictable app issues, does not work with root mounting, and makes an ordinary later in-place APK with a lower versionCode a *downgrade* even if its versionName is newer. Future repatches should retain this patch, preserve signing identity and check installer behavior. Removing the max-versionCode patch might require uninstall/reinstall with app-data loss; do not promise automatic rollback or apply this broadly without consent. See https://github.com/MorpheApp/morphe-patches/tree/v1.48.0 and upstream implementation.
+
 ## Choosing an achievable guarantee
 
 - With **unchanged application ID** and a Play-associated app, we cannot promise that the Play Store will never **offer** an update. Update ownership can constrain installers, not guarantee offer disappearance.
