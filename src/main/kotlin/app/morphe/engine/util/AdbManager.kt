@@ -5,6 +5,8 @@
 
 package app.morphe.engine.util
 
+import app.morphe.engine.installation.AdbApkInstaller
+import app.morphe.engine.installation.AdbInstallRequest
 import app.morphe.engine.installation.AdbPackageOwnershipProbe
 import app.morphe.engine.installation.InstalledPackageOwnership
 import app.morphe.library.installation.installer.AdbRootInstaller
@@ -346,95 +348,60 @@ class AdbManager {
         return selectSpoofInstaller(installed)
     }
 
-    /** Installs on an exact ADB serial. Attribution alone cannot disable Play update offers. */
+    /**
+     * Installs via the SAME capability-checked non-root backend as the earlier
+     * private Custom version. This is vital on Android versions that support
+     * Update Ownership: using bare `adb install -i` bypassed owner verification
+     * and silently regressed the device's update-handling safeguards.
+     *
+     * Installer source attribution and Play's update offers are independent.
+     * The legacy `AUTO_SPOOF` option is no longer the default.
+     */
     suspend fun installApk(
         apkPath: String,
         deviceId: String,
         allowDowngrade: Boolean = true,
-        installerPackage: String? = AUTO_SPOOF,
-        onProgress: (String) -> Unit = {}
+        installerPackage: String? = null,
+        onProgress: (String) -> Unit = {},
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val adb = findAdb() ?: return@withContext Result.failure(
             AdbException("ADB binary not found", AdbErrorCode.ADB_NOT_FOUND)
         )
-
         val apkFile = File(apkPath)
-        if (!apkFile.exists()) {
-            val msg = "APK file not found: $apkPath"
-            Logger.error(msg)
+        if (!apkFile.isFile) {
             return@withContext Result.failure(
-                AdbException(msg, AdbErrorCode.APK_NOT_FOUND, listOf(apkPath))
+                AdbException("APK file not found: $apkPath", AdbErrorCode.APK_NOT_FOUND, listOf(apkPath))
             )
         }
-
-        val targetDevice = resolveTargetDevice(deviceId).getOrElse {
+        val target = resolveTargetDevice(deviceId).getOrElse {
             return@withContext Result.failure(it)
         }
+        // Preserve an explicit legacy request without inventing a fake installer.
+        val requestedInstaller = if (installerPackage == AUTO_SPOOF) {
+            resolveSpoofInstaller(target.id)
+        } else installerPackage
 
-        val effectiveInstaller = if (installerPackage == AUTO_SPOOF) {
-            resolveSpoofInstaller(targetDevice.id)
-        } else {
-            installerPackage
-        }
-
-        // An explicit installer-attribution request is never silently discarded.
-        fun attemptInstall(withInstaller: Boolean): Result<Unit> {
-            val command = mutableListOf(adb, "-s", targetDevice.id, "install", "-r")
-            if (allowDowngrade) command.add("-d") // Allow downgrade
-            if (withInstaller && !effectiveInstaller.isNullOrBlank()) {
-                command.add("-i") // Installer-of-record metadata, NOT a Play update block
-                command.add(effectiveInstaller)
-            }
-            command.add(apkPath)
-
-            Logger.info("Running: ${command.joinToString(" ")}")
-
-            return try {
-                val process = ProcessBuilder(command)
-                    .redirectErrorStream(true)
-                    .start()
-
-                // Read output in real-time
-                val output = StringBuilder()
-                process.inputStream.bufferedReader().forEachLine { line ->
-                    output.appendLine(line)
-                    onProgress(line)
-                    Logger.debug("ADB: $line")
-                }
-
-                val exitCode = process.waitFor()
-                val outputStr = output.toString()
-
-                if (exitCode == 0 && outputStr.contains("Success")) {
-                    Logger.info("APK installed successfully")
-                    Result.success(Unit)
-                } else {
-                    val errorInfo = parseInstallError(outputStr)
-                    Result.failure(AdbException(errorInfo.technicalMessage, errorInfo.errorCode, errorInfo.formatArgs))
-                }
-            } catch (e: Exception) {
-                Logger.error("Error installing APK", e)
-                Result.failure(
-                    AdbException(
-                        "Error installing APK: ${e.message ?: ""}",
-                        AdbErrorCode.INSTALL_GENERIC,
-                        listOf(e.message ?: ""),
-                        cause = e,
-                    )
-                )
-            }
-        }
-
-        val withInstaller = !effectiveInstaller.isNullOrBlank()
-        // Fail closed: dropping -i would present success without the requested
-        // installer attribution. It would still not guarantee Play detachment.
-        val finalResult = attemptInstall(withInstaller = withInstaller)
-        finalResult.onFailure { e ->
-            if (e is AdbException && e.cause == null) {
-                Logger.error("Installation failed: ${e.message}")
-            }
-        }
-        finalResult
+        onProgress("Checking Android Update Ownership on ${target.displayName}...")
+        AdbApkInstaller().install(
+            request = AdbInstallRequest(
+                adbPath = adb,
+                apk = apkFile,
+                deviceSerial = target.id,
+                allowDowngrade = allowDowngrade,
+                installerPackage = requestedInstaller,
+            ),
+            onProgress = onProgress,
+            onDebug = Logger::debug,
+        ).fold(
+            onSuccess = { mode ->
+                Logger.info("APK installed on ${target.id} with ${mode.name} backend")
+                Result.success(Unit)
+            },
+            onFailure = { error ->
+                Logger.error("Installation blocked or failed on ${target.id}: ${error.message}")
+                Result.failure(error)
+            },
+        )
     }
 
     /** Verifies that the target device is connected and ready for installation. */
