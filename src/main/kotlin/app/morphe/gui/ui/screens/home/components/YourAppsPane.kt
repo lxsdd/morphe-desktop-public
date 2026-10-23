@@ -8,7 +8,8 @@ package app.morphe.gui.ui.screens.home.components
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -60,13 +61,19 @@ fun AppListFilterChips(
     deviceCount: Int?,
     modifier: Modifier = Modifier,
 ) {
-    FlowRow(
+    // Keep tabs in one stable line; scroll instead of reflowing the workspace.
+    Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = modifier,
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         val allLabel = stringResource(Res.string.home_filter_all_apps)
         val yourLabel = stringResource(Res.string.home_filter_your_apps)
+        MorpheChoiceChip(
+            text = "${stringResource(Res.string.home_filter_device_apps)} ${deviceInventoryCountText(deviceCount)}",
+            active = filter == AppListFilter.DEVICE,
+            onClick = { onSelect(AppListFilter.DEVICE) },
+        )
         MorpheChoiceChip(
             text = if (allCount > 0) "$allLabel $allCount" else allLabel,
             active = filter == AppListFilter.ALL,
@@ -86,11 +93,6 @@ fun AppListFilterChips(
             text = "${stringResource(Res.string.home_filter_patch_updates)} $patchUpdateCount",
             active = filter == AppListFilter.PATCH_UPDATES,
             onClick = { onSelect(AppListFilter.PATCH_UPDATES) },
-        )
-        MorpheChoiceChip(
-            text = "${stringResource(Res.string.home_filter_device_apps)} ${deviceInventoryCountText(deviceCount)}",
-            active = filter == AppListFilter.DEVICE,
-            onClick = { onSelect(AppListFilter.DEVICE) },
         )
     }
 }
@@ -140,7 +142,7 @@ internal fun YourAppsListBody(
         )
         else -> {
             val listState = rememberLazyListState()
-            val headerSearchAllowance = if (showSearch) 80.dp else MorpheTheme.dimens.chipHeight
+            val headerSearchAllowance = 150.dp // toolbar footprint stays stable across views
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
