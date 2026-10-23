@@ -950,4 +950,27 @@
     <string name="result_device_not_installed">Not installed or not yet checked</string>
     <string name="result_device_checking">Checking device…</string>
     <string name="result_device_failed">Installation failed</string>
+    <!-- Device status selection and progress for exact selected ADB serial -->
+    <string name="device_filter_label">Status: %1$s</string>
+    <string name="device_sort_label">Sort by: %1$s</string>
+    <string name="device_filter_relevant">Relevant apps</string>
+    <string name="device_filter_app_updates">App updates</string>
+    <string name="device_filter_patch_updates">Patch updates</string>
+    <string name="device_filter_attention">Needs attention</string>
+    <string name="device_filter_patchable">No local history</string>
+    <string name="device_filter_verified">Verified build</string>
+    <string name="device_filter_version_match">Version match · unverified</string>
+    <string name="device_filter_other">Other / unverified</string>
+    <string name="device_filter_all">All installed apps</string>
+    <string name="device_sort_status_first">Action required first</string>
+    <string name="device_sort_status_last">Action required last</string>
+    <string name="device_sort_name_asc">App name A–Z</string>
+    <string name="device_sort_name_desc">App name Z–A</string>
+    <string name="device_scan_loading">Scanning device…</string>
+    <string name="device_scan_packages">Reading installed packages</string>
+    <string name="device_scan_versions">Checking app versions and signatures</string>
+    <string name="device_scan_fingerprints">Checking APK identities (read only)</string>
+    <string name="device_scan_catalog">Matching supported apps</string>
+    <string name="device_scan_old_hidden">Previous device data is hidden until scanning finishes.</string>
+    <string name="device_scan_failed">Device inventory could not be loaded. Previous data remains hidden.</string>
 </resources>

@@ -926,37 +926,48 @@ class HomeViewModel(
 
     /** Invalidates obsolete asynchronous reads, including same-serial reselects. */
     private var deviceRefreshGeneration: Long = 0
+    private var deviceRefreshJob: Job? = null
 
-    /** Queries the connected ADB device for installed versions of patched records. */
+    /** Rebuilds only the currently selected device's read-only inventory. */
     fun refreshDeviceInfo() {
         val generation = ++deviceRefreshGeneration
         val target = DeviceMonitor.state.value.captureOperationTarget()
+        deviceRefreshJob?.cancel()
         if (target != null && !tabSelectedThisSession &&
             _uiState.value.appListFilter != AppListFilter.DEVICE) {
             _uiState.value = _uiState.value.copy(appListFilter = AppListFilter.DEVICE)
         }
-        // A device-switch must never briefly expose the previous device's catalog.
-        if (target == null || _uiState.value.deviceInventorySerial != target.serial) {
-            _uiState.value = _uiState.value.copy(
-                deviceAppInfo = emptyMap(),
-                deviceInstalledPackages = emptySet(),
-                deviceInventorySerial = null,
-            )
-        }
-        viewModelScope.launch {
-            if (target == null) return@launch
+        // Also invalidate the SAME device's old snapshot during manual refresh.
+        // It must never be presented as a freshly scanned inventory.
+        _uiState.value = _uiState.value.copy(
+            deviceAppInfo = emptyMap(),
+            deviceInstalledPackages = emptySet(),
+            deviceInventorySerial = null,
+            deviceRefreshSerial = target?.serial,
+            deviceRefreshStage = if (target == null) DeviceInventoryRefreshStage.IDLE
+                else DeviceInventoryRefreshStage.READING_PACKAGES,
+        )
+        if (target == null) return
+        deviceRefreshJob = viewModelScope.launch {
+            try {
             val records = patchedRecordsByPackage.values
             val installed = adbManager.listInstalledPackages(target.serial).getOrNull() ?: run {
-                // Failed ADB reads never masquerade as an empty, verified inventory.
-                if (generation == deviceRefreshGeneration) {
+                // Report the failure; do not silently pretend this is an empty device.
+                if (mayPublishDeviceScan(
+                        DeviceMonitor.state.value.captureOperationTarget()?.serial,
+                        target.serial, _uiState.value.deviceRefreshSerial,
+                        _uiState.value.deviceRefreshStage, generation, deviceRefreshGeneration)) {
                     _uiState.value = _uiState.value.copy(
-                        deviceAppInfo = emptyMap(),
-                        deviceInstalledPackages = emptySet(),
-                        deviceInventorySerial = null,
-                    )
+                        deviceRefreshStage = DeviceInventoryRefreshStage.FAILED)
                 }
                 return@launch
             }
+            if (!shouldApplyDeviceResult(
+                    activeSerial = DeviceMonitor.state.value.captureOperationTarget()?.serial,
+                    resultSerial = target.serial, requestGeneration = generation,
+                    currentGeneration = deviceRefreshGeneration)) return@launch
+            _uiState.value = _uiState.value.copy(
+                deviceRefreshStage = DeviceInventoryRefreshStage.READING_VERSIONS)
             val ourSignatureIds = morpheSignatureIds()
             // Key by original package, querying by installed package to handle renames.
             val info = records.associate { record ->
@@ -985,6 +996,8 @@ class HomeViewModel(
                 deviceInstalledPackages = installed,
                 deviceInventorySerial = target.serial,
             )
+            _uiState.value = _uiState.value.copy(
+                deviceRefreshStage = DeviceInventoryRefreshStage.VERIFYING_BUILDS)
             // Verify a saved local output against its actual installed single APK.
             // A receipt or matching version alone never upgrades a status to verified.
             val adbForVerification = adbManager.findAdb()
@@ -1025,6 +1038,8 @@ class HomeViewModel(
                     }
                 }
             }
+            _uiState.value = _uiState.value.copy(
+                deviceRefreshStage = DeviceInventoryRefreshStage.READING_CATALOG_APPS)
             val supportedNotInHistory = _uiState.value.supportedApps.filter { app ->
                 app.packageName in installed && app.packageName !in info
             }
@@ -1055,6 +1070,31 @@ class HomeViewModel(
                 _uiState.value = _uiState.value.copy(
                     deviceAppInfo = _uiState.value.deviceAppInfo + additional,
                 )
+            }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Logger.error("Read-only device inventory refresh failed", error)
+                if (mayPublishDeviceScan(
+                        DeviceMonitor.state.value.captureOperationTarget()?.serial,
+                        target.serial, _uiState.value.deviceRefreshSerial,
+                        _uiState.value.deviceRefreshStage, generation, deviceRefreshGeneration)) {
+                    _uiState.value = _uiState.value.copy(
+                        deviceAppInfo = emptyMap(), deviceInstalledPackages = emptySet(),
+                        deviceInventorySerial = null,
+                        deviceRefreshStage = DeviceInventoryRefreshStage.FAILED,
+                    )
+                }
+            } finally {
+                if (mayPublishDeviceScan(
+                        DeviceMonitor.state.value.captureOperationTarget()?.serial,
+                        target.serial, _uiState.value.deviceRefreshSerial,
+                        _uiState.value.deviceRefreshStage, generation, deviceRefreshGeneration)) {
+                    _uiState.value = _uiState.value.copy(
+                        deviceRefreshStage = DeviceInventoryRefreshStage.IDLE,
+                        deviceRefreshSerial = null,
+                    )
+                }
             }
         }
     }
@@ -1473,6 +1513,9 @@ data class HomeUiState(
     val deviceInstalledPackages: Set<String> = emptySet(),
     /** Null while disconnected, switching targets, or when the read has failed. */
     val deviceInventorySerial: String? = null,
+    /** Serial-bound asynchronous refresh state. Old snapshots are cleared while loading. */
+    val deviceRefreshSerial: String? = null,
+    val deviceRefreshStage: DeviceInventoryRefreshStage = DeviceInventoryRefreshStage.IDLE,
     val patchesVersion: String? = null,
     val patchesChannel: PatchResolver.Channel? = null,
     val patchSourceName: String? = null,

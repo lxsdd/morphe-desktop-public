@@ -32,6 +32,7 @@ import app.morphe.gui.ui.screens.home.components.ForgetConfirmDialog
 import app.morphe.gui.ui.screens.home.components.FullScreenDropZone
 import app.morphe.gui.ui.screens.home.components.HeaderBar
 import app.morphe.gui.ui.screens.home.components.HomeBanners
+import app.morphe.gui.ui.screens.home.DeviceInventoryRefreshStage
 import app.morphe.gui.ui.screens.home.components.AppListFilter
 import app.morphe.gui.ui.screens.home.components.HomeSplitLayout
 import app.morphe.gui.ui.screens.home.components.DeviceAppDetailsDialog
@@ -76,9 +77,14 @@ fun HomeScreenContent(
     val selectedSerial = monitoredDevices.captureOperationTarget()?.serial
     // Synchronously mask the previous serial's data before the ViewModel's ADB
     // collector has completed its asynchronous refresh for the new selection.
-    val visibleDeviceUiState = if (uiState.deviceInventorySerial == selectedSerial) uiState
-        else uiState.copy(deviceAppInfo = emptyMap(), deviceInstalledPackages = emptySet(),
-            deviceInventorySerial = null)
+    val visibleDeviceUiState = if (selectedSerial != null &&
+        (uiState.deviceInventorySerial == selectedSerial ||
+            uiState.deviceRefreshSerial == selectedSerial)) uiState
+        else uiState.copy(
+            deviceAppInfo = emptyMap(), deviceInstalledPackages = emptySet(),
+            deviceInventorySerial = null, deviceRefreshSerial = null,
+            deviceRefreshStage = DeviceInventoryRefreshStage.IDLE,
+        )
 
     // Poll device installation state on initial load.
     LaunchedEffect(Unit) { viewModel.refreshDeviceInfo() }

@@ -911,4 +911,27 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="result_device_not_installed">Nicht installiert oder noch ungeprüft</string>
     <string name="result_device_checking">Gerät wird geprüft …</string>
     <string name="result_device_failed">Installation fehlgeschlagen</string>
+    <!-- Device status selection and progress for exact selected ADB serial -->
+    <string name="device_filter_label">Status: %1$s</string>
+    <string name="device_sort_label">Sortierung: %1$s</string>
+    <string name="device_filter_relevant">Relevante Apps</string>
+    <string name="device_filter_app_updates">App-Updates</string>
+    <string name="device_filter_patch_updates">Patch-Updates</string>
+    <string name="device_filter_attention">Handlungsbedarf</string>
+    <string name="device_filter_patchable">Ohne lokalen Verlauf</string>
+    <string name="device_filter_verified">Build bestätigt</string>
+    <string name="device_filter_version_match">Version gleich · ungeprüft</string>
+    <string name="device_filter_other">Sonstige / ungeprüft</string>
+    <string name="device_filter_all">Alle installierten Apps</string>
+    <string name="device_sort_status_first">Dringend zuerst</string>
+    <string name="device_sort_status_last">Dringend zuletzt</string>
+    <string name="device_sort_name_asc">App-Name A–Z</string>
+    <string name="device_sort_name_desc">App-Name Z–A</string>
+    <string name="device_scan_loading">Gerät wird eingelesen …</string>
+    <string name="device_scan_packages">Installierte Pakete werden ermittelt</string>
+    <string name="device_scan_versions">App-Versionen und Signaturen werden geprüft</string>
+    <string name="device_scan_fingerprints">APK-Identitäten werden lesend geprüft</string>
+    <string name="device_scan_catalog">Patchfähige Apps werden abgeglichen</string>
+    <string name="device_scan_old_hidden">Der bisherige Gerätestand ist während der Prüfung ausgeblendet.</string>
+    <string name="device_scan_failed">Gerät konnte nicht vollständig eingelesen werden. Keine alten Daten werden angezeigt.</string>
 </resources>
