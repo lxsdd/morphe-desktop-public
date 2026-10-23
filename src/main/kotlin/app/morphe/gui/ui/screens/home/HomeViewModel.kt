@@ -983,7 +983,8 @@ class HomeViewModel(
                     val pending = outputExists && version != null && isNewerVersion(record.apkVersion, version)
                     DeviceAppInfo(installed = true, installedVersion = version, signedByMorphe = signed,
                         installPending = pending, updateOwnerPackage = snapshot?.updateOwnerPackage,
-                        updateOwnerChecked = snapshot?.updateOwnerVerified == true)
+                        updateOwnerChecked = snapshot?.updateOwnerVerified == true,
+                        androidVersionCode = snapshot?.versionCode)
                 }
             }
             if (!shouldApplyDeviceResult(
@@ -1059,6 +1060,7 @@ class HomeViewModel(
                                 signedByMorphe = signed,
                                 updateOwnerPackage = snapshot?.updateOwnerPackage,
                                 updateOwnerChecked = snapshot?.updateOwnerVerified == true,
+                                androidVersionCode = snapshot?.versionCode,
                             )
                         }
                     }.awaitAll().toMap()
@@ -1491,6 +1493,8 @@ data class DeviceAppInfo(
     val updateOwnerPackage: String? = null,
     /** True when dumpsys for the exact installed package was successfully parsed. */
     val updateOwnerChecked: Boolean = false,
+    /** Android package versionCode, read from this exact device/package. */
+    val androidVersionCode: Long? = null,
 )
 
 data class HomeUiState(
