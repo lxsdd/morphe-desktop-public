@@ -1,5 +1,7 @@
 package app.morphe.gui.util
 
+import app.morphe.engine.util.AdbDevice
+import app.morphe.engine.util.DeviceStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -56,4 +58,34 @@ class DeviceDeploymentStateTest {
         assertEquals(false, different.installedOutputMatchesCurrent)
         assertEquals(DeviceDeploymentState.InstallPhase.INSTALLED, exact.installPhase)
     }
+    @Test
+    fun `switching from Pixel 6a to Pixel 9 never reattributes success`() {
+        val a = "PIXEL6A-SERIAL"
+        val b = "PIXEL9-SERIAL"
+        var states = mapOf(a to DeviceDeploymentState(a).installed("Installed on Pixel 6a"))
+        assertEquals(DeviceDeploymentState.InstallPhase.IDLE, states.forSerial(b).installPhase)
+        assertNull(states.forSerial(b).installed)
+        states = states + (b to states.forSerial(b).installed("Installed on Pixel 9"))
+        assertEquals("Installed on Pixel 6a", states.forSerial(a).installMessage)
+        assertEquals("Installed on Pixel 9", states.forSerial(b).installMessage)
+    }
+
+    @Test
+    fun `selection is by ready serial not model name or stale disconnection`() {
+        val a = AdbDevice("A", DeviceStatus.DEVICE, model = "Pixel")
+        val b = AdbDevice("B", DeviceStatus.DEVICE, model = "Pixel")
+        assertEquals("B", resolveExplicitDevice(listOf(a, b), "B")?.id)
+        assertNull(resolveSelectedDevice(listOf(a, b), null))
+        assertEquals("B", resolveSelectedDevice(listOf(a, b), b)?.id)
+        assertNull(resolveSelectedDevice(listOf(a, b), AdbDevice("OLD", DeviceStatus.OFFLINE)))
+        assertEquals("B", resolveSelectedDevice(listOf(b), a)?.id)
+    }
+
+    @Test
+    fun `stale reads cannot replace next device inventory`() {
+        assertFalse(shouldApplyDeviceResult("B", "A", 5, 5))
+        assertFalse(shouldApplyDeviceResult("B", "B", 4, 5))
+        assertTrue(shouldApplyDeviceResult("B", "B", 5, 5))
+    }
+
 }

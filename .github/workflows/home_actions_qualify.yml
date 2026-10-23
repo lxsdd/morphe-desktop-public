@@ -7,6 +7,7 @@ on:
       - feature/morphe-device-first-home-20261023
       - feature/device-guided-app-update-20261023
       - feature/device-app-details-without-history-20261023
+      - fix/result-device-scoped-install-continuity-20261023
 
 permissions:
   contents: read
@@ -33,12 +34,23 @@ jobs:
         with:
           distribution: jetbrains
           java-version: '21'
+      - name: Route Maven Central dependency reads via GCS mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.m2"
+          path="$HOME/.m2/settings.xml"
+          if [ ! -f "$path" ]; then
+            printf '%s\n' '<settings></settings>' > "$path"
+          fi
+          sed -i.bak 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
+          rm -f "$path.bak"
       - name: Run tests with simulated ADB, no real device access
         shell: bash
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./gradlew test --no-daemon
+        run: ./gradlew test --no-daemon -Dorg.gradle.mirror.maven.settings=true
 
   package-preflight:
     name: Inspect ephemeral desktop JAR (do not upload)
@@ -54,12 +66,23 @@ jobs:
         with:
           distribution: jetbrains
           java-version: '21'
+      - name: Route Maven Central dependency reads via GCS mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.m2"
+          path="$HOME/.m2/settings.xml"
+          if [ ! -f "$path" ]; then
+            printf '%s\n' '<settings></settings>' > "$path"
+          fi
+          sed -i.bak 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
+          rm -f "$path.bak"
       - name: Build ephemeral fat JAR without distribution
         shell: bash
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./gradlew shadowJar --no-daemon
+        run: ./gradlew shadowJar --no-daemon -Dorg.gradle.mirror.maven.settings=true
       - name: Verify archive, entrypoint and SHA-256
         shell: bash
         run: |

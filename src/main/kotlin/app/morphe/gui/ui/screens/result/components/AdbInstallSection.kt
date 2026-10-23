@@ -2,42 +2,42 @@
  * Copyright 2026 Morphe.
  * https://github.com/MorpheApp/morphe-desktop
  */
-
 package app.morphe.gui.ui.screens.result.components
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.morphe.engine.util.AdbDevice
-import app.morphe.engine.util.DeviceStatus
 import app.morphe.gui.ui.components.*
-import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.theme.*
+import app.morphe.gui.util.DeviceDeploymentState
+import app.morphe.gui.util.DeviceOperationTarget
+import app.morphe.gui.util.forSerial
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
+/**
+ * Shows ALL devices after each install, including success and failures.
+ * Selection changes never reattribute a success to another ADB serial.
+ * Installing on another device requires an explicit per-device selection + click.
+ */
 @Composable
 internal fun AdbInstallSection(
     devices: List<AdbDevice>,
     selectedDevice: AdbDevice?,
-    alreadyInstalled: Boolean = false,
-    isInstalling: Boolean,
-    installProgress: String,
-    installError: String?,
-    installSuccess: Boolean,
+    deployments: Map<String, DeviceDeploymentState>,
+    installTarget: DeviceOperationTarget?,
     borderColor: Color = MaterialTheme.colorScheme.outlineVariant,
     onDeviceSelected: (AdbDevice) -> Unit,
     onInstallClick: () -> Unit,
@@ -45,225 +45,114 @@ internal fun AdbInstallSection(
     onDismissError: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .widthIn(max = 520.dp)
-            .fillMaxWidth()
-            .clip(MorpheTheme.shapes.medium)
+    val selected = selectedDevice?.takeIf { it.isReady && devices.any { d ->
+        d.id == it.id && d.isReady
+    } }
+    val selectedState = selected?.let { deployments.forSerial(it.id) }
+    val anyInstalling = deployments.values.any {
+        it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING
+    }
+    Column(
+        modifier = modifier.widthIn(max = 520.dp).fillMaxWidth()
             .border(1.dp, borderColor, MorpheTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-        ) {
+        Text(
+            text = stringResource(Res.string.result_adb_section_title),
+            style = MorpheTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (devices.isEmpty()) {
+            Text(stringResource(Res.string.result_adb_no_devices))
+            Text(stringResource(Res.string.result_adb_connect_hint),
+                style = MorpheTheme.typography.labelSmall)
+        }
+        // Always show the other devices even after a successful installation.
+        devices.sortedWith(compareBy<AdbDevice>({ !it.isReady }, { it.displayName })).forEach { device ->
+            val state = deployments.forSerial(device.id)
+            val isSelected = selected?.id == device.id
+            val message = when (state.installPhase) {
+                DeviceDeploymentState.InstallPhase.INSTALLED ->
+                    stringResource(Res.string.result_device_installed_exact)
+                DeviceDeploymentState.InstallPhase.INSTALLING -> stringResource(Res.string.installing)
+                DeviceDeploymentState.InstallPhase.CHECKING -> stringResource(Res.string.result_device_checking)
+                DeviceDeploymentState.InstallPhase.FAILED -> stringResource(Res.string.result_device_failed)
+                DeviceDeploymentState.InstallPhase.PRESENT -> stringResource(Res.string.result_device_present_unverified)
+                DeviceDeploymentState.InstallPhase.IDLE -> stringResource(Res.string.result_device_not_installed)
+            }
             Row(
+                modifier = Modifier.fillMaxWidth()
+                    .border(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else borderColor,
+                        MorpheTheme.shapes.small)
+                    .then(if (device.isReady && !anyInstalling) Modifier.clickable {
+                        onDeviceSelected(device)
+                    } else Modifier)
+                    .padding(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(device.displayName, style = MorpheTheme.typography.bodyMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                    Text(device.id, style = MorpheTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Text(
-                    text = stringResource(Res.string.result_adb_section_title),
-                    style = MorpheTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    if (!device.isReady) stringResource(Res.string.status_offline) else message,
+                    style = MorpheTheme.typography.labelSmall,
+                    color = if (state.installPhase == DeviceDeploymentState.InstallPhase.INSTALLED)
+                        MorpheTheme.colors.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-
-            Spacer(Modifier.height(12.dp))
-
-            when {
-                installSuccess -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = MorpheIcons.CheckCircle,
-                            contentDescription = null,
-                            tint = MorpheTheme.colors.secondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(Res.string.installed_on, (selectedDevice?.displayName ?: stringResource(Res.string.device_default))),
-                            style = MorpheTheme.typography.labelSmall,
-                            color = MorpheTheme.colors.secondary
-                        )
-                    }
-                }
-
-                installError != null -> {
-                    Text(
-                        text = installError,
-                        style = MorpheTheme.typography.labelSmall,
-                        color = MorpheTheme.colors.danger,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        MorpheButton(
-                            label = stringResource(Res.string.dismiss),
-                            variant = MorpheButtonVariant.OUTLINED,
-                            size = MorpheButtonSize.COMPACT,
-                            onClick = onDismissError
-                        )
-
-                        MorpheButton(
-                            label = stringResource(Res.string.retry),
-                            variant = MorpheButtonVariant.DANGER,
-                            size = MorpheButtonSize.COMPACT,
-                            onClick = onRetryClick
-                        )
-                    }
-                }
-
-                isInstalling -> {
-                    ResultProgressRow(installProgress.ifEmpty { stringResource(Res.string.installing) })
-                }
-
-                else -> {
-                    val readyDevices = devices.filter { it.isReady }
-                    val notReadyDevices = devices.filter { !it.isReady }
-
-                    if (devices.isEmpty()) {
-                        Text(
-                            text = stringResource(Res.string.result_adb_no_devices),
-                            style = MorpheTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = stringResource(Res.string.result_adb_connect_hint),
-                            style = MorpheTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        (readyDevices + notReadyDevices).forEach { device ->
-                            val isSelected = selectedDevice?.id == device.id
-                            val enabled = device.isReady
-                            val deviceHover = remember { MutableInteractionSource() }
-                            val isDeviceHovered by deviceHover.collectIsHoveredAsState()
-
-                            val deviceBorder by animateColorAsState(
-                                when {
-                                    isSelected -> MorpheTheme.colors.secondary.copy(alpha = 0.5f)
-                                    isDeviceHovered && enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = MorpheTheme.alphas.borderMuted)
-                                    else -> borderColor
-                                },
-                                animationSpec = MorpheMotion.fastTween()
-                            )
-                            val deviceBg by animateColorAsState(
-                                when {
-                                    isSelected -> MorpheTheme.colors.secondary.copy(alpha = 0.06f)
-                                    else -> Color.Transparent
-                                },
-                                animationSpec = MorpheMotion.fastTween()
-                            )
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 6.dp)
-                                    .hoverable(deviceHover)
-                                    .clip(MorpheTheme.shapes.small)
-                                    .border(1.dp, deviceBorder, MorpheTheme.shapes.small)
-                                    .background(deviceBg)
-                                    .handCursor(enabled)
-                                    .then(
-                                        if (enabled) Modifier.clickable { onDeviceSelected(device) }
-                                        else Modifier
-                                    )
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    imageVector = MorpheIcons.PhoneAndroid,
-                                    contentDescription = null,
-                                    tint = when {
-                                        isSelected -> MorpheTheme.colors.secondary
-                                        enabled -> MorpheTheme.colors.primary.copy(alpha = 0.6f)
-                                        else -> MorpheTheme.colors.danger.copy(alpha = 0.4f)
-                                    },
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = device.displayName,
-                                        style = MorpheTheme.typography.bodySmall.copy(
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                        ),
-                                        color = if (enabled) MaterialTheme.colorScheme.onSurface
-                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                                    )
-                                    Text(
-                                        text = device.id,
-                                        style = MorpheTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                // Status tag
-                                val statusTone = when (device.status) {
-                                    DeviceStatus.DEVICE -> MorpheBadgeTone.Success
-                                    DeviceStatus.UNAUTHORIZED -> MorpheBadgeTone.Warning
-                                    else -> MorpheBadgeTone.Error
-                                }
-                                val statusText = when (device.status) {
-                                    DeviceStatus.DEVICE -> stringResource(Res.string.status_ready)
-                                    DeviceStatus.UNAUTHORIZED -> stringResource(Res.string.result_device_status_unauth)
-                                    DeviceStatus.OFFLINE -> stringResource(Res.string.status_offline)
-                                    DeviceStatus.UNKNOWN -> stringResource(Res.string.unknown)
-                                }
-                                MorpheBadge(
-                                    text = statusText,
-                                    tone = statusTone,
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(6.dp))
-
-                        MorpheButton(
-                            label = if (selectedDevice != null) {
-                                if (alreadyInstalled) stringResource(Res.string.result_adb_update_button, selectedDevice.displayName)
-                                else stringResource(Res.string.result_screen_install_on_device_label, selectedDevice.displayName)
-                            } else {
-                                stringResource(Res.string.result_adb_select_device_button)
-                            },
-                            variant = MorpheButtonVariant.FILLED,
-                            size = MorpheButtonSize.LARGE,
-                            enabled = selectedDevice != null,
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = onInstallClick,
-                        )
-                    }
+        }
+        val error = selectedState?.installError
+        if (error != null) {
+            Text(error, color = MorpheTheme.colors.danger,
+                style = MorpheTheme.typography.labelSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MorpheButton(label = stringResource(Res.string.dismiss),
+                    variant = MorpheButtonVariant.OUTLINED,
+                    size = MorpheButtonSize.COMPACT,
+                    onClick = onDismissError)
+                if (installTarget?.serial == selected?.id) {
+                    MorpheButton(label = stringResource(Res.string.retry),
+                        variant = MorpheButtonVariant.DANGER,
+                        size = MorpheButtonSize.COMPACT,
+                        onClick = onRetryClick)
                 }
             }
+        } else if (selectedState?.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING) {
+            Text(selectedState.installMessage ?: stringResource(Res.string.installing),
+                style = MorpheTheme.typography.bodySmall)
+        } else if (selected != null) {
+            MorpheButton(
+                label = if (selectedState?.installed == true)
+                    stringResource(Res.string.result_adb_update_button, selected.displayName)
+                else stringResource(Res.string.result_screen_install_on_device_label, selected.displayName),
+                variant = MorpheButtonVariant.FILLED,
+                size = MorpheButtonSize.LARGE,
+                enabled = !anyInstalling,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onInstallClick,
+            )
+        } else if (devices.any { it.isReady }) {
+            Text(stringResource(Res.string.result_adb_select_device_button))
         }
     }
 }
 
+/** Shared ADB and link-handling progress row, reused by result components. */
 @Composable
-internal fun ResultProgressRow(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+internal fun ResultProgressRow(text: String, modifier: Modifier = Modifier) {
+    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         CircularProgressIndicator(
             modifier = Modifier.size(16.dp),
             strokeWidth = 2.dp,
-            color = MorpheTheme.colors.primary
+            color = MorpheTheme.colors.primary,
         )
         Spacer(Modifier.width(10.dp))
-        Text(
-            text = text,
-            style = MorpheTheme.typography.labelSmall,
-            color = MorpheTheme.colors.primary
-        )
+        Text(text, style = MorpheTheme.typography.labelSmall, color = MorpheTheme.colors.primary)
     }
 }

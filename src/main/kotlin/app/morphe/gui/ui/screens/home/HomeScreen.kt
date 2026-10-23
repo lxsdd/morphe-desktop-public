@@ -32,6 +32,7 @@ import app.morphe.gui.ui.screens.home.components.ForgetConfirmDialog
 import app.morphe.gui.ui.screens.home.components.FullScreenDropZone
 import app.morphe.gui.ui.screens.home.components.HeaderBar
 import app.morphe.gui.ui.screens.home.components.HomeBanners
+import app.morphe.gui.ui.screens.home.components.AppListFilter
 import app.morphe.gui.ui.screens.home.components.HomeSplitLayout
 import app.morphe.gui.ui.screens.home.components.DeviceAppDetailsDialog
 import app.morphe.gui.ui.screens.home.components.DevicePatchSourceDetails
@@ -41,6 +42,8 @@ import app.morphe.gui.ui.screens.home.components.UninstallConfirmDialog
 import app.morphe.gui.ui.screens.home.components.VersionWarningDialog
 import app.morphe.gui.ui.screens.home.components.handleContinue
 import app.morphe.gui.ui.screens.home.components.openFilePicker
+import app.morphe.gui.util.DeviceMonitor
+import app.morphe.gui.util.captureOperationTarget
 import app.morphe.gui.util.PatchException
 import app.morphe.gui.util.getUserMessage
 import app.morphe.gui.util.humanizePatchLoadError
@@ -69,6 +72,13 @@ fun HomeScreenContent(
 ) {
     val navController = LocalNavController.current
     val uiState by viewModel.uiState.collectAsState()
+    val monitoredDevices by DeviceMonitor.state.collectAsState()
+    val selectedSerial = monitoredDevices.captureOperationTarget()?.serial
+    // Synchronously mask the previous serial's data before the ViewModel's ADB
+    // collector has completed its asynchronous refresh for the new selection.
+    val visibleDeviceUiState = if (uiState.deviceInventorySerial == selectedSerial) uiState
+        else uiState.copy(deviceAppInfo = emptyMap(), deviceInstalledPackages = emptySet(),
+            deviceInventorySerial = null)
 
     // Poll device installation state on initial load.
     LaunchedEffect(Unit) { viewModel.refreshDeviceInfo() }
@@ -137,17 +147,31 @@ fun HomeScreenContent(
     }
 
     var detailRecord by remember { mutableStateOf<PatchedAppRecord?>(null) }
+    var detailOriginSerial by remember { mutableStateOf<String?>(null) }
     var untrackedDevicePackage by remember { mutableStateOf<String?>(null) }
-    val onShowDetail: (PatchedAppRecord) -> Unit = { detailRecord = it }
-    val onShowDeviceApp: (String) -> Unit = { untrackedDevicePackage = it }
+    var untrackedOriginSerial by remember { mutableStateOf<String?>(null) }
+    val onShowDetail: (PatchedAppRecord) -> Unit = { record ->
+        detailOriginSerial = selectedSerial.takeIf { uiState.appListFilter == AppListFilter.DEVICE }
+        detailRecord = record
+    }
+    val onShowDeviceApp: (String) -> Unit = { pkg ->
+        untrackedOriginSerial = selectedSerial
+        untrackedDevicePackage = pkg
+    }
+    LaunchedEffect(selectedSerial) {
+        if (detailOriginSerial != null && detailOriginSerial != selectedSerial) detailRecord = null
+        if (untrackedOriginSerial != selectedSerial) untrackedDevicePackage = null
+    }
 
     untrackedDevicePackage?.let { pkg ->
-        val installed = uiState.deviceInventorySerial != null && pkg in uiState.deviceInstalledPackages
+        val installed = selectedSerial != null && untrackedOriginSerial == selectedSerial &&
+            visibleDeviceUiState.deviceInventorySerial == selectedSerial &&
+            pkg in visibleDeviceUiState.deviceInstalledPackages
         if (!installed) {
             // A switched/disconnected device must never display stale package details.
             untrackedDevicePackage = null
         } else {
-            val version = uiState.deviceAppInfo[pkg]?.installedVersion
+            val version = visibleDeviceUiState.deviceAppInfo[pkg]?.installedVersion
             val snapshot = viewModel.getResolvedSourcesSnapshot()
             val byId = snapshot?.resolved.orEmpty().associateBy { it.source.id }
             val sources = snapshot?.patchesBySource.orEmpty().mapNotNull { (id, patches) ->
@@ -162,7 +186,7 @@ fun HomeScreenContent(
             DeviceAppDetailsDialog(
                 packageName = pkg,
                 app = uiState.supportedApps.firstOrNull { it.packageName == pkg },
-                deviceInfo = uiState.deviceAppInfo[pkg],
+                deviceInfo = visibleDeviceUiState.deviceAppInfo[pkg],
                 patchSources = sources,
                 onDismiss = { untrackedDevicePackage = null },
             )
@@ -192,12 +216,12 @@ fun HomeScreenContent(
             },
         )
     }
-    detailRecord?.let { record ->
+    detailRecord?.takeIf { detailOriginSerial == null || detailOriginSerial == selectedSerial }?.let { record ->
         val updateInfo = remember(record) { viewModel.recallUpdateInfo(record) }
         PatchedAppDetailDialog(
             record = record,
             state = uiState.patchedStates[record.packageName] ?: PatchedAppState.PATCHED,
-            deviceInfo = uiState.deviceAppInfo[record.packageName],
+            deviceInfo = visibleDeviceUiState.deviceAppInfo[record.packageName],
             updateInfo = updateInfo,
             supportedApp = uiState.supportedApps.find { it.packageName == record.packageName },
             activeSources = activeSources,
@@ -450,7 +474,7 @@ fun HomeScreenContent(
                             onDismissSourcesFailed = { viewModel.dismissSourcesFailedBanner() },
                         )
                         HomeSplitLayout(
-                            uiState = uiState,
+                            uiState = visibleDeviceUiState,
                             padding = padding,
                             sourceNamesByPackage = sourceNamesByPackage,
                             patchSourcesForSelectedApk = patchSourcesForSelectedApk,
