@@ -935,4 +935,8 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="device_scan_old_hidden">Der bisherige Gerätestand ist während der Prüfung ausgeblendet.</string>
     <string name="device_scan_failed">Gerät konnte nicht vollständig eingelesen werden. Keine alten Daten werden angezeigt.</string>
     <string name="result_play_updates_cannot_be_excluded">Google Play kann die gepatchte App trotz erfolgreicher Installation weiterhin als Update anbieten. Die Installationsquelle verhindert dies nicht zuverlässig; ein Play-Update kann wegen abweichender Signatur scheitern.</string>
+    <string name="device_play_owner_label">Android-Update-Eigentümer: %1$s</string>
+    <string name="device_play_owner_unknown">Nicht geprüft</string>
+    <string name="device_play_owner_none">Keiner eingetragen</string>
+    <string name="device_play_owner_is_not_play_detachment">Diese Angabe bestätigt nicht, dass die App aus den Google-Play-Updates entfernt wurde.</string>
 </resources>
