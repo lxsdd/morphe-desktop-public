@@ -833,8 +833,17 @@ class AdbManager {
         val ownership = AdbPackageOwnershipProbe.parseInstalledPackageDump(pkg, dump)
         if (ownership == InstalledPackageOwnership.NotInstalled) return null
         val owner = (ownership as? InstalledPackageOwnership.OwnedBy)?.packageName
-        val version = Regex("""(?m)^[ \\t]*versionName=(\\S+)""")
-            .find(dump)?.groupValues?.get(1)
+        // Scope version parsing to this package; never borrow a version from
+        // an adjacent package in a multi-package dumpsys response.
+        val lines = dump.lines()
+        val start = lines.indexOfFirst { it.trimStart().startsWith("Package [$pkg] (") }
+        if (start < 0) return null
+        val end = (start + 1 until lines.size).firstOrNull { index ->
+            lines[index].trimStart().startsWith("Package [")
+        } ?: lines.size
+        val version = lines.subList(start, end)
+            .firstOrNull { it.trim().startsWith("versionName=") }
+            ?.trim()?.removePrefix("versionName=")?.substringBefore(' ')
         return InstalledPackageSnapshot(
             version = version,
             signatureId = SignatureIdentity.parseDeviceSignatureId(dump),
