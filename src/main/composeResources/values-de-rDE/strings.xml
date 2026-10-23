@@ -873,4 +873,6 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="device_overview_local_version">Lokal gepatcht: %1$s</string>
     <string name="device_overview_target_version">Kompatibles Ziel: %1$s</string>
     <string name="device_overview_refresh">Gerät neu einlesen</string>
+    <string name="device_overview_exact_build">Installierter APK-Build bestätigt</string>
+    <string name="device_overview_verified_count">Build bestätigt %1$d</string>
 </resources>
