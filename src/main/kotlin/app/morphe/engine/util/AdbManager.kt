@@ -23,7 +23,8 @@ class AdbManager {
     companion object {
         const val AUTO_SPOOF = "__AUTO_SPOOF__"
 
-        // Candidate store packages to spoof installer attribution when blocking Play Store updates.
+        // Legacy installer-of-record attribution. Android/Google Play do NOT
+        // promise that this removes a known app from the Play update catalog.
         internal val SPOOF_STORE_CANDIDATES = listOf(
             "com.amazon.venezia", // Amazon Appstore
             "com.sec.android.app.samsungapps", // Samsung Galaxy Store
@@ -333,16 +334,17 @@ class AdbManager {
     }
 
     /**
-     * Pick an installer-source package to spoof for [deviceId]: the most-popular
-     * store NOT installed on the device, so nothing real tries to manage the app
-     * (and the Play Store won't auto-update it). Falls back to Amazon if all present.
+     * Choose a legacy installer-of-record identifier. This is NOT Play Store
+     * detachment and does NOT prove that Play will stop offering updates.
+     * Prefer an identifier absent from the device to avoid representing a real
+     * installed store; install failures must not silently erase attribution.
      */
     suspend fun resolveSpoofInstaller(deviceId: String): String {
         val installed = listInstalledPackages(deviceId).getOrNull() ?: emptySet()
         return selectSpoofInstaller(installed)
     }
 
-    /** Installs an APK on [deviceId], optionally spoofing the installer package to block Play updates. */
+    /** Installs on an exact ADB serial. Attribution alone cannot disable Play update offers. */
     suspend fun installApk(
         apkPath: String,
         deviceId: String,
@@ -373,12 +375,12 @@ class AdbManager {
             installerPackage
         }
 
-        // Retries install without '-i' if the device rejects unknown installer packages.
+        // An explicit installer-attribution request is never silently discarded.
         fun attemptInstall(withInstaller: Boolean): Result<Unit> {
             val command = mutableListOf(adb, "-s", targetDevice.id, "install", "-r")
             if (allowDowngrade) command.add("-d") // Allow downgrade
             if (withInstaller && !effectiveInstaller.isNullOrBlank()) {
-                command.add("-i") // Record installer source (blocks Play auto-update)
+                command.add("-i") // Installer-of-record metadata, NOT a Play update block
                 command.add(effectiveInstaller)
             }
             command.add(apkPath)
@@ -422,17 +424,9 @@ class AdbManager {
         }
 
         val withInstaller = !effectiveInstaller.isNullOrBlank()
-        val first = attemptInstall(withInstaller = withInstaller)
-        val finalResult = if (
-            first.isFailure &&
-            withInstaller &&
-            (first.exceptionOrNull() as? AdbException)?.errorCode == AdbErrorCode.INSTALL_GENERIC
-        ) {
-            Logger.info("Install with '-i $effectiveInstaller' failed; retrying without installer attribution")
-            attemptInstall(withInstaller = false)
-        } else {
-            first
-        }
+        // Fail closed: dropping -i would present success without the requested
+        // installer attribution. It would still not guarantee Play detachment.
+        val finalResult = attemptInstall(withInstaller = withInstaller)
         finalResult.onFailure { e ->
             if (e is AdbException && e.cause == null) {
                 Logger.error("Installation failed: ${e.message}")
