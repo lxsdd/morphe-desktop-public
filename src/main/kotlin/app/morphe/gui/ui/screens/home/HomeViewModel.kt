@@ -976,11 +976,14 @@ class HomeViewModel(
                 record.packageName to if (devicePkg !in installed) {
                     DeviceAppInfo(installed = false, installedVersion = null, installPending = outputExists)
                 } else {
-                    val (version, sigId) = adbManager.getInstalledPackageInfo(target.serial, devicePkg) ?: (null to null)
+                    val snapshot = adbManager.getInstalledPackageSnapshot(target.serial, devicePkg)
+                    val version = snapshot?.version
+                    val sigId = snapshot?.signatureId
                     val signed = if (sigId == null || ourSignatureIds.isEmpty()) null else sigId in ourSignatureIds
-                    // Mark pending if the device version is older than the patched APK.
                     val pending = outputExists && version != null && isNewerVersion(record.apkVersion, version)
-                    DeviceAppInfo(installed = true, installedVersion = version, signedByMorphe = signed, installPending = pending)
+                    DeviceAppInfo(installed = true, installedVersion = version, signedByMorphe = signed,
+                        installPending = pending, updateOwnerPackage = snapshot?.updateOwnerPackage,
+                        updateOwnerChecked = snapshot?.updateOwnerVerified == true)
                 }
             }
             if (!shouldApplyDeviceResult(
@@ -1047,15 +1050,15 @@ class HomeViewModel(
                 val additional = coroutineScope {
                     batch.map { app ->
                         async {
-                            val (version, signerId) =
-                                adbManager.getInstalledPackageInfo(target.serial, app.packageName)
-                                    ?: (null to null)
-                            val signed = if (signerId == null || ourSignatureIds.isEmpty()) null
-                                else signerId in ourSignatureIds
+                            val snapshot = adbManager.getInstalledPackageSnapshot(target.serial, app.packageName)
+                            val signed = if (snapshot?.signatureId == null || ourSignatureIds.isEmpty())
+                                null else snapshot.signatureId in ourSignatureIds
                             app.packageName to DeviceAppInfo(
                                 installed = true,
-                                installedVersion = version,
+                                installedVersion = snapshot?.version,
                                 signedByMorphe = signed,
+                                updateOwnerPackage = snapshot?.updateOwnerPackage,
+                                updateOwnerChecked = snapshot?.updateOwnerVerified == true,
                             )
                         }
                     }.awaitAll().toMap()
@@ -1484,6 +1487,10 @@ data class DeviceAppInfo(
     val installPending: Boolean = false,
     /** Positive only when on-device SHA-256 matches the recorded and rehashed output APK. */
     val exactBuildVerified: Boolean? = null,
+    /** Observed update owner, NOT a guarantee that Play will hide an update. */
+    val updateOwnerPackage: String? = null,
+    /** True when dumpsys for the exact installed package was successfully parsed. */
+    val updateOwnerChecked: Boolean = false,
 )
 
 data class HomeUiState(
