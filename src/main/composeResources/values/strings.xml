@@ -973,4 +973,5 @@
     <string name="device_scan_catalog">Matching supported apps</string>
     <string name="device_scan_old_hidden">Previous device data is hidden until scanning finishes.</string>
     <string name="device_scan_failed">Device inventory could not be loaded. Previous data remains hidden.</string>
+    <string name="result_play_updates_cannot_be_excluded">Google Play may still offer updates for a patched app after a successful installation. Installer attribution does not reliably suppress Play listings, and an update may fail due to a different signing certificate.</string>
 </resources>
