@@ -33,6 +33,7 @@ import app.morphe.gui.ui.components.MorpheButtonSize
 import app.morphe.gui.ui.components.MorpheButtonVariant
 import app.morphe.gui.ui.components.MorpheScrollbarStyle
 import app.morphe.gui.ui.components.SlimSearchField
+import app.morphe.gui.ui.screens.home.DeviceInventoryRefreshStage
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.PatchedAppState
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
@@ -51,6 +52,8 @@ internal fun SupportedAppsListPane(
     deviceAppInfo: Map<String, DeviceAppInfo> = emptyMap(),
     deviceInstalledPackages: Set<String> = emptySet(),
     deviceInventorySerial: String? = null,
+    deviceRefreshSerial: String? = null,
+    deviceRefreshStage: DeviceInventoryRefreshStage = DeviceInventoryRefreshStage.IDLE,
     updateInfoByPackage: Map<String, RecallUpdateInfo> = emptyMap(),
     onShowDetail: (PatchedAppRecord) -> Unit = {},
     onShowDeviceApp: (String) -> Unit = {},
@@ -174,6 +177,8 @@ internal fun SupportedAppsListPane(
             DeviceInventoryPane(
                 installedPackages = deviceInstalledPackages,
                 selectedDeviceSerial = deviceInventorySerial,
+                refreshSerial = deviceRefreshSerial,
+                refreshStage = deviceRefreshStage,
                 supportedApps = supportedApps,
                 patchedRecords = patchedRecords,
                 deviceAppInfo = deviceAppInfo,
