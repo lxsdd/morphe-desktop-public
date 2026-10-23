@@ -58,6 +58,8 @@ internal fun HomeSplitLayout(
                 deviceAppInfo = uiState.deviceAppInfo,
                 deviceInstalledPackages = uiState.deviceInstalledPackages,
                 deviceInventorySerial = uiState.deviceInventorySerial,
+                deviceRefreshSerial = uiState.deviceRefreshSerial,
+                deviceRefreshStage = uiState.deviceRefreshStage,
                 updateInfoByPackage = uiState.updateInfoByPackage,
                 sortMode = uiState.sortMode,
                 onSortModeChange = onSortModeChange,
