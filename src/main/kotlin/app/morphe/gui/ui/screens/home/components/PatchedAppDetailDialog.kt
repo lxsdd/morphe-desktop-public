@@ -44,6 +44,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.model.SupportedApp
+import app.morphe.engine.util.isNewerVersion
 import app.morphe.gui.data.model.PatchSource
 import app.morphe.gui.ui.components.LocalCardFills
 import app.morphe.gui.ui.components.MorpheButton
@@ -359,9 +360,10 @@ fun PatchedAppDetailDialog(
                     }
                     // A newer supported *app* version needs a new APK input. Changing
                     // patches on the same old APK must never pretend to upgrade it.
-                    val newAppApkRequired = hasNewAppTarget &&
-                        selectedApkPath == record.inputApkPath &&
-                        stagedVersion?.removePrefix("v") == record.apkVersion.removePrefix("v")
+                    val newAppApkRequired = hasNewAppTarget && appTarget != null &&
+                        (stagedVersion == null ||
+                            (stagedVersion.removePrefix("v") != appTarget.removePrefix("v") &&
+                                !isNewerVersion(stagedVersion, appTarget)))
                     if (newAppApkRequired) {
                         InfoNote(stringResource(
                             Res.string.home_detail_app_update_requires_input,
