@@ -875,4 +875,15 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="device_overview_refresh">Gerät neu einlesen</string>
     <string name="device_overview_exact_build">Installierter APK-Build bestätigt</string>
     <string name="device_overview_verified_count">Build bestätigt %1$d</string>
+    <!-- Guided app updates and device-oriented status -->
+    <string name="home_guided_find_app_version">Neue App-Version v%1$s online finden</string>
+    <string name="home_guided_new_version_badge">App-Update v%1$s</string>
+    <string name="device_overview_relevant">Relevante Apps %1$d</string>
+    <string name="device_overview_apps_to_update">App-Updates %1$d</string>
+    <string name="device_overview_patches_to_update">Patch-Updates %1$d</string>
+    <string name="device_overview_installed_patches">Installierte Patches: %1$s</string>
+    <string name="device_overview_patch_unverified">Installierter Patchstand ungeprüft</string>
+    <string name="device_overview_patch_candidate_count">Patchfähig · %1$d Quellen</string>
+    <string name="device_overview_outside_source">Keine Patchquelle zugeordnet</string>
+    <string name="device_overview_installed_app_version">Gerät: %1$s</string>
 </resources>
