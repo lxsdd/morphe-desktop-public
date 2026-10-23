@@ -911,4 +911,5 @@
     <string name="device_overview_version_unknown">Version unknown</string>
     <string name="device_overview_local_version">Patched locally: %1$s</string>
     <string name="device_overview_target_version">Compatible target: %1$s</string>
+    <string name="device_overview_refresh">Refresh device</string>
 </resources>
