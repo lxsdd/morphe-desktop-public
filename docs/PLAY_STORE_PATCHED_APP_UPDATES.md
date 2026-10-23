@@ -68,3 +68,18 @@ Do not implement ad-hoc versionCode inflation, Play Store data clearing, root mu
 The user now reports that Pixel 6a and Pixel 9 have the **same displayed Amazon Shopping version**, but Google Play offers the failed stock update **only on Pixel 9**. This directly rules out treating the displayed versionName alone as the cause. The precise numeric Android `versionCode`, installer-of-record, Android 14+ update owner, signing identity, and Google Play state still require read-only comparison. The user confirmed the formerly working patched app did **not** use the optional universal max-versionCode suppression patch. Do not assume it was applied.
 
 The read-only `tools/Read-AmazonPlayStatus.ps1` now accepts `-TargetModel "Pixel 6a"` or `-TargetModel "Pixel 9"` and reports exact package versionCode, installer, update owner, Android release, and Play Store version without printing the ADB serial. Wireless ADB is sufficient: collect both reports from the already paired/connected devices **before** reinstalling either device, especially Pixel 9. No USB connection is needed. Same-version reinstall is now explicitly offered in the patched-app detail dialog only when the saved output is not missing or modified; installation still validates the stored APK and requires a user click. The installer may still fail if Android considers the existing signing identity incompatible. Do not uninstall or clear app data as a diagnostic shortcut.
+
+## Pixel 9 installer-attribution experiment (read-only baseline 2026-10-23)
+
+Exact device comparison (both Android 17 / SDK 37, Amazon 32.18.0.100, versionCode 1243240206, Play Store 53.6.15-34):
+
+| State | Pixel 6a (no Play offer) | Pixel 9 (Play offers failing update) |
+| --- | --- | --- |
+| Installer of record | `com.android.shell` | `null` |
+| Update owner | `com.android.shell` | not displayed |
+
+This is a correlation, **not causal proof**. Android's installer-of-record and update owner are distinct metadata. AOSP CTS tests show that requesting update ownership on an already installed app with no prior update owner does **not** retroactively assign one. Our protected `AdbApkInstaller` therefore intentionally rejects the in-place ownership migration on Pixel 9, rather than pretending success or quietly uninstalling the app.
+
+The separate `tools/Trial-AmazonInstallerAttribution.ps1` performs an exact Pixel 9 / Amazon version read-only preflight by default. With a user-triggered `-Apply`, it executes only `pm set-installer com.amazon.mShop.android.shopping com.android.shell`, then reads back both fields. It does **not** reinstall/uninstall the APK, clear application data, or claim that update ownership was acquired. No such command is executed autonomously on user devices. Android's API documents installer changes as distinct from initiating-install attribution, and limits who may change it. If rejected, the workflow stops. If accepted, the live Play offer must still be checked; do not state that the original problem is fixed merely because the installer field changed.
+
+References: https://developer.android.com/reference/android/content/pm/PackageManager#setInstallerPackageName(java.lang.String,java.lang.String), https://android.googlesource.com/platform/cts/+/86ec9bc4ab5/tests/tests/packageinstaller/install/src/android/packageinstaller/install/cts/UpdateOwnershipEnforcementMultiUserTest.kt, https://android.googlesource.com/platform/frameworks/base/+/master/services/core/java/com/android/server/pm/PackageManagerShellCommand.java.

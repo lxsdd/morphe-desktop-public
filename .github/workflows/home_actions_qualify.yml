@@ -52,6 +52,10 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: ./tools/Read-AmazonPlayStatus.ps1 -SelfTest
+      - name: Self-test Pixel 9 installer-attribution trial (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Trial-AmazonInstallerAttribution.ps1 -SelfTest
       - name: Run tests with simulated ADB, no real device access
         shell: bash
         env:
