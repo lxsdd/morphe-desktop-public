@@ -130,43 +130,43 @@ internal fun SupportedAppsListPane(
             .wrapContentHeight()
             .align(Alignment.TopCenter),
       ) {
+        // Stable two-row toolbar; categories and query never change row height.
+        AppListFilterChips(
+            filter = filter,
+            onSelect = onFilterChange,
+            allCount = supportedApps.size,
+            yourCount = patchedRecords.size,
+            appUpdateCount = confirmedAppUpdates,
+            patchUpdateCount = confirmedPatchUpdates,
+            deviceCount = verifiedDeviceInventoryCount(deviceInstalledPackages.size, deviceInventorySerial),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        val searchVisible = true
         Row(
-            modifier = Modifier.fillMaxWidth().padding(end = 12.dp, bottom = 6.dp),
+            modifier = Modifier.fillMaxWidth().padding(end = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            AppListFilterChips(
-                filter = filter,
-                onSelect = onFilterChange,
-                allCount = supportedApps.size,
-                yourCount = patchedRecords.size,
-                appUpdateCount = confirmedAppUpdates,
-                patchUpdateCount = confirmedPatchUpdates,
-                deviceCount = verifiedDeviceInventoryCount(deviceInstalledPackages.size, deviceInventorySerial),
+            SlimSearchField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = stringResource(Res.string.filter_apps_hint),
                 modifier = Modifier.weight(1f),
             )
-            if (filter != AppListFilter.DEVICE) {
-                MorpheDropdown(
-                    label = sortMode.label,
-                    items = HomeAppSortMode.entries.map { mode ->
-                        MorpheDropdownItem(mode.label) { onSortModeChange(mode) }
-                    },
-                    modifier = Modifier.width(170.dp),
-                )
+            Box(modifier = Modifier.width(170.dp)) {
+                if (filter != AppListFilter.DEVICE) {
+                    MorpheDropdown(
+                        label = sortMode.label,
+                        items = HomeAppSortMode.entries.map { mode ->
+                            MorpheDropdownItem(mode.label) { onSortModeChange(mode) }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
-
-        // A query entered in another tab must never keep filtering invisibly.
-        val searchVisible = activeCount > 4 || searchQuery.isNotBlank()
-        if (searchVisible) {
-            Box(modifier = Modifier.fillMaxWidth().padding(end = 12.dp)) {
-                SlimSearchField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = stringResource(Res.string.filter_apps_hint),
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-        }
+        Spacer(modifier = Modifier.height(10.dp))
 
         if (filter == AppListFilter.DEVICE) {
             DeviceInventoryPane(
@@ -175,8 +175,10 @@ internal fun SupportedAppsListPane(
                 supportedApps = supportedApps,
                 patchedRecords = patchedRecords,
                 deviceAppInfo = deviceAppInfo,
+                updateInfoByPackage = updateInfoByPackage,
                 searchQuery = searchQuery,
                 paneMaxHeight = paneMaxHeight,
+                onShowDetail = onShowDetail,
             )
         } else if (filter != AppListFilter.ALL) {
             YourAppsListBody(
@@ -255,8 +257,7 @@ internal fun SupportedAppsListPane(
             }
             else -> {
                 val listState = rememberLazyListState()
-                val headerSearchAllowance =
-                    if (supportedApps.size > 4) 68.dp else 22.dp
+                val headerSearchAllowance = 150.dp
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
