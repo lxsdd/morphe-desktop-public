@@ -158,36 +158,6 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
             }
         }
 
-        // The official universal workaround modifies Android versionCode.
-        // It is opt-in because future repatching/downgrades may require migration.
-        val playUpdatePatch = remember(uiState.bundles) {
-            findPlayStoreSuppressionPatch(uiState.bundles)
-        }
-        if (playUpdatePatch != null) {
-            val enabled = playUpdatePatch.patchId in
-                uiState.selectedByBundle[playUpdatePatch.bundleId].orEmpty()
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(Res.string.patch_play_suppression_title),
-                        style = MorpheTheme.typography.bodyMedium)
-                    Text(stringResource(Res.string.patch_play_suppression_caution),
-                        style = MorpheTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                OutlinedButton(
-                    onClick = { viewModel.enablePlayStoreSuppressionPatch() },
-                    enabled = !enabled,
-                ) {
-                    Text(if (enabled) stringResource(Res.string.patch_play_suppression_selected)
-                        else stringResource(Res.string.patch_play_suppression_enable))
-                }
-            }
-        }
-
         PatchSearchBar(
             query = uiState.searchQuery,
             onQueryChange = { viewModel.setSearchQuery(it) },
@@ -196,9 +166,9 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
         )
 
-        // A supported, explicitly opt-in way to avoid the ORIGINAL Google
-        // Play update attempts: the upstream patch sets versionCode to MAX_INT.
-        // It is NOT the same thing as altering the ADB install source.
+        // Optional last-resort versionCode workaround. The user's older Amazon
+        // build worked without this patch, so it must not be treated as the
+        // demonstrated cause or automatically enabled.
         if (!uiState.isLoading && playStorePatch != null && targetPackage.isNotBlank()) {
             Surface(
                 modifier = Modifier.fillMaxWidth()
@@ -252,50 +222,28 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
             }
         }
 
-        // Amazon has had an observed Play Store update regression. Make the
-        // upstream universal versionCode workaround discoverable but explicit:
-        // it may complicate future upgrades and is NEVER silently enabled.
-        if (!uiState.isLoading && targetPackage == "com.amazon.mShop.android.shopping") {
-            val suppression = remember(uiState.bundles) {
-                findPlayStoreSuppressionPatch(uiState.bundles)
-            }
-            val selected = suppression != null &&
-                suppression.patchId in uiState.selectedByBundle[suppression.bundleId].orEmpty()
+        // Amazon-specific guidance is only shown when the optional official
+        // universal patch is absent. When present, the single card above owns
+        // its selection state and warning; never render duplicate controls.
+        if (!uiState.isLoading &&
+            targetPackage == "com.amazon.mShop.android.shopping" &&
+            playStorePatch == null) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 shape = MorpheTheme.shapes.small,
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(Res.string.patch_play_amazon_title),
-                            style = MorpheTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            stringResource(
-                                if (suppression == null) Res.string.patch_play_source_missing
-                                else Res.string.patch_play_version_code_warning
-                            ),
-                            style = MorpheTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    if (suppression != null) {
-                        OutlinedButton(
-                            onClick = { viewModel.togglePatch(suppression.bundleId, suppression.patchId) },
-                        ) {
-                            Text(stringResource(
-                                if (selected) Res.string.patch_play_selected
-                                else Res.string.patch_play_select
-                            ))
-                        }
-                    }
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                    Text(
+                        stringResource(Res.string.patch_play_amazon_title),
+                        style = MorpheTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        stringResource(Res.string.patch_play_source_missing),
+                        style = MorpheTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

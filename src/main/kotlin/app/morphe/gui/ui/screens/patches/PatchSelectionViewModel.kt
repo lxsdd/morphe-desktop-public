@@ -279,17 +279,6 @@ class PatchSelectionViewModel(
         }
     }
 
-    /** Only explicit user opt-in, never silently added to patch defaults. */
-    fun enablePlayStoreSuppressionPatch(): Boolean {
-        val target = findPlayStoreSuppressionPatch(_uiState.value.bundles) ?: return false
-        val existing = _uiState.value.selectedByBundle[target.bundleId].orEmpty()
-        _uiState.value = _uiState.value.copy(
-            selectedByBundle = _uiState.value.selectedByBundle +
-                (target.bundleId to (existing + target.patchId)),
-        )
-        return true
-    }
-
     fun isPatchCompatible(patch: PatchMetadata): Boolean =
         patch.isUniversal || patch.isCompatibleWith(packageName, apkVersion.ifBlank { null })
 

@@ -2,7 +2,7 @@
 
 ## User-reported reproduction (2026-10-23)
 
-The patched Amazon Shopping app remains in Google Play's update queue. Google Play starts the update attempt and eventually fails. The user's Pixel 6a previously showed a locally patched **v32.18.0.100** with source `rushiranpise/morphe-patches v1.23.0` and exact installed APK-build proof. **Local APK equality is not evidence of Play update suppression.** No unattended writes to Pixel 6a or Pixel 9 are authorized.
+The patched Amazon Shopping app remains in Google Play's update queue. Google Play starts the update attempt and eventually fails. The user's Pixel 6a previously showed a locally patched **v32.18.0.100** with source `rushiranpise/morphe-patches v1.23.0` and exact installed APK-build proof. **Local APK equality is not evidence of Play update suppression.** The user explicitly confirmed that the earlier, non-failing Amazon build **did not use** the official universal `Disable Play Store updates` patch. Therefore its absence cannot explain the *difference* between the old and new build. No unattended writes to Pixel 6a or Pixel 9 are authorized.
 
 ## Platform semantics (official references)
 
@@ -23,15 +23,15 @@ The previous **private Custom 1.18.1** version called the shared `AdbApkInstalle
 
 The affected GUI path now calls the **same shared Update Ownership-aware backend** again and does **not** spoof a store package by default. The `AdbApkInstaller` still refuses to overwrite an app on a capable Android device if its update owner is absent/foreign; this is fail-closed behavior, not a command to automatically uninstall apps. Exact on-device owner evidence and end-to-end Play behavior still require authorized hardware validation.
 
-## Additional opt-in official patch
+## Additional opt-in official patch — fallback, not the established earlier mechanism
 
-The enabled `rushiranpise/morphe-patches v1.23.0` metadata contains eight Amazon Shopping-specific patches at `32.18.0.100` (`versionCode=1243240206`), **none of which disables Play updates**. Official `MorpheApp/morphe-patches v1.48.0` separately includes an *optional, disabled-by-default* universal **Disable Play Store updates** patch that sets manifest `versionCode=2147483647`. Its own warning notes possible application incompatibilities and non-working root-mounted installs. This can inhibit versionCode-based Google Play updates, but does **not** certify a complete solution on this Amazon version.
+The enabled `rushiranpise/morphe-patches v1.23.0` metadata contains eight Amazon Shopping-specific patches at `32.18.0.100` (patch metadata target `versionCode=1243240206`, **not** an inspected output-APK manifest value), **none of which disables Play updates**. Official `MorpheApp/morphe-patches v1.48.0` separately includes an *optional, disabled-by-default* universal **Disable Play Store updates** patch that sets manifest `versionCode=2147483647`. Its own warning notes possible application incompatibilities and non-working root-mounted installs. This can inhibit versionCode-based Google Play updates, but does **not** certify a complete solution on this Amazon version.
 
 The patch selection screen now exposes this **opt-in** explicitly for Amazon when the loaded sources contain that exact universal metadata. If it is missing, it clearly states so rather than pretending Amazon's own eight patches include it. It must not be auto-enabled because extreme manifest versionCodes can complicate later updates/downgrades. The device detail view also displays the actually observed versionCode alongside owner info; those are independent read-only facts, not proof of Play detachment.
 
 ### Before-versus-after verification
 
-The user's older patched Amazon build **did not cause failed Play update attempts**. The newer build made 2026-10-23 **does**. The old APK's manifest versionCode, selected patch set and installed update owner have not yet been recovered. Therefore do not claim the precise runtime root cause is proven, despite identifying the installer backend regression and absence of any Amazon-specific Play suppression patch in Rushiranpise's metadata. Compare the actual old and new APK files (if retained) and the device's current read-only versionCode/owner before concluding which mechanism changed.
+The user's older patched Amazon build **did not cause failed Play update attempts**. The newer build made 2026-10-23 **does**. The old build did **not** use the official universal Play-suppression patch. Its manifest versionCode, selected Amazon patch set and installed update owner have not yet been recovered. Therefore do not claim the precise runtime root cause is proven, despite identifying the installer backend regression and absence of any Amazon-specific Play suppression patch in Rushiranpise's metadata. Compare the actual old and new APK files (if retained) and the device's current read-only versionCode/owner before concluding which mechanism changed.
 
 ## Next acceptance gate — read-only evidence before any Android mutation
 
