@@ -177,6 +177,7 @@ internal fun SupportedAppsListPane(
                 patchedRecords = patchedRecords,
                 deviceAppInfo = deviceAppInfo,
                 updateInfoByPackage = updateInfoByPackage,
+                sourceNamesByPackage = sourceNamesByPackage,
                 searchQuery = searchQuery,
                 paneMaxHeight = paneMaxHeight,
                 onShowDetail = onShowDetail,
