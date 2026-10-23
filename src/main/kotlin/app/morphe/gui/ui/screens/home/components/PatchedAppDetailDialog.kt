@@ -242,6 +242,13 @@ fun PatchedAppDetailDialog(
                             style = MorpheTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        deviceInfo.androidVersionCode?.let { code ->
+                            Text(
+                                stringResource(Res.string.device_android_version_code, code.toString()),
+                                style = MorpheTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         Text(
                             stringResource(Res.string.device_play_owner_is_not_play_detachment),
                             style = MorpheTheme.typography.labelSmall,
