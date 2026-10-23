@@ -794,6 +794,8 @@ class AdbManager {
         val signatureId: String?,
         val updateOwnerPackage: String?,
         val updateOwnerVerified: Boolean,
+        /** Android manifest versionCode, not a semantic versionName. */
+        val versionCode: Long?,
     )
 
     internal fun parseInstalledPackageSnapshot(pkg: String, dump: String): InstalledPackageSnapshot? {
@@ -808,14 +810,17 @@ class AdbManager {
         val end = (start + 1 until lines.size).firstOrNull { index ->
             lines[index].trimStart().startsWith("Package [")
         } ?: lines.size
-        val version = lines.subList(start, end)
-            .firstOrNull { it.trim().startsWith("versionName=") }
+        val packageLines = lines.subList(start, end)
+        val version = packageLines.firstOrNull { it.trim().startsWith("versionName=") }
             ?.trim()?.removePrefix("versionName=")?.substringBefore(' ')
+        val versionCode = packageLines.firstOrNull { it.trim().startsWith("versionCode=") }
+            ?.trim()?.removePrefix("versionCode=")?.substringBefore(' ')?.toLongOrNull()
         return InstalledPackageSnapshot(
             version = version,
             signatureId = SignatureIdentity.parseDeviceSignatureId(dump),
             updateOwnerPackage = owner,
             updateOwnerVerified = true,
+            versionCode = versionCode,
         )
     }
 
