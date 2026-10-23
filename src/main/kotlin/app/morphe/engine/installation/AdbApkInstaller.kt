@@ -202,20 +202,9 @@ class AdbApkInstaller(
             add(request.apk.absolutePath)
         }
         onProgress("Installing APK...")
-        try {
-            runChecked(command, true, onProgress, onDebug)
-        } catch (error: AdbInstallException) {
-            if (request.installerPackage.isNullOrBlank()) throw error
-            onDebug("Legacy install with installer attribution failed; retrying without it")
-            val withoutInstaller = command.toMutableList().apply {
-                val installerIndex = indexOf("-i")
-                if (installerIndex >= 0) {
-                    removeAt(installerIndex)
-                    removeAt(installerIndex)
-                }
-            }
-            runChecked(withoutInstaller, true, onProgress, onDebug)
-        }
+        // Attribution failure is NOT permission to install invisibly without it.
+        // The caller must see an installation error, not a false protection claim.
+        runChecked(command, true, onProgress, onDebug)
     }
 
     private fun runChecked(
