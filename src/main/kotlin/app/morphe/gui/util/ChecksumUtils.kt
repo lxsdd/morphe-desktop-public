@@ -11,7 +11,7 @@ sealed class ChecksumStatus {
     data object Verified : ChecksumStatus()
 
     /** Checksum mismatch. */
-    data object Mismatch : ChecksumStatus()
+    data class Mismatch(val expected: String, val actual: String) : ChecksumStatus()
 
     /** No checksum configured for this version. */
     data object NotConfigured : ChecksumStatus()
@@ -20,5 +20,5 @@ sealed class ChecksumStatus {
     data object NonRecommendedVersion : ChecksumStatus()
 
     /** Checksum calculation failed. */
-    data object Error : ChecksumStatus()
+    data class Error(val message: String) : ChecksumStatus()
 }

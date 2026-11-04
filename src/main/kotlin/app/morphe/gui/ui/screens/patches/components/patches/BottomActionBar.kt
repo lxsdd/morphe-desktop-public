@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
@@ -22,7 +23,6 @@ import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun BottomActionBar(
     uiState: PatchesUiState,
@@ -48,14 +48,14 @@ internal fun BottomActionBar(
             .padding(16.dp)
     ) {
         if (uiState.isDownloading) {
-            LinearWavyProgressIndicator(
+            LinearProgressIndicator(
                 progress = { uiState.downloadProgress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(10.dp),
+                    .height(3.dp)
+                    .clip(MorpheTheme.shapes.small),
                 color = primaryColor,
-                trackColor = primaryColor.copy(alpha = 0.15f),
-                stopSize = 0.dp,
+                trackColor = primaryColor.copy(alpha = 0.15f)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -100,9 +100,10 @@ internal fun BottomActionBar(
                             .width(MorpheTheme.dimens.actionHeight),
                         contentAlignment = Alignment.Center
                     ) {
-                        LoadingIndicator(
+                        CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            strokeWidth = 2.dp
                         )
                     }
                 } else {

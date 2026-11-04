@@ -99,7 +99,7 @@ fun IconStudioDialog(
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
 
-    var project by remember { mutableStateOf(IconProject()) }
+    var project by remember { mutableStateOf(IconProjectStore.load(packageName) ?: IconProject()) }
     var selectedId by remember { mutableStateOf(project.layers.lastOrNull()?.id) }
     var busy by remember { mutableStateOf(false) }
     var preview by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -126,16 +126,6 @@ fun IconStudioDialog(
     val history = remember { mutableStateListOf(project) }
     var histIndex by remember { mutableStateOf(0) }
     var lastCommit by remember { mutableStateOf(0L) }
-
-    // Restore the saved project off the UI thread, then reset history to it.
-    LaunchedEffect(packageName) {
-        val saved = withContext(Dispatchers.IO) { IconProjectStore.load(packageName) } ?: return@LaunchedEffect
-        project = saved
-        selectedId = saved.layers.lastOrNull()?.id
-        history.clear()
-        history.add(saved)
-        histIndex = 0
-    }
 
     fun commit(new: IconProject) {
         val now = System.currentTimeMillis()
@@ -662,12 +652,7 @@ private fun FontSelector(
     onPickFont: () -> Unit,
 ) {
     val defaultFontLabel = stringResource(Res.string.icon_studio_default_font)
-    // Font enumeration opens every installed font file; keep it off the UI thread.
-    val fonts by produceState(emptyList<String>()) {
-        value = withContext(Dispatchers.IO) {
-            GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toList()
-        }
-    }
+    val fonts = remember { GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toList() }
     val label = when {
         fontPath != null -> File(fontPath).name
         fontName != null -> fontName

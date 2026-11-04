@@ -23,7 +23,7 @@ fun MorpheScrollbarStyle(
         minimalHeight = minimalHeight,
         thickness = thickness,
         shape = MorpheTheme.shapes.small,
-        hoverDurationMillis = 150,
+        hoverDurationMillis = 0,
         unhoverColor = accent.copy(alpha = idleAlpha),
         hoverColor = accent
     )

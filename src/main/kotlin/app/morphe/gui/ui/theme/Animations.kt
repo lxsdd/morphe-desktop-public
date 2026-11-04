@@ -21,6 +21,7 @@ object Defaults {
 object MorpheMotion {
     const val DURATION_FAST = 120
     const val DURATION_MEDIUM = 180
+    const val DURATION_NORMAL = 250
 
     fun <T> fastTween(easing: Easing = FastOutSlowInEasing): TweenSpec<T> =
         tween(durationMillis = DURATION_FAST, easing = easing)

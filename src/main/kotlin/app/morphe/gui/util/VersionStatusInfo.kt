@@ -32,13 +32,12 @@ data class VersionStatusDisplay(
 fun resolveVersionStatusDisplay(
     versionStatus: VersionStatus,
     checksumStatus: ChecksumStatus,
-    suggestedVersion: String? = null,
-    requiredBuildCodes: Set<Int> = emptySet(),
+    suggestedVersion: String? = null
 ): VersionStatusDisplay? {
     return when (versionStatus) {
-        VersionStatus.RECOMMENDED -> when (checksumStatus) {
+        VersionStatus.LATEST_STABLE -> when (checksumStatus) {
             is ChecksumStatus.Verified -> VersionStatusDisplay(
-                label = stringResource(Res.string.version_label_recommended),
+                label = stringResource(Res.string.version_label_latest_stable),
                 detail = stringResource(Res.string.version_status_checksum_matches),
                 colorType = StatusColorType.PRIMARY
             )
@@ -48,53 +47,65 @@ fun resolveVersionStatusDisplay(
                 colorType = StatusColorType.ERROR
             )
             is ChecksumStatus.Error -> VersionStatusDisplay(
-                label = stringResource(Res.string.version_label_recommended),
+                label = stringResource(Res.string.version_label_latest_stable),
                 detail = stringResource(Res.string.version_status_checksum_failed),
                 colorType = StatusColorType.WARNING
             )
             is ChecksumStatus.NotConfigured -> VersionStatusDisplay(
-                label = stringResource(Res.string.version_label_recommended),
+                label = stringResource(Res.string.version_label_latest_stable),
                 detail = null,
                 colorType = StatusColorType.PRIMARY
             )
             is ChecksumStatus.NonRecommendedVersion -> null
         }
 
-        VersionStatus.SUPPORTED -> VersionStatusDisplay(
-            label = stringResource(Res.string.version_label_supported),
+        VersionStatus.OLDER_STABLE -> VersionStatusDisplay(
+            label = stringResource(Res.string.version_status_older_stable),
             detail = suggestedVersion
                 ?.let { stringResource(Res.string.version_status_newer_stable_available, it) }
                 ?: stringResource(Res.string.version_status_newer_stable_available_fallback),
-            colorType = StatusColorType.PRIMARY
+            colorType = StatusColorType.WARNING
         )
 
-        VersionStatus.EXPERIMENTAL -> VersionStatusDisplay(
+        VersionStatus.LATEST_EXPERIMENTAL -> VersionStatusDisplay(
             label = stringResource(Res.string.version_label_experimental),
             detail = stringResource(Res.string.version_status_experimental_detail),
             colorType = StatusColorType.WARNING
         )
 
+        VersionStatus.OLDER_EXPERIMENTAL -> VersionStatusDisplay(
+            label = stringResource(Res.string.version_status_older_experimental),
+            detail = suggestedVersion
+                ?.let { stringResource(Res.string.version_status_newer_experimental_available, it) }
+                ?: stringResource(Res.string.version_status_newer_experimental_available_fallback),
+            colorType = StatusColorType.WARNING
+        )
+
         VersionStatus.BUILD_UNSUPPORTED -> VersionStatusDisplay(
             label = stringResource(Res.string.version_status_build_unsupported),
-            detail = if (requiredBuildCodes.isNotEmpty()) {
-                stringResource(Res.string.version_status_build_unsupported_with_code, requiredBuildCodes.joinToString(", "))
-            } else {
-                stringResource(Res.string.version_status_build_unsupported_detail)
-            },
+            detail = stringResource(Res.string.version_status_build_unsupported_detail),
             colorType = StatusColorType.ERROR
         )
 
-        VersionStatus.UNSUPPORTED -> VersionStatusDisplay(
+        VersionStatus.TOO_NEW -> VersionStatusDisplay(
+            label = stringResource(Res.string.version_status_too_new),
+            detail = stringResource(Res.string.version_status_unsupported_detail),
+            colorType = StatusColorType.ERROR
+        )
+
+        VersionStatus.TOO_OLD -> VersionStatusDisplay(
+            label = stringResource(Res.string.version_status_too_old),
+            detail = stringResource(Res.string.version_status_unsupported_detail),
+            colorType = StatusColorType.ERROR
+        )
+
+        VersionStatus.UNSUPPORTED_BETWEEN -> VersionStatusDisplay(
             label = stringResource(Res.string.version_status_unsupported),
             detail = stringResource(Res.string.version_status_unsupported_detail),
             colorType = StatusColorType.ERROR
         )
 
-        VersionStatus.UNKNOWN -> VersionStatusDisplay(
-            label = stringResource(Res.string.version_label_supported),
-            detail = null,
-            colorType = StatusColorType.PRIMARY
-        )
+        VersionStatus.UNKNOWN -> null
     }
 }
 
@@ -106,14 +117,17 @@ fun resolveStatusColorType(
         return StatusColorType.ERROR
     }
     return when (versionStatus) {
-        VersionStatus.RECOMMENDED,
-        VersionStatus.SUPPORTED,
+        VersionStatus.LATEST_STABLE,
         VersionStatus.UNKNOWN -> StatusColorType.PRIMARY
 
-        VersionStatus.EXPERIMENTAL -> StatusColorType.WARNING
+        VersionStatus.OLDER_STABLE,
+        VersionStatus.LATEST_EXPERIMENTAL,
+        VersionStatus.OLDER_EXPERIMENTAL -> StatusColorType.WARNING
 
+        VersionStatus.TOO_NEW,
+        VersionStatus.TOO_OLD,
         VersionStatus.BUILD_UNSUPPORTED,
-        VersionStatus.UNSUPPORTED -> StatusColorType.ERROR
+        VersionStatus.UNSUPPORTED_BETWEEN -> StatusColorType.ERROR
     }
 }
 
@@ -127,28 +141,30 @@ data class VersionWarningContent(
 fun resolveVersionWarningContent(
     versionStatus: VersionStatus,
     currentVersion: String,
-    requiredBuildCodes: Set<Int> = emptySet(),
-    currentBuildCode: String? = null,
+    suggestedVersion: String
 ): VersionWarningContent {
     val (title, message) = when (versionStatus) {
-        VersionStatus.EXPERIMENTAL -> Pair(
+        VersionStatus.OLDER_STABLE -> Pair(
+            stringResource(Res.string.version_warning_older_stable_title),
+            stringResource(Res.string.version_warning_older_stable_message, currentVersion, suggestedVersion)
+        )
+        VersionStatus.LATEST_EXPERIMENTAL -> Pair(
             stringResource(Res.string.version_warning_experiment_title),
             stringResource(Res.string.version_warning_latest_experimental_message, currentVersion)
         )
-        VersionStatus.BUILD_UNSUPPORTED -> Pair(
-            stringResource(Res.string.version_status_build_unsupported),
-            if (requiredBuildCodes.isNotEmpty()) {
-                stringResource(
-                    Res.string.version_warning_build_unsupported_message,
-                    currentVersion,
-                    currentBuildCode ?: "?",
-                    requiredBuildCodes.joinToString(", ")
-                )
-            } else {
-                stringResource(Res.string.version_status_build_unsupported_detail)
-            }
+        VersionStatus.OLDER_EXPERIMENTAL -> Pair(
+            stringResource(Res.string.version_warning_older_experimental_title),
+            stringResource(Res.string.version_warning_older_experimental_message, currentVersion, suggestedVersion)
         )
-        VersionStatus.UNSUPPORTED -> Pair(
+        VersionStatus.TOO_NEW -> Pair(
+            stringResource(Res.string.version_warning_experiment_title),
+            stringResource(Res.string.version_warning_too_new_message, currentVersion, suggestedVersion)
+        )
+        VersionStatus.TOO_OLD -> Pair(
+            stringResource(Res.string.version_status_too_old),
+            stringResource(Res.string.version_warning_too_old_message, currentVersion, suggestedVersion)
+        )
+        VersionStatus.UNSUPPORTED_BETWEEN -> Pair(
             stringResource(Res.string.version_status_unsupported),
             stringResource(Res.string.version_warning_unsupported_message, currentVersion)
         )
@@ -158,8 +174,8 @@ fun resolveVersionWarningContent(
         )
     }
 
-    val isHardError = versionStatus == VersionStatus.BUILD_UNSUPPORTED ||
-                      versionStatus == VersionStatus.UNSUPPORTED
+    val isHardError = versionStatus == VersionStatus.TOO_OLD ||
+                      versionStatus == VersionStatus.UNSUPPORTED_BETWEEN
     val colorType = if (isHardError) StatusColorType.ERROR else StatusColorType.WARNING
 
     return VersionWarningContent(title, message, colorType)

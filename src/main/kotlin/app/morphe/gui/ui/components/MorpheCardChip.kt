@@ -33,10 +33,8 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import app.morphe.gui.ui.theme.LocalThemeState
 import app.morphe.gui.ui.theme.MorpheMotion
 import app.morphe.gui.ui.theme.MorpheTheme
-import app.morphe.gui.ui.theme.ThemeStyle
 
 /** Chip component with contrast styling adapted for card fills or plain surfaces. */
 @Composable
@@ -55,9 +53,7 @@ fun MorpheCardChip(
     val interactive = onClick != null
 
     // Adapt ink contrast based on whether background is dark.
-    val isMonochrome = LocalThemeState.current.style == ThemeStyle.MONOCHROME
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val onDark = (onCard && !isMonochrome) || isDark
+    val onDark = onCard || MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val ink = if (onDark) Color.White else MaterialTheme.colorScheme.onSurface
     val fill by animateColorAsState(
         ink.copy(

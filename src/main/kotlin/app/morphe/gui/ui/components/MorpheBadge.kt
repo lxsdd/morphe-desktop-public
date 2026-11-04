@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -127,17 +126,15 @@ fun MorpheBadge(
         MorpheBadgeSize.LARGE -> PaddingValues(horizontal = 14.dp, vertical = 6.dp)
     }
 
-    val isSharp = MorpheTheme.corners.isSharp
-    val badgeShape = if (tone == MorpheBadgeTone.Code || isSharp) shapes.extraSmall else RoundedCornerShape(percent = 50)
     val hasBorder = variant != MorpheBadgeVariant.FILLED && (variant == MorpheBadgeVariant.OUTLINED || !onGradient)
     val borderModifier = if (hasBorder) {
         val bColor = if (variant == MorpheBadgeVariant.OUTLINED) ink else ink.copy(alpha = 0.25f)
-        Modifier.border(1.dp, bColor, badgeShape)
+        Modifier.border(1.dp, bColor, shapes.small)
     } else Modifier
 
     Box(
         modifier = modifier
-            .clip(badgeShape)
+            .clip(shapes.small)
             .background(fill)
             .then(borderModifier)
             .defaultMinSize(minHeight = minHeight)

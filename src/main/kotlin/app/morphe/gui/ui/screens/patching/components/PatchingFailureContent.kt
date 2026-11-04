@@ -30,12 +30,10 @@ import app.morphe.gui.ui.components.MorpheButton
 import app.morphe.gui.ui.components.MorpheButtonSize
 import app.morphe.gui.ui.components.MorpheButtonVariant
 import app.morphe.gui.ui.components.MorpheScrollbarStyle
-import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.screens.patching.PatchingUiState
 import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.gui.ui.theme.panelFill
 import app.morphe.gui.util.FormatUtils
-import app.morphe.gui.util.PatchSourceNaming
 import app.morphe.gui.util.currentLocale
 import app.morphe.morphe_desktop.generated.resources.*
 import java.awt.datatransfer.StringSelection
@@ -58,10 +56,8 @@ internal fun ExpertFailureContent(
     val borderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
     
     val logFile = remember { Logger.getLogFile() }
-    val cleanScope = rememberCoroutineScope()
     var hasTempFiles by remember { mutableStateOf(WorkspaceManager.hasScratchFiles()) }
-    var tempFilesSize by remember { mutableLongStateOf(WorkspaceManager.getScratchSize()) }
-    var isCleaning by remember { mutableStateOf(false) }
+    var tempFilesSize by remember { mutableStateOf(WorkspaceManager.getScratchSize()) }
     var tempFilesCleared by remember { mutableStateOf(false) }
     var showLogViewer by remember { mutableStateOf(false) }
 
@@ -78,18 +74,14 @@ internal fun ExpertFailureContent(
         }
     }
 
-    val pageScrollState = rememberScrollState()
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 24.dp)
-                .padding(end = 12.dp)
-                .verticalScroll(pageScrollState),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
         Box(
             modifier = Modifier
                 .widthIn(max = 480.dp)
@@ -111,26 +103,23 @@ internal fun ExpertFailureContent(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                val packageName = config.historyMetadata?.originalPackageName ?: ""
-                if (packageName.isNotBlank()) {
-                    Text(
-                        text = packageName,
-                        style = MorpheTheme.typography.codeSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(2.dp))
-                }
+                Text(
+                    text = config.historyMetadata?.originalPackageName ?: config.appDisplayName ?: "",
+                    style = MorpheTheme.typography.codeSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(4.dp))
                 Text(
                     text = uiState.appVersion,
                     style = MorpheTheme.typography.codeSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 8.dp),
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                 )
                 Text(
-                    text = PatchSourceNaming.sanitize(uiState.patchesSourceName),
+                    text = uiState.patchesSourceName,
                     style = MorpheTheme.typography.codeSmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -142,6 +131,8 @@ internal fun ExpertFailureContent(
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         if (uiState.error != null) {
             val clipboard = LocalClipboard.current
@@ -216,6 +207,14 @@ internal fun ExpertFailureContent(
             }
         }
 
+        if (showLogViewer && logFile != null && logFile.exists()) {
+            LogFileViewerDialog(
+                file = logFile,
+                borderColor = borderColor,
+                onDismiss = { showLogViewer = false }
+            )
+        }
+
         if (hasTempFiles && !tempFilesCleared) {
             Row(
                 modifier = Modifier
@@ -243,34 +242,14 @@ internal fun ExpertFailureContent(
                 }
 
                 MorpheButton(
-                    label = if (isCleaning) stringResource(Res.string.status_loading) else stringResource(Res.string.clean_up),
+                    label = stringResource(Res.string.clean_up),
                     variant = MorpheButtonVariant.PRIMARY,
                     customColor = MorpheTheme.colors.warning,
                     size = MorpheButtonSize.COMPACT,
-                    enabled = !isCleaning,
                     onClick = {
-                        cleanScope.launch(Dispatchers.IO) {
-                            isCleaning = true
-                            try {
-                                WorkspaceManager.clearScratch()
-                                val remaining = WorkspaceManager.getScratchSize()
-                                withContext(Dispatchers.Main) {
-                                    tempFilesCleared = true
-                                    hasTempFiles = remaining > 0
-                                    tempFilesSize = remaining
-                                }
-                                Logger.info("Cleaned temp files after failed/cancelled patching")
-                            } catch (e: Exception) {
-                                Logger.error("Failed to clean scratch directory", e)
-                                withContext(Dispatchers.Main) {
-                                    tempFilesCleared = true
-                                }
-                            } finally {
-                                withContext(Dispatchers.Main) {
-                                    isCleaning = false
-                                }
-                            }
-                        }
+                        WorkspaceManager.clearScratch()
+                        tempFilesCleared = true
+                        Logger.info("Cleaned temp files after failed/cancelled patching")
                     }
                 )
             }
@@ -281,26 +260,18 @@ internal fun ExpertFailureContent(
                     .fillMaxWidth()
                     .clip(MorpheTheme.shapes.small)
                     .background(panelFill)
-                    .border(1.dp, MorpheTheme.colors.secondary.copy(alpha = 0.3f), MorpheTheme.shapes.small)
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .border(1.dp, borderColor, MorpheTheme.shapes.small)
+                    .padding(12.dp)
             ) {
                 Text(
                     text = stringResource(Res.string.patching_failure_temp_files_cleaned),
                     style = MorpheTheme.typography.labelSmall,
                     color = MorpheTheme.colors.secondary
                 )
-                Icon(
-                    imageVector = MorpheIcons.CheckCircle,
-                    contentDescription = null,
-                    tint = MorpheTheme.colors.secondary,
-                    modifier = Modifier.size(16.dp)
-                )
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Row(
             modifier = Modifier
@@ -309,7 +280,7 @@ internal fun ExpertFailureContent(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             MorpheButton(
-                label = stringResource(Res.string.patching_start_over_button),
+                label = stringResource(Res.string.quick_patch_screen_start_over_button),
                 variant = MorpheButtonVariant.OUTLINED,
                 size = MorpheButtonSize.LARGE,
                 modifier = Modifier.weight(1f),
@@ -323,24 +294,5 @@ internal fun ExpertFailureContent(
                 onClick = { showLogViewer = true }
             )
         }
-    }
-
-    if (showLogViewer && logFile != null && logFile.exists()) {
-        LogFileViewerDialog(
-            file = logFile,
-            borderColor = borderColor,
-            onDismiss = { showLogViewer = false }
-        )
-    }
-
-    if (pageScrollState.maxValue > 0) {
-        VerticalScrollbar(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight(),
-            adapter = rememberScrollbarAdapter(pageScrollState),
-            style = MorpheScrollbarStyle()
-        )
-    }
     }
 }

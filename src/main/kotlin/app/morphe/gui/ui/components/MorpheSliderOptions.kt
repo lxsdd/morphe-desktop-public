@@ -33,7 +33,6 @@ fun MorpheSliderOption(
     enabled: Boolean = true,
 ) {
     val steps = calculateSliderSteps(min, max, step)
-    val sliderColors = morpheSliderColors(showTicks = steps > 0)
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -48,14 +47,7 @@ fun MorpheSliderOption(
             valueRange = min..max,
             steps = steps,
             enabled = enabled,
-            colors = sliderColors,
-            track = { sliderState ->
-                SliderDefaults.Track(
-                    sliderState = sliderState,
-                    colors = sliderColors,
-                    enabled = enabled,
-                )
-            },
+            colors = morpheSliderColors(showTicks = steps > 0),
             modifier = Modifier.weight(1f).height(24.dp),
         )
 
@@ -82,7 +74,6 @@ fun MorpheRangeSliderOption(
 ) {
     val steps = calculateSliderSteps(min, max, step)
     val safeRange = (value.start.coerceIn(min, max))..(value.endInclusive.coerceIn(min, max))
-    val sliderColors = morpheSliderColors(showTicks = steps > 0)
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -99,14 +90,7 @@ fun MorpheRangeSliderOption(
             valueRange = min..max,
             steps = steps,
             enabled = enabled,
-            colors = sliderColors,
-            track = { rangeSliderState ->
-                SliderDefaults.Track(
-                    rangeSliderState = rangeSliderState,
-                    colors = sliderColors,
-                    enabled = enabled,
-                )
-            },
+            colors = morpheSliderColors(showTicks = steps > 0),
             modifier = Modifier.weight(1f).height(24.dp),
         )
 

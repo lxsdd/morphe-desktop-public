@@ -10,9 +10,7 @@ import androidx.compose.runtime.compositionLocalOf
 /** Current theme preference state and change callback. */
 data class ThemeState(
     val current: ThemePreference = ThemePreference.SYSTEM,
-    val onChange: (ThemePreference) -> Unit = {},
-    val style: ThemeStyle = ThemeStyle.MORPHE,
-    val onStyleChange: (ThemeStyle) -> Unit = {}
+    val onChange: (ThemePreference) -> Unit = {}
 )
 
 /** CompositionLocal providing the current [ThemeState]. */

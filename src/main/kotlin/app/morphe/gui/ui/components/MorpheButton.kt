@@ -6,15 +6,12 @@
 package app.morphe.gui.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -35,8 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
@@ -75,7 +70,6 @@ fun MorpheButton(
     variant: MorpheButtonVariant = MorpheButtonVariant.PRIMARY,
     size: MorpheButtonSize = MorpheButtonSize.DEFAULT,
     enabled: Boolean = true,
-    shape: Shape? = null,
     customColor: Color? = null,
     containerColor: Color? = null,
     contentColor: Color? = null,
@@ -87,14 +81,7 @@ fun MorpheButton(
     val colors = MorpheTheme.colors
     val shapes = MorpheTheme.shapes
     val typography = MorpheTheme.typography
-    val resolvedShape = shape ?: shapes.small
     val isHovered by interactionSource.collectIsHoveredAsState()
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val pressScale by animateFloatAsState(
-        targetValue = if (isPressed && enabled) 0.98f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
-        label = "buttonPressScale",
-    )
 
     val textStyle = when (size) {
         MorpheButtonSize.LARGE -> typography.labelLarge
@@ -177,16 +164,12 @@ fun MorpheButton(
 
     Box(
         modifier = modifier
-            .graphicsLayer {
-                scaleX = pressScale
-                scaleY = pressScale
-            }
             .defaultMinSize(minHeight = size.minHeight)
-            .clip(resolvedShape)
+            .clip(shapes.small)
             .background(animatedBg)
             .then(
                 if (variant != MorpheButtonVariant.GHOST) {
-                    Modifier.border(1.dp, animatedBorder, resolvedShape)
+                    Modifier.border(1.dp, animatedBorder, shapes.small)
                 } else Modifier
             )
             .hoverable(interactionSource)
@@ -218,7 +201,6 @@ fun MorpheButton(
     size: MorpheButtonSize = MorpheButtonSize.DEFAULT,
     icon: ImageVector? = null,
     enabled: Boolean = true,
-    shape: Shape? = null,
     customColor: Color? = null,
     containerColor: Color? = null,
     contentColor: Color? = null,
@@ -232,7 +214,6 @@ fun MorpheButton(
         variant = variant,
         size = size,
         enabled = enabled,
-        shape = shape,
         customColor = customColor,
         containerColor = containerColor,
         contentColor = contentColor,
