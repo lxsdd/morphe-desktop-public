@@ -36,6 +36,9 @@ jobs:
           if [ ! -f "$path" ]; then printf '%s\n' '<settings></settings>' > "$path"; fi
           sed -i.bak 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
           rm -f "$path.bak"
+      - name: Verify default Compose resource keys before compiling
+        shell: bash
+        run: python tools/verify_compose_resource_keys.py
       - name: Compile and test source-stage (never upload binaries)
         shell: bash
         env:
