@@ -41,6 +41,8 @@ object EnabledSourcesLoader {
         val channel: PatchResolver.Channel = PatchResolver.Channel.UNKNOWN,
         val errorRes: StringResource? = null,
         val errorArgs: List<Any> = emptyList(),
+        /** Verified candidate public key for a changed patch signer. Never automatically trusted. */
+        val changedSignerPublicKey: String? = null,
     ) {
         suspend fun getUserErrorMessage(): String? =
             errorRes?.let { getString(it, *errorArgs.toTypedArray()) } ?: error
@@ -166,6 +168,7 @@ object EnabledSourcesLoader {
         return ResolvedSource(
             source = source,
             error = err.message,
+            changedSignerPublicKey = (err as? PatchResolver.Error.SignerChanged)?.signer,
             errorRes = res,
             errorArgs = args,
             channel = channel,
