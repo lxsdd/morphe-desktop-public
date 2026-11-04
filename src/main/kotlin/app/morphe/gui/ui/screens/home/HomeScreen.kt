@@ -140,6 +140,7 @@ fun HomeScreenContent(
         apkPath: String,
         patchFilePaths: List<String>,
         sourceNames: List<String>,
+        selectedApkVersion: String,
     ) {
         if (patchFilePaths.isEmpty()) return
         navController.navigateComplex(
@@ -153,7 +154,7 @@ fun HomeScreenContent(
                 patchSourceNames = sourceNames,
                 initialSelectionByBundle = record.patchSelectionByBundle,
                 initialPatchOptions = record.patchOptionValues,
-                apkVersion = record.apkVersion,
+                apkVersion = selectedApkVersion,
             )
         )
     }
@@ -307,6 +308,9 @@ fun HomeScreenContent(
                     preparingPatch = true
                     patchPrepProgress = null
                     try {
+                        // Reject a mismatched or unreadable newly selected APK before navigating.
+                        // Never reuse the old history record's appVersion for a new input file.
+                        val selectedApkVersion = viewModel.inspectRepatchInput(record, apkPath)
                         viewModel.resolvePatchFilesFor(record, overrides, chosenSource) { name, pct ->
                             patchPrepProgress = name to pct
                         }
@@ -316,7 +320,7 @@ fun HomeScreenContent(
                                     val config = viewModel.createSimpleRepatchConfig(record, apkPath, files.map { File(it) }, chosenSource)
                                     navController.navigateComplex(PatchingScreenRoute, config)
                                 } else {
-                                    launchPatch(record, apkPath, files, names)
+                                    launchPatch(record, apkPath, files, names, selectedApkVersion)
                                 }
                             }
                             .onFailure {
@@ -325,6 +329,8 @@ fun HomeScreenContent(
                                     ?: humanizePatchLoadError(it)
                                 viewModel.showError(userMsg)
                             }
+                    } catch (e: IllegalArgumentException) {
+                        viewModel.showError(e.message ?: "The selected APK cannot be patched.")
                     } finally {
                         preparingPatch = false
                         patchPrepProgress = null
