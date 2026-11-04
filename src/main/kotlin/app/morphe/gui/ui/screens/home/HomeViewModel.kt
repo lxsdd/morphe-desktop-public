@@ -38,6 +38,7 @@ import app.morphe.engine.model.VersionResolution
 import app.morphe.engine.model.VersionStatus
 import app.morphe.engine.patches.SupportedAppCatalog
 import app.morphe.engine.patches.resolveVersionStatus
+import app.morphe.engine.util.PatchSourceHeaders
 import app.morphe.engine.util.Logger
 import app.morphe.gui.data.model.FollowMode
 import app.morphe.gui.data.model.PatchSource
