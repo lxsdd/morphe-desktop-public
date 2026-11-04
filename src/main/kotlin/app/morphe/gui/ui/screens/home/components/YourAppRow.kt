@@ -66,8 +66,10 @@ fun YourAppRow(
         listOfNotNull(versionPart, datePart, devicePart).joinToString(" · ")
     }
 
-    val hasUpdate = (state == PatchedAppState.PATCHED_WITH_UPDATES) ||
-        (updateInfo != null && (updateInfo.appOutdated || updateInfo.sources.any { it.outdated }))
+    // Patch and APK-version updates are separate facts. A generic newer
+    // repository release must not create an unfiltered "Patch-Update" badge.
+    val hasPatchUpdate = hasConfirmedPatchUpdate(updateInfo, state)
+    val hasAppUpdate = hasConfirmedAppUpdate(updateInfo)
 
     val cardColors = appCardColors()
 
@@ -115,8 +117,14 @@ fun YourAppRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (hasUpdate) {
+                if (hasPatchUpdate) {
                     PatchedStateBadge(PatchedAppState.PATCHED_WITH_UPDATES)
+                }
+                if (hasAppUpdate) {
+                    MorpheBadge(
+                        text = stringResource(Res.string.home_your_apps_app_update_status),
+                        tone = MorpheBadgeTone.Primary,
+                    )
                 }
                 if (deviceInfo?.installPending == true) {
                     if (cardColors.isMonochrome) {
