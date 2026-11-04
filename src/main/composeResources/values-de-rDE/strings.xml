@@ -921,4 +921,8 @@
     <string name="patch_play_suppression_caution">Setzt den Versionscode auf den Maximalwert. Kann spätere Updates und das Entfernen des Patches erschweren. Kein garantierter Schutz.</string>
     <string name="patch_play_suppression_selected">Bereits ausgewählt</string>
     <string name="patch_play_suppression_enable">Bewusst aktivieren</string>
+
+    <!-- GUI 2.0 navigation (required at startup) -->
+    <string name="nav_sources">Quellen</string>
+    <string name="nav_apps">Apps</string>
 </resources>
