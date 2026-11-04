@@ -1,0 +1,38 @@
+name: Custom 2.0 source-stage tests (no release)
+on:
+  push:
+    branches:
+      - integration/custom-2-0-source-stage-20261104
+permissions:
+  contents: read
+concurrency:
+  group: custom-2-source-tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-tests:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Configure repository cache mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.m2"
+          path="$HOME/.m2/settings.xml"
+          if [ ! -f "$path" ]; then printf '%s\n' '<settings></settings>' > "$path"; fi
+          sed -i.bak 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
+          rm -f "$path.bak"
+      - name: Compile and test source-stage (never upload binaries)
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew test --no-daemon -Dorg.gradle.mirror.maven.settings=true
