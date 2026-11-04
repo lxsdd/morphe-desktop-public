@@ -36,10 +36,22 @@ object PatcherCompatibility {
     fun incompatibilityMessage(mpp: File): String? {
         val required = requiredPatcherVersion(mpp) ?: return null
         val current = currentPatcherVersion ?: return null
-        if (!isNewerVersion(required, current)) return null
+        if (!isIncompatiblePatcherVersion(required, current)) return null
         Logger.info("Bundle ${mpp.name} needs patcher $required, this build ships $current")
-        return "This patch bundle needs Morphe patcher $required, but this build ships $current. " +
-            "Update Morphe to use it."
+        return "This patch bundle requires Morphe Patcher $required, but this build ships $current. " +
+            "Different major versions are incompatible; use a patch source built for this Patcher version."
+    }
+
+    /**
+     * A Patcher 1.x bundle cannot be loaded by Patcher 2.x even if its
+     * numeric requirement is lower. Fail closed on invalid requirements,
+     * newer versions, or any major-version mismatch.
+     */
+    internal fun isIncompatiblePatcherVersion(required: String, current: String): Boolean {
+        val requiredMajor = required.trim().removePrefix("v").substringBefore('.').toIntOrNull()
+        val currentMajor = current.trim().removePrefix("v").substringBefore('.').toIntOrNull()
+        if (requiredMajor == null || currentMajor == null) return true
+        return requiredMajor != currentMajor || isNewerVersion(required, current)
     }
 
     private fun patcherVersionFromManifest(manifest: String): String? =
