@@ -140,6 +140,8 @@ fun PatchedAppDetailDialog(
         var selectedApkPath by remember(record.packageName) {
             mutableStateOf(record.inputApkPath)
         }
+        // Re-selecting a replaced APK at the same path must re-read its manifest.
+        var apkSelectionRevision by remember(record.packageName) { mutableStateOf(0) }
         var bundleChoices by remember(record.packageName) {
             mutableStateOf(emptyMap<String, BundleChoice>())
         }
@@ -149,7 +151,7 @@ fun PatchedAppDetailDialog(
         var selectedApkVersion by remember(record.packageName) {
             mutableStateOf<String?>(record.apkVersion)
         }
-        LaunchedEffect(selectedApkPath) {
+        LaunchedEffect(selectedApkPath, apkSelectionRevision) {
             // Never show or use the previously patched version while inspecting
             // a newly chosen APK. The patch command revalidates its manifest.
             selectedApkVersion = null
@@ -399,7 +401,11 @@ fun PatchedAppDetailDialog(
                                     }
                                 },
                                 downloadError = bundleDownloadError,
-                                onApkSelected = { selectedApkPath = it },
+                                onApkSelected = {
+                                    selectedApkVersion = null
+                                    selectedApkPath = it
+                                    apkSelectionRevision++
+                                },
                             )
                         }
                         RowDivider()
@@ -600,7 +606,11 @@ fun PatchedAppDetailDialog(
                                     title = relinkPickerTitle,
                                     extensions = listOf("apk", "apkm", "xapk", "apks"),
                                 )
-                                if (picked?.isFile == true) selectedApkPath = picked.absolutePath
+                                if (picked?.isFile == true) {
+                                    selectedApkVersion = null
+                                    selectedApkPath = picked.absolutePath
+                                    apkSelectionRevision++
+                                }
                             }
                         }) else ({ onPatchWith(selectedApkPath, bundleChoices, if (isSimple) selectedSourceName else null) }),
                     )
