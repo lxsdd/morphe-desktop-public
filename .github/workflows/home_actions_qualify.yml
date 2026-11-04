@@ -12,6 +12,7 @@ on:
       - integration/upstream-readiness-audit-20261023
       - fix/play-store-update-ownership-honest-state-20261023
       - fix/version-code-play-update-warning-20261023
+      - integration/custom-2.0.0-20261104
 
 permissions:
   contents: read
