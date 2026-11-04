@@ -382,7 +382,8 @@ fun HomeScreenContent(
                 VersionWarningDialog(
                     versionStatus = uiState.apkInfo!!.versionStatus,
                     currentVersion = uiState.apkInfo!!.versionName,
-                    suggestedVersion = uiState.apkInfo!!.suggestedVersion ?: "",
+                    requiredBuildCodes = uiState.apkInfo!!.requiredBuildCodes,
+                    currentBuildCode = uiState.apkInfo!!.versionCode?.toString(),
                     onConfirm = {
                         showVersionWarningDialog = false
                         val patchesFile = viewModel.getCachedPatchesFile()

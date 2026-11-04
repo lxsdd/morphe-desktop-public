@@ -33,7 +33,6 @@ import app.morphe.gui.data.repository.SeenPatchesRepository
 import app.morphe.gui.data.repository.UpdateCheckRepository
 import app.morphe.gui.ui.screens.patching.LogEntry
 import app.morphe.gui.ui.screens.patching.LogLevel
-import app.morphe.gui.ui.screens.patching.parseAndLogEngineMessage
 import app.morphe.gui.ui.screens.patching.resolveStepFailureMessage
 import app.morphe.gui.util.ChecksumStatus
 import app.morphe.gui.util.EnabledSourcesLoader
@@ -57,6 +56,17 @@ import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.getPluralString
 import org.jetbrains.compose.resources.getString
 import java.util.Locale
+
+/** Convert 2.0 structured patch events into legacy simple-mode progress labels. */
+private fun parseAndLogEngineMessage(message: String): Pair<String, LogLevel> {
+    val upper = message.uppercase(Locale.ROOT)
+    val level = when {
+        upper.startsWith("ERROR:") || upper.startsWith("FAILED:") -> LogLevel.ERROR
+        upper.startsWith("WARN:") || upper.startsWith("WARNING:") -> LogLevel.WARNING
+        else -> LogLevel.INFO
+    }
+    return message to level
+}
 
 /** ViewModel for Quick Patch mode. */
 class QuickPatchViewModel(
@@ -107,7 +117,7 @@ class QuickPatchViewModel(
         // Load patches whenever quick mode becomes active.
         viewModelScope.launch {
             patchSourceManager.activeMode.collect { mode ->
-                if (mode == ActiveMode.QUICK) {
+                if (mode == ActiveMode.SIMPLE) {
                     loadPatchesAndSupportedApps()
                 }
             }
@@ -116,7 +126,7 @@ class QuickPatchViewModel(
         // Reload patches when the source changes and quick mode is active.
         viewModelScope.launch {
             patchSourceManager.sourceVersion.drop(1).collect {
-                if (patchSourceManager.activeMode.value != ActiveMode.QUICK) return@collect
+                if (patchSourceManager.activeMode.value != ActiveMode.SIMPLE) return@collect
                 Logger.info("QuickVM: Source changed, reloading patches...")
                 patchRepository = patchSourceManager.getActiveRepositorySync()
                 localPatchFilePath = patchSourceManager.getLocalFilePath()
@@ -358,26 +368,20 @@ class QuickPatchViewModel(
             }
             val versionStatus = versionResolution.status
             val isRecommendedVersion = if (useExperimental && hasExperimental) {
-                versionStatus == VersionStatus.LATEST_EXPERIMENTAL
+                versionStatus == VersionStatus.EXPERIMENTAL
             } else {
-                versionStatus == VersionStatus.LATEST_STABLE
+                versionStatus == VersionStatus.RECOMMENDED
             }
             val versionWarning = when (versionStatus) {
-                VersionStatus.OLDER_STABLE ->
+                VersionStatus.SUPPORTED ->
                     getString(Res.string.quick_patch_warning_older_stable, versionResolution.suggestedVersion ?: "")
-                VersionStatus.LATEST_EXPERIMENTAL ->
+                VersionStatus.EXPERIMENTAL ->
                     getString(Res.string.quick_patch_warning_latest_experimental)
-                VersionStatus.OLDER_EXPERIMENTAL ->
-                    getString(Res.string.quick_patch_warning_older_experimental, versionResolution.suggestedVersion ?: "")
                 VersionStatus.BUILD_UNSUPPORTED ->
                     getString(Res.string.quick_patch_warning_build_unsupported)
-                VersionStatus.TOO_NEW ->
-                    getString(Res.string.quick_patch_warning_too_new)
-                VersionStatus.TOO_OLD ->
-                    getString(Res.string.quick_patch_warning_too_old)
-                VersionStatus.UNSUPPORTED_BETWEEN ->
+                VersionStatus.UNSUPPORTED ->
                     getString(Res.string.quick_patch_warning_unsupported_between)
-                VersionStatus.LATEST_STABLE,
+                VersionStatus.RECOMMENDED,
                 VersionStatus.UNKNOWN -> null
             }
 

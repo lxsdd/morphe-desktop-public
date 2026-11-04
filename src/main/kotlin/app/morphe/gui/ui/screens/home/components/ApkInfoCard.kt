@@ -53,7 +53,7 @@ fun ApkInfoCard(
     val accents = MorpheTheme.colors
     val statusColorType = resolveStatusColorType(apkInfo.versionStatus, apkInfo.checksumStatus)
     val isWarningState = apkInfo.isUnsupportedApp || apkInfo.hasLimitedInfo || 
-                         (apkInfo.versionStatus != VersionStatus.LATEST_STABLE && 
+                         (apkInfo.versionStatus != VersionStatus.RECOMMENDED && 
                           apkInfo.versionStatus != VersionStatus.UNKNOWN)
                           
     val accentColor = when {

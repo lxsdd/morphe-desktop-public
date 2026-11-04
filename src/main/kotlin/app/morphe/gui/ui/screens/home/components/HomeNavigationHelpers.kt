@@ -26,7 +26,7 @@ internal fun handleContinue(
 ) {
     val patchesFile = viewModel.getCachedPatchesFile() ?: return
     val versionStatus = uiState.apkInfo?.versionStatus
-    if (versionStatus != null && versionStatus != VersionStatus.LATEST_STABLE && versionStatus != VersionStatus.UNKNOWN) {
+    if (versionStatus != null && versionStatus != VersionStatus.RECOMMENDED && versionStatus != VersionStatus.UNKNOWN) {
         showWarning()
     } else {
         uiState.apkInfo?.let { info ->

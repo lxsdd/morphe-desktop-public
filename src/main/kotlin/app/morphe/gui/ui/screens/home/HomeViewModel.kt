@@ -1312,6 +1312,7 @@ class HomeViewModel(
                 minSdk = minSdk,
                 suggestedVersion = suggestedVersion,
                 versionStatus = versionStatus,
+                requiredBuildCodes = versionResolution.requiredBuildCodes,
                 checksumStatus = checksumStatus,
                 isUnsupportedApp = !isSupported
             )
@@ -1562,6 +1563,7 @@ data class ApkInfo(
     val minSdk: Int? = null,
     val suggestedVersion: String? = null,
     val versionStatus: VersionStatus = VersionStatus.UNKNOWN,
+    val requiredBuildCodes: Set<Int> = emptySet(),
     val checksumStatus: ChecksumStatus = ChecksumStatus.NotConfigured,
     val isUnsupportedApp: Boolean = false,
     /** True if manifest parsing fell back to heuristics, producing approximate details. */

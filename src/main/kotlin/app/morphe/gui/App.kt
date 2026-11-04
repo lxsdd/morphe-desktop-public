@@ -261,7 +261,7 @@ private fun appContent(
         autoStartAdb = engineConfigRepository.loadConfig().autoStartAdb
         // Publish initial active mode before view models subscribe.
         patchSourceManager.setActiveMode(
-            if (isSimplifiedMode) ActiveMode.QUICK else ActiveMode.EXPERT
+            if (isSimplifiedMode) ActiveMode.SIMPLE else ActiveMode.EXPERT
         )
         isLoading = false
     }
@@ -284,7 +284,7 @@ private fun appContent(
         isSimplifiedMode = simplified
         // Update active mode to prevent duplicate loads between view models.
         patchSourceManager.setActiveMode(
-            if (simplified) ActiveMode.QUICK else ActiveMode.EXPERT
+            if (simplified) ActiveMode.SIMPLE else ActiveMode.EXPERT
         )
         scope.launch {
             configRepository.setUseSimplifiedMode(simplified)
