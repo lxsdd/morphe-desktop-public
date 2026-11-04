@@ -114,7 +114,7 @@ fun PatchedAppDetailDialog(
     val uriHandler = LocalUriHandler.current
     val patchCount = record.patchSelectionByBundle.values.sumOf { it.size }
     val appTarget = updateInfo?.appSuggestedVersion?.takeIf { hasConfirmedAppUpdate(updateInfo) }
-    val hasPatchChanges = hasConfirmedPatchUpdate(updateInfo)
+    val hasPatchChanges = hasConfirmedPatchUpdate(updateInfo, state)
     val hasNewAppTarget = hasConfirmedAppUpdate(updateInfo)
     val installPending = deviceInfo?.installPending == true
     val sameVersionInstalled = deviceInfo?.let {
@@ -150,6 +150,9 @@ fun PatchedAppDetailDialog(
             mutableStateOf<String?>(record.apkVersion)
         }
         LaunchedEffect(selectedApkPath) {
+            // Never show or use the previously patched version while inspecting
+            // a newly chosen APK. The patch command revalidates its manifest.
+            selectedApkVersion = null
             selectedApkVersion =
                 if (selectedApkPath == record.inputApkPath) record.apkVersion
                 else onResolveApkVersion(selectedApkPath)
