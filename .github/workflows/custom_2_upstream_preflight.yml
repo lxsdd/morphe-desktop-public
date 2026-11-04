@@ -1,8 +1,5 @@
 name: Custom 2.0 upstream integration preflight (source only)
 on:
-  push:
-    branches:
-      - integration/custom-2-0-upstream-20261104
   workflow_dispatch:
 permissions:
   contents: read
