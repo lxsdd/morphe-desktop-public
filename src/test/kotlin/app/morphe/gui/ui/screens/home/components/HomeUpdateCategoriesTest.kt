@@ -1,6 +1,8 @@
 package app.morphe.gui.ui.screens.home.components
 
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.ui.screens.home.PatchedAppState
+import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.gui.util.UpdateMetadataResolution
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -87,6 +89,39 @@ class HomeUpdateCategoriesTest {
     fun `verified empty and populated device inventories show exact counts`() {
         assertEquals("0", deviceInventoryCountText(verifiedDeviceInventoryCount(0, "synthetic-device")))
         assertEquals("17", deviceInventoryCountText(verifiedDeviceInventoryCount(17, "synthetic-device")))
+    }
+
+    @Test
+    fun `status badge and patch filter agree even when async metadata is unavailable`() {
+        val packageName = "com.example.video"
+        val record = PatchedAppRecord(
+            packageName = packageName,
+            displayName = "Video",
+            apkVersion = "1.0",
+            inputApkPath = "/does/not/exist/input.apk",
+            outputApkPath = "/does/not/exist/output.apk",
+            patchedAt = 0L,
+            patchedWithMorpheVersion = "2.0.0",
+        )
+        val rows = listOf(record)
+        val states = mapOf(packageName to PatchedAppState.PATCHED_WITH_UPDATES)
+        val infoByPackage = emptyMap<String, RecallUpdateInfo>()
+        assertTrue(hasConfirmedPatchUpdate(infoByPackage[packageName], states[packageName]))
+        assertEquals(rows, visiblePatchedRecords(AppListFilter.PATCH_UPDATES, rows, infoByPackage, states))
+        assertTrue(visiblePatchedRecords(AppListFilter.APP_UPDATES, rows, infoByPackage, states).isEmpty())
+    }
+
+    @Test
+    fun `plain newer app or repository is not mislabelled a confirmed patch update`() {
+        val appVersionOnly = info(appOutdated = true)
+        assertFalse(hasConfirmedPatchUpdate(appVersionOnly, PatchedAppState.PATCHED))
+        assertTrue(hasConfirmedAppUpdate(appVersionOnly))
+        val unscoped = info(sources = listOf(
+            RecallUpdateInfo.SourceUpdate("source", "1.0", "2.0", "2.0",
+                outdated = true, hasRelevantChanges = false)
+        ))
+        assertFalse(hasConfirmedPatchUpdate(unscoped, PatchedAppState.PATCHED))
+        assertFalse(hasConfirmedPatchUpdate(null, PatchedAppState.PATCHED))
     }
 
 }
