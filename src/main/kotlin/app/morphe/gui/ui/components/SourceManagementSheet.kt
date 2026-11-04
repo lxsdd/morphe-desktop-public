@@ -391,7 +391,7 @@ private fun SourceRow(
     val uriHandler = LocalUriHandler.current
     val canInteract = enabled
     // Highlight enabled sources in multi-mode or active source in single-select mode.
-    val isHighlighted = if (mode == SourceSheetMode.SINGLE_SELECT) isActiveSelection else isEnabled
+    val isHighlighted = isEnabled
 
     val animatedBorder by animateColorAsState(
         targetValue = when {
