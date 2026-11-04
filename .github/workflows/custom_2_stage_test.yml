@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - integration/custom-2-0-source-stage-20261104
+      - integration/custom-2-0-upstream-20261104
 permissions:
   contents: read
 concurrency:
