@@ -664,7 +664,7 @@ class HomeViewModel(
                 val effectiveNames = withContext(Dispatchers.IO) {
                     result.resolved.mapNotNull { (source, file) ->
                         if (file == null) return@mapNotNull null
-                        val manifestName = PatchBundleLoader.extractName(file)
+                        val manifestName = runCatching { java.util.jar.JarFile(file).use { it.manifest?.mainAttributes?.getValue("Name") } }.getOrNull()
                         val effectiveName = manifestName?.takeUnless { it.isBlank() || PatchSourceNaming.isRawOrCorruptedName(it) }
                             ?: PatchSourceNaming.suggestNameFromUrl(source.url)
                             ?: source.name
@@ -1240,8 +1240,7 @@ class HomeViewModel(
                 val resolved = resolvedByName[sourceName]
                 // Missing metadata cannot establish an app-specific patch change.
                 if (resolved == null) continue
-                val prerelease = resolved.channel == PatchResolver.Channel.DEV_LATEST ||
-                    resolved.channel == PatchResolver.Channel.DEV_OLDER
+                val prerelease = resolved.channel == PatchResolver.Channel.PRERELEASE
                 val entries = changelogRepository.entriesFor(resolved.source, prerelease)
                 // A newer repository release alone is not a confirmed update for this app.
                 if (entries == null) continue
