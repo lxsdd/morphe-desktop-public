@@ -959,4 +959,8 @@
     <string name="patch_play_suppression_caution">Sets versionCode to its maximum. May complicate future updates and removal. Not guaranteed to suppress every offer.</string>
     <string name="patch_play_suppression_selected">Already selected</string>
     <string name="patch_play_suppression_enable">Enable explicitly</string>
+
+    <!-- GUI 2.0 navigation (required at startup) -->
+    <string name="nav_sources">Sources</string>
+    <string name="nav_apps">Apps</string>
 </resources>
