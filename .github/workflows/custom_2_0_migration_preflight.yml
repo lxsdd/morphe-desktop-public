@@ -1,0 +1,53 @@
+name: Custom 2.0 upstream migration preflight (no distribution)
+
+on:
+  push:
+    branches:
+      - integration/custom-2-0-stable-20261104
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: custom-2-upstream-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  upstream-audit:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Custom candidate and its history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch pinned official stable 2.0.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          git remote add official https://github.com/MorpheApp/morphe-desktop.git
+          git fetch --no-tags official refs/tags/v2.0.0:refs/tags/audit-official-v2.0.0
+          expected=9361ea54c91e875c147d6aa73ecf94316e145800
+          actual=$(git rev-parse 'refs/tags/audit-official-v2.0.0^{commit}')
+          test "$actual" = "$expected"
+          echo "OFFICIAL_V2_0_0_SHA=$actual" >> "$GITHUB_ENV"
+      - name: Build read-only compatibility and conflict report
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/audit_custom_2_0_migration.py --upstream "$OFFICIAL_V2_0_0_SHA" --report "$RUNNER_TEMP/custom-2-audit.md"
+          cat "$RUNNER_TEMP/custom-2-audit.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Run unchanged Custom 1.19 baseline regression tests
+        uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Existing compatibility tests (no APK or release)
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew test --no-daemon -Dorg.gradle.mirror.maven.settings=true
