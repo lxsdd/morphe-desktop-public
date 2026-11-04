@@ -15,25 +15,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.morphe.engine.config.EngineConfig
 import app.morphe.engine.config.EngineConfigRepository
-import app.morphe.engine.patches.PatchBundleLoader
 import app.morphe.engine.patches.PatchProvider
 import app.morphe.engine.patches.RemotePatchSourceFactory
 import app.morphe.gui.data.model.PatchSource
 import app.morphe.gui.data.model.PatchSourceType
 import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.gui.util.MorpheFilePicker
-import app.morphe.gui.util.PatchSourceNaming
 import app.morphe.morphe_desktop.generated.resources.*
 import java.io.File
 import java.util.UUID
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 
 @Composable
 internal fun AddPatchSourceDialog(
+    isQuickMode: Boolean,
     onDismiss: () -> Unit,
     onAdd: (PatchSource) -> Unit
 ) {
@@ -76,6 +73,15 @@ internal fun AddPatchSourceDialog(
                     }
                 }
 
+                LabeledField(label = stringResource(Res.string.patch_source_dialog_name_label)) {
+                    SlimTextField(
+                        value = form.name,
+                        onValueChange = { form.name = it; form.error = null },
+                        placeholder = stringResource(Res.string.patch_source_dialog_name_placeholder),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
                 when (sourceType) {
                     PatchSourceType.GITHUB -> {
                         LabeledField(label = stringResource(Res.string.patch_source_dialog_repo_url_label)) {
@@ -84,6 +90,10 @@ internal fun AddPatchSourceDialog(
                                 onValueChange = { newUrl ->
                                     form.url = newUrl
                                     form.error = null
+                                    // Suggest name from repository URL if unset.
+                                    if (form.name.isBlank()) {
+                                        suggestNameFromUrl(newUrl)?.let { form.name = it }
+                                    }
                                 },
                                 placeholder = stringResource(Res.string.patch_source_dialog_repo_placeholder),
                                 modifier = Modifier.fillMaxWidth(),
@@ -101,7 +111,14 @@ internal fun AddPatchSourceDialog(
                                     hint = stringResource(Res.string.patch_source_dialog_pre_release_hint),
                                     checked = form.usePreRelease,
                                     onCheckedChange = { form.usePreRelease = it },
-                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                            }
+                            if (isQuickMode) {
+                                PatchSourceToggleRow(
+                                    title = stringResource(Res.string.patch_source_dialog_experimental_title),
+                                    hint = stringResource(Res.string.patch_source_dialog_experimental_hint),
+                                    checked = form.useExperimentalVersions,
+                                    onCheckedChange = { form.useExperimentalVersions = it },
                                 )
                             }
                         }
@@ -132,11 +149,13 @@ internal fun AddPatchSourceDialog(
             }
         },
         confirmButton = {
+            val errNameRequired = stringResource(Res.string.patch_source_dialog_error_name_required)
             val errInvalidUrl = stringResource(Res.string.patch_source_dialog_error_invalid_url)
             val errInvalidFile = stringResource(Res.string.patch_source_dialog_error_invalid_file)
             MorpheButton(
                 label = stringResource(Res.string.patch_source_dialog_add_button),
                 onClick = {
+                    if (form.name.isBlank()) { form.error = errNameRequired; return@MorpheButton }
                     when (sourceType) {
                         PatchSourceType.GITHUB -> {
                             // Resolve actual provider (GitHub vs GitLab) from the entered URL.
@@ -144,16 +163,14 @@ internal fun AddPatchSourceDialog(
                             if (resolved == null) {
                                 form.error = errInvalidUrl; return@MorpheButton
                             }
-                            val resolvedName = form.name.trim().ifBlank {
-                                PatchSourceNaming.suggestNameFromUrl(form.url.trim()) ?: "Unnamed"
-                            }
                             onAdd(PatchSource(
                                 id = UUID.randomUUID().toString(),
-                                name = resolvedName,
+                                name = form.name.trim(),
                                 type = resolved.provider,
                                 url = resolved.canonicalUrl,
                                 deletable = true,
-                                usePreRelease = form.usePreRelease
+                                usePreRelease = form.usePreRelease,
+                                useExperimentalVersions = form.useExperimentalVersions
                             ))
                             return@MorpheButton
                         }
@@ -161,25 +178,18 @@ internal fun AddPatchSourceDialog(
                             if (form.filePath.isBlank() || !File(form.filePath).exists()) {
                                 form.error = errInvalidFile; return@MorpheButton
                             }
-                            val localFile = File(form.filePath)
-                            scope.launch {
-                                val resolvedName = form.name.trim().ifBlank {
-                                    withContext(Dispatchers.IO) { PatchBundleLoader.extractName(localFile) }
-                                        ?: localFile.nameWithoutExtension
-                                }
-                                onAdd(PatchSource(
-                                    id = UUID.randomUUID().toString(),
-                                    name = resolvedName,
-                                    type = sourceType,
-                                    url = null,
-                                    filePath = form.filePath.trim(),
-                                    deletable = true,
-                                    usePreRelease = form.usePreRelease
-                                ))
-                            }
                         }
                         else -> {}
                     }
+                    onAdd(PatchSource(
+                        id = UUID.randomUUID().toString(),
+                        name = form.name.trim(),
+                        type = sourceType,
+                        url = null,
+                        filePath = if (sourceType == PatchSourceType.LOCAL) form.filePath.trim() else null,
+                        deletable = true,
+                        usePreRelease = form.usePreRelease
+                    ))
                 },
                 variant = MorpheButtonVariant.PRIMARY,
                 size = MorpheButtonSize.COMPACT,
@@ -199,6 +209,7 @@ internal fun AddPatchSourceDialog(
 @Composable
 internal fun EditPatchSourceDialog(
     source: PatchSource,
+    isQuickMode: Boolean,
     onDismiss: () -> Unit,
     onSave: (PatchSource) -> Unit
 ) {
@@ -208,6 +219,7 @@ internal fun EditPatchSourceDialog(
             initialUrl = source.url ?: "",
             initialFilePath = source.filePath ?: "",
             initialPreRelease = source.usePreRelease,
+            initialExperimental = source.useExperimentalVersions,
         )
     }
     val engineConfigRepository: EngineConfigRepository = koinInject()
@@ -248,7 +260,7 @@ internal fun EditPatchSourceDialog(
                         SlimTextField(
                             value = form.name,
                             onValueChange = { form.name = it; form.error = null },
-                            placeholder = stringResource(Res.string.patch_source_dialog_name_placeholder),
+                            placeholder = "",
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -287,6 +299,16 @@ internal fun EditPatchSourceDialog(
                             hint = stringResource(Res.string.patch_source_dialog_pre_release_hint),
                             checked = form.usePreRelease,
                             onCheckedChange = { form.usePreRelease = it },
+                            modifier = Modifier.padding(top = if (source.deletable) 8.dp else 0.dp),
+                        )
+                    }
+
+                    if (isQuickMode) {
+                        PatchSourceToggleRow(
+                            title = stringResource(Res.string.patch_source_dialog_experimental_title),
+                            hint = stringResource(Res.string.patch_source_dialog_experimental_hint),
+                            checked = form.useExperimentalVersions,
+                            onCheckedChange = { form.useExperimentalVersions = it },
                         )
                     }
                 }
@@ -319,7 +341,8 @@ internal fun EditPatchSourceDialog(
                                 name = form.name.trim(),
                                 type = resolved.provider,
                                 url = resolved.canonicalUrl,
-                                usePreRelease = form.usePreRelease
+                                usePreRelease = form.usePreRelease,
+                                useExperimentalVersions = form.useExperimentalVersions
                             ))
                             return@MorpheButton
                         }
@@ -333,7 +356,8 @@ internal fun EditPatchSourceDialog(
                     onSave(source.copy(
                         name = form.name.trim(),
                         filePath = if (source.type == PatchSourceType.LOCAL) form.filePath.trim() else source.filePath,
-                        usePreRelease = form.usePreRelease
+                        usePreRelease = form.usePreRelease,
+                        useExperimentalVersions = form.useExperimentalVersions
                     ))
                 },
                 variant = MorpheButtonVariant.PRIMARY,
@@ -365,6 +389,15 @@ internal fun resolveRemoteSourceUrl(input: String): ResolvedRemoteSource? {
         PatchProvider.GITLAB -> PatchSourceType.GITLAB
     }
     return ResolvedRemoteSource(canonicalUrl = parsed.canonicalUrl, provider = type)
+}
+
+/** Suggests a source name in `<owner>/<repo>` format from a remote repository URL. */
+private fun suggestNameFromUrl(input: String): String? {
+    val parsed = RemotePatchSourceFactory.parse(input) ?: return null
+    if (parsed.prNumber != null) {
+        return "${parsed.repoPath}#${parsed.prNumber}"
+    }
+    return parsed.repoPath.takeIf { it.isNotBlank() }
 }
 
 /** Returns the directory path to remember for subsequent file picker invocations. */
@@ -415,8 +448,7 @@ private fun LocalSourceRow(
                                 extensions = listOf("mpp"),
                             )
                             if (picked != null) {
-                                val manifestName = withContext(Dispatchers.IO) { PatchBundleLoader.extractName(picked) }
-                                onPicked(picked.absolutePath, manifestName ?: picked.name.removeSuffix(".mpp"))
+                                onPicked(picked.absolutePath, picked.name.removeSuffix(".mpp"))
                             }
                         }
                     },
@@ -470,7 +502,7 @@ private fun PatchSourceToggleRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().padding(top = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -499,12 +531,14 @@ private class PatchSourceFormState(
     initialUrl: String = "",
     initialFilePath: String = "",
     initialPreRelease: Boolean = false,
+    initialExperimental: Boolean = false,
 ) {
     var name by mutableStateOf(initialName)
     var url by mutableStateOf(initialUrl)
     var filePath by mutableStateOf(initialFilePath)
     var error by mutableStateOf<String?>(null)
     var usePreRelease by mutableStateOf(initialPreRelease)
+    var useExperimentalVersions by mutableStateOf(initialExperimental)
 }
 
 

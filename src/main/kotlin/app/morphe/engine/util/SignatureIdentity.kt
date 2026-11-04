@@ -6,6 +6,7 @@
 package app.morphe.engine.util
 
 import com.android.apksig.ApkVerifier
+import app.morphe.patcher.apk.ApkUtils
 import java.io.File
 import java.security.MessageDigest
 import java.security.KeyStore
@@ -15,6 +16,19 @@ import java.security.cert.Certificate
 
 /** Computes and parses Android package signature hashes (`dumpsys package`) for device matching. */
 object SignatureIdentity {
+
+    /** Modern Morphe 2.0 signer identity: use the keystore loader for BKS/PKCS12/JKS. */
+    fun idForKeystore(details: ApkUtils.KeyStoreDetails): String? = try {
+        if (!details.keyStore.exists()) null else {
+            val ks = ApkUtils.readKeyStore(details)
+            val actualAlias = ks.aliases().toList().firstOrNull {
+                it.equals(details.alias, ignoreCase = true)
+            } ?: details.alias
+            ks.getCertificate(actualAlias)?.let(::idForCert)
+        }
+    } catch (_: Exception) {
+        null
+    }
 
     /** Computes Android signature hash for [cert]. */
     fun idForCert(cert: Certificate): String =

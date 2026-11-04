@@ -602,10 +602,8 @@ private fun ChannelBadge(
     channel: Channel?,
 ) {
     val label = when (channel) {
-        Channel.STABLE_LATEST -> stringResource(Res.string.version_label_latest_stable)
-        Channel.STABLE_OLDER -> stringResource(Res.string.source_sheet_channel_older_stable)
-        Channel.DEV_LATEST -> stringResource(Res.string.version_label_latest_dev)
-        Channel.DEV_OLDER -> stringResource(Res.string.source_sheet_channel_older_dev)
+        Channel.STABLE -> stringResource(Res.string.version_label_latest_stable)
+        Channel.PRERELEASE -> stringResource(Res.string.version_label_latest_dev)
         Channel.LOCAL -> stringResource(Res.string.source_sheet_local_label)
         else -> stringResource(Res.string.version_label_latest_stable)
     }

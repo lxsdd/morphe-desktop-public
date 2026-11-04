@@ -52,6 +52,10 @@ data class AppConfig(
     val homeAppSortMode: String = "RECOMMENDED",
     val preferredPatchChannel: String = "STABLE",
     val useSimpleMode: Boolean = true,
+    /** Legacy Custom mode flag, retained when reading old settings. */
+    val useSimplifiedMode: Boolean = true,
+    /** Legacy Custom per-category grouping preference. */
+    val groupPatchesByCategory: Boolean = true,
     val patchSource: List<PatchSource> = listOf(DEFAULT_PATCH_SOURCE),
     val activePatchSourceId: String = "morphe-default",
     // Persisted expand/collapse state for settings sections.
@@ -104,6 +108,8 @@ data class PatchSource (
     val deletable: Boolean = true,
     val enabled: Boolean = true,
     val usePreRelease: Boolean = false,
+    /** Legacy Custom flag: retained for safe settings migration. */
+    val useExperimentalVersions: Boolean = false,
 )
 
 @Serializable
