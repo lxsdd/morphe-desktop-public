@@ -250,6 +250,18 @@ class HomeViewModel(
         )
     }
 
+    /** The chosen APK, not historical patch metadata, is authoritative for re-patching. */
+    suspend fun inspectRepatchInput(record: PatchedAppRecord, apkPath: String): String =
+        withContext(Dispatchers.IO) {
+            val selected = File(apkPath)
+            require(selected.isFile && selected.length() >= 1024 && BundleFormats.isApkOrBundle(selected)) {
+                "The selected APK is missing or invalid: ${selected.name}"
+            }
+            val inspected = ApkInspector.inspect(selected)
+                ?: throw IllegalArgumentException("The selected APK manifest could not be read: ${selected.name}")
+            verifiedRepatchVersion(record.packageName, inspected.packageName, inspected.versionName)
+        }
+
     /** Creates a [PatchEngine.Config] for simple repatching from a prior [PatchedAppRecord]. */
     suspend fun createSimpleRepatchConfig(
         record: PatchedAppRecord,
@@ -258,6 +270,7 @@ class HomeViewModel(
         chosenSourceName: String? = null,
     ): PatchEngine.Config {
         val inputFile = File(apkPath)
+        val selectedApkVersion = inspectRepatchInput(record, apkPath)
         val engineConfigData = engineConfigRepository.loadConfig()
         val primaryPatchFile = patchFiles.firstOrNull() ?: cachedPatchesFile ?: inputFile
 
@@ -266,7 +279,7 @@ class HomeViewModel(
             patchesFile = primaryPatchFile,
             baseOutputDir = engineConfigData.resolvedDefaultOutputDirectory(),
             appDisplayName = record.displayName,
-            appVersion = record.apkVersion,
+            appVersion = selectedApkVersion,
         )
 
         val isDifferentSource = chosenSourceName != null &&
@@ -307,7 +320,7 @@ class HomeViewModel(
                 cachedPatches
             }
             val compatibleWithVersion = candidatePatches.filter { patch ->
-                patch.isCompatibleWith(record.packageName, record.apkVersion) && patch.isEnabled
+                patch.isCompatibleWith(record.packageName, selectedApkVersion) && patch.isEnabled
             }
             val resolvedPatches = compatibleWithVersion.ifEmpty {
                 candidatePatches.filter { patch ->
@@ -334,7 +347,7 @@ class HomeViewModel(
             historyMetadata = PatchEngine.HistoryMetadata(
                 originalPackageName = record.packageName,
                 displayName = record.displayName,
-                appVersion = record.apkVersion,
+                appVersion = selectedApkVersion,
                 sourcesSnapshot = sourcesSnapshot,
             ),
         )
