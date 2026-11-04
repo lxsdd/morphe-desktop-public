@@ -107,11 +107,13 @@ internal fun SupportedAppsListPane(
     val confirmedAppUpdates = remember(patchedRecords, updateInfoByPackage) {
         patchedRecords.count { hasConfirmedAppUpdate(updateInfoByPackage[it.packageName]) }
     }
-    val confirmedPatchUpdates = remember(patchedRecords, updateInfoByPackage) {
-        patchedRecords.count { hasConfirmedPatchUpdate(updateInfoByPackage[it.packageName]) }
+    val confirmedPatchUpdates = remember(patchedRecords, updateInfoByPackage, patchedStates) {
+        patchedRecords.count {
+            hasConfirmedPatchUpdate(updateInfoByPackage[it.packageName], patchedStates[it.packageName])
+        }
     }
-    val categoryRecords = remember(filter, filteredRecords, updateInfoByPackage) {
-        visiblePatchedRecords(filter, filteredRecords, updateInfoByPackage)
+    val categoryRecords = remember(filter, filteredRecords, updateInfoByPackage, patchedStates) {
+        visiblePatchedRecords(filter, filteredRecords, updateInfoByPackage, patchedStates)
     }
     val activeCount = when (filter) {
         AppListFilter.ALL -> supportedApps.size
