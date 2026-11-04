@@ -6,6 +6,7 @@ package app.morphe.gui.ui.screens.home.components
 
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.ui.screens.home.PatchedAppState
 import app.morphe.gui.util.UpdateMetadataResolution
 
 /**
@@ -17,17 +18,27 @@ internal fun hasConfirmedAppUpdate(info: RecallUpdateInfo?): Boolean =
     info != null && info.metadataResolution == UpdateMetadataResolution.READY &&
         info.appOutdated && !info.appSuggestedVersion.isNullOrBlank()
 
-internal fun hasConfirmedPatchUpdate(info: RecallUpdateInfo?): Boolean =
-    info?.metadataResolution == UpdateMetadataResolution.READY &&
-        info.sources.any { it.hasRelevantChanges }
+/** The cached per-app status already contains confirmed scoped changelog changes.
+ * Count that evidence even if a subsequent async catalogue refresh has no metadata.
+ */
+internal fun hasConfirmedPatchUpdate(
+    info: RecallUpdateInfo?,
+    state: PatchedAppState? = null,
+): Boolean =
+    state == PatchedAppState.PATCHED_WITH_UPDATES ||
+        (info?.metadataResolution == UpdateMetadataResolution.READY &&
+            info.sources.any { it.hasRelevantChanges })
 
 internal fun visiblePatchedRecords(
     filter: AppListFilter,
     records: List<PatchedAppRecord>,
     info: Map<String, RecallUpdateInfo>,
+    states: Map<String, PatchedAppState> = emptyMap(),
 ): List<PatchedAppRecord> = when (filter) {
     AppListFilter.APP_UPDATES -> records.filter { hasConfirmedAppUpdate(info[it.packageName]) }
-    AppListFilter.PATCH_UPDATES -> records.filter { hasConfirmedPatchUpdate(info[it.packageName]) }
+    AppListFilter.PATCH_UPDATES -> records.filter {
+        hasConfirmedPatchUpdate(info[it.packageName], states[it.packageName])
+    }
     else -> records
 }
 
