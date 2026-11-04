@@ -965,4 +965,9 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="version_label_supported">Unterstützt</string>
     <string name="version_status_build_unsupported_with_code">Patches erfordern Build %1$s</string>
     <string name="version_warning_build_unsupported_message">Aktuell: v%1$s (Build %2$s)\nErforderlicher Build: %3$s\n\nDies ist ein anderer Build derselben Version. Die Patches erfordern einen bestimmten Build.</string>
+
+    <string name="source_signer_changed_title">Signierschlüssel der Patchquelle geändert</string>
+    <string name="source_signer_changed_body">Quelle: %1$s\nRepository: %2$s\nFingerabdruck des neuen Signierschlüssels: %3$s\n\nDer Signierschlüssel des Herausgebers hat sich geändert. Erst nach unabhängiger Prüfung akzeptieren. Abbrechen behält den alten Schlüssel und sperrt die Quelle.</string>
+    <string name="source_signer_changed_accept">Neuem Signierschlüssel vertrauen</string>
+    <string name="source_signer_changed_review">Signierschlüssel prüfen</string>
 </resources>
