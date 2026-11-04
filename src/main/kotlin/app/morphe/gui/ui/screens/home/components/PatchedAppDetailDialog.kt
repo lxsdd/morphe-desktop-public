@@ -153,9 +153,9 @@ fun PatchedAppDetailDialog(
             // Never show or use the previously patched version while inspecting
             // a newly chosen APK. The patch command revalidates its manifest.
             selectedApkVersion = null
-            selectedApkVersion =
-                if (selectedApkPath == record.inputApkPath) record.apkVersion
-                else onResolveApkVersion(selectedApkPath)
+            // Even the previously recorded path may now contain a newer APK.
+            // The selected file's manifest always wins over historical metadata.
+            selectedApkVersion = onResolveApkVersion(selectedApkPath)
         }
 
         val primarySnapshot = record.sourcesSnapshot.firstOrNull()
