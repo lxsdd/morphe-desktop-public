@@ -65,6 +65,7 @@ import app.morphe.gui.ui.screens.home.PatchedAppState
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
 import app.morphe.gui.util.MorpheFilePicker
 import app.morphe.gui.ui.theme.MorpheTheme
+import app.morphe.gui.ui.theme.LocalThemeState
 import app.morphe.gui.ui.theme.ThemeStyle
 import app.morphe.gui.util.PatchSourceNaming
 import app.morphe.morphe_desktop.generated.resources.*
@@ -598,7 +599,7 @@ fun PatchedAppDetailDialog(
                                 )
                                 if (picked?.isFile == true) selectedApkPath = picked.absolutePath
                             }
-                        }) else ({ onPatchWith(selectedApkPath, bundleChoices) }),
+                        }) else ({ onPatchWith(selectedApkPath, bundleChoices, if (isSimple) selectedSourceName else null) }),
                     )
 
                     if (deviceInfo?.installed == true) {
