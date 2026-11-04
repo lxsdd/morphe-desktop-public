@@ -74,7 +74,7 @@ fun YourAppRow(
     AppCard(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = MorpheTheme.shapes.mediumDp,
-        appIconColorHex = null, // neutral default; custom saved fills preserved
+        appIconColorHex = appIconColorHex,
         fill = cardFills[record.packageName],
         onClick = onClick,
         onCustomise = {
@@ -104,106 +104,25 @@ fun YourAppRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "${stringResource(Res.string.home_version_patched, "v" + record.apkVersion.removePrefix("v"))} · ${relativeOrShortDate(record.patchedAt)}",
-                    style = MorpheTheme.typography.labelSmall.copy(
-                        color = Color.White.copy(alpha = MorpheTheme.alphas.secondaryText)
-                    ),
+                    text = subtitle,
+                    style = MorpheTheme.typography.labelSmall.copy(color = cardColors.subtitle),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (deviceInfo?.installPending == true) {
-                Spacer(Modifier.width(8.dp))
-                MorpheBadge(
-                    text = stringResource(Res.string.home_your_apps_install_ready),
-                    containerColor = cardChipInk,
-                    onGradient = true,
-                )
-            }
-            if (hasConfirmedAppUpdate(updateInfo)) {
-                Spacer(Modifier.width(8.dp))
-                MorpheBadge(
-                    text = stringResource(
-                        Res.string.home_guided_new_version_badge,
-                        updateInfo!!.appSuggestedVersion!!.removePrefix("v")),
-                    containerColor = cardChipInk,
-                    onGradient = true,
-                )
-            } else if (state != PatchedAppState.NEVER_PATCHED) {
-                Spacer(Modifier.width(8.dp))
-                PatchedStateBadge(state)
-            }
-        }
-        deviceInfo?.let { DeviceLine(it, Color.White.copy(alpha = 0.5f), cardChipInk) }
-        updateInfo?.sources?.firstOrNull()?.let { s ->
-            val more = updateInfo.sources.size - 1
-            VersionBumpText(
-                label = "${stringResource(Res.string.home_version_patch_source, s.name)} ",
-                oldVersion = s.usedVersion,
-                // A newer source release alone is not a confirmed patch update for this app.
-                newVersion = if (s.hasRelevantChanges) s.latestAvailableVersion else null,
-                suffix = if (more > 0) "  +$more" else null,
-            )
-        }
-        if (hasConfirmedAppUpdate(updateInfo)) {
-            Text(
-                text = stringResource(
-                    Res.string.home_version_app_upgrade,
-                    "v" + updateInfo!!.appUsedVersion.removePrefix("v"),
-                    "v" + updateInfo.appSuggestedVersion!!.removePrefix("v"),
-                ),
-                style = MorpheTheme.typography.bodySmall.copy(color = Color.White),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        val cardAdvice = updateInfo?.let { appAdvice(it) }
-        if (cardAdvice != null) {
-            Text(
-                text = cardAdvice.first,
-                style = MorpheTheme.typography.bodySmall.copy(color = cardChipInk),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        } else if (hasConfirmedPatchUpdate(updateInfo)) {
+            Spacer(Modifier.width(8.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector = MorpheIcons.Info,
-                    contentDescription = null,
-                    modifier = Modifier.size(12.dp),
-                    tint = Color.White.copy(alpha = MorpheTheme.alphas.secondaryText),
-                )
-                Text(
-                    text = stringResource(Res.string.home_your_apps_patch_review_hint),
-                    style = MorpheTheme.typography.bodySmall.copy(
-                        color = Color.White.copy(alpha = MorpheTheme.alphas.secondaryText)
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        // Prompt installation when the patched APK is newer than the version on device.
-        if (deviceInfo?.installPending == true) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Icon(
-                    imageVector = MorpheIcons.Download,
-                    contentDescription = null,
-                    modifier = Modifier.size(12.dp),
-                    tint = Color.White,
-                )
-                Text(
-                    text = if (deviceInfo.installed)
-                        stringResource(
-                            Res.string.home_your_apps_device_version_ready,
-                            record.apkVersion.removePrefix("v"),
-                            deviceInfo.installedVersion?.removePrefix("v") ?: "?"
+                if (hasUpdate) {
+                    PatchedStateBadge(PatchedAppState.PATCHED_WITH_UPDATES)
+                }
+                if (deviceInfo?.installPending == true) {
+                    if (cardColors.isMonochrome) {
+                        MorpheBadge(
+                            text = stringResource(Res.string.home_your_apps_install_ready),
+                            tone = MorpheBadgeTone.Primary,
                         )
                     } else {
                         MorpheBadge(
