@@ -333,7 +333,7 @@ fun HomeScreenContent(
                     it.source.id == id
                 }
                 // Check both source identity and candidate generation before any trust write.
-                if (source != null && current?.source?.url == source.url &&
+                if (source != null && current != null && current.source.url == source.url &&
                     current.changedSignerPublicKey == candidateKey) {
                     coroutineScope.launch {
                         val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
