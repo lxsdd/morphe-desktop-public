@@ -67,6 +67,7 @@ internal fun SupportedAppsListPane(
     onManageSources: () -> Unit = {},
     sortMode: HomeAppSortMode = HomeAppSortMode.RECOMMENDED,
     onSortModeChange: (HomeAppSortMode) -> Unit = {},
+    isSimple: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -285,6 +286,7 @@ internal fun SupportedAppsListPane(
                             SupportedAppListRow(
                                 app = app,
                                 isExpanded = expandedPackage == app.packageName,
+                                isSimple = isSimple,
                                 onClick = {
                                     expandedPackage = if (expandedPackage == app.packageName) null
                                                       else app.packageName
