@@ -42,15 +42,15 @@ def main():
     conflict_only = [line for line in conflict_lines if line.startswith("CONFLICT ")]
     # No false claim of a successful merge: the dry-run produces an index/tree only.
     manifest = pathlib.Path("gradle/libs.versions.toml").read_text()
-    patcher = re.search(r'^morphe-patcher\\s*=\\s*"([^"]+)"', manifest, re.M)
+    patcher = re.search(r'^morphe-patcher\s*=\s*"([^"]+)"', manifest, re.M)
     actual = patcher.group(1) if patcher else "NOT_FOUND"
     missing = [p for p in CUSTOM_CRITICAL if not pathlib.Path(p).is_file()]
     report = [
         "# Custom 2.0 stable migration preflight",
         "",
-        f"- Custom HEAD: \`{head}\`",
-        f"- Pinned official stable 2.0.0: \`{args.upstream}\`",
-        f"- Shared merge base: \`{base}\`",
+        f"- Custom HEAD: `{head}`",
+        f"- Pinned official stable 2.0.0: `{args.upstream}`",
+        f"- Shared merge base: `{base}`",
         f"- Upstream-modified paths since shared base: **{len(upstream)}**",
         f"- Custom-modified paths since shared base: **{len(custom)}**",
         f"- Overlapping paths requiring manual review: **{len(overlap)}**",
@@ -59,7 +59,7 @@ def main():
         f"- Current Custom morphe-patcher dependency: **{actual}**",
         "",
         "## High-priority overlapping source files",
-        *[f"- \`{p}\`" for p in sorted(overlap) if p in CUSTOM_CRITICAL],
+        *[f"- `{p}`" for p in sorted(overlap) if p in CUSTOM_CRITICAL],
         "",
         "## Git merge-tree conflict diagnostics (first 80)",
         *[f"- {line}" for line in conflict_only[:80]],
@@ -67,7 +67,7 @@ def main():
         "This report is NOT a merged 2.0 build, a runtime acceptance, or a device test.",
         "No source merge, public binary upload, Android action, or release is executed.",
     ]
-    pathlib.Path(args.report).write_text("\\n".join(report) + "\\n")
+    pathlib.Path(args.report).write_text("\n".join(report) + "\n")
     if missing:
         raise RuntimeError("Missing protected Custom paths: " + ", ".join(missing))
     if actual != "2.0.0":
