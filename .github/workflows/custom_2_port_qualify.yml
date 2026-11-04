@@ -135,3 +135,62 @@ jobs:
           grep -Fqx 'app/morphe/MorpheLauncherKt.class' "$RUNNER_TEMP/morphe-jar-entries.txt"
           sha256sum "$file"
           echo "PASS: ephemeral desktop archive verified. No artifact has been uploaded."
+
+  community-patcher-compatibility:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    name: Official 2.x and legacy Amazon bundle ABI check
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Build current Custom Desktop CLI (no device)
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon shadowJar
+      - name: Verify immutable upstream release bundle SHA-256 checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/morphe-compat"
+          curl --fail --location --retry 3 --retry-delay 2 --silent --show-error \
+            -o "$RUNNER_TEMP/morphe-compat/official.mpp" \
+            "https://github.com/MorpheApp/morphe-patches/releases/download/v2.0.0/patches-2.0.0.mpp"
+          curl --fail --location --retry 3 --retry-delay 2 --silent --show-error \
+            -o "$RUNNER_TEMP/morphe-compat/community.mpp" \
+            "https://github.com/rushiranpise/morphe-patches/releases/download/v1.23.1/patches-1.23.1.mpp"
+          printf '%s  %s\n' "f0f5cfd857950ed61a26a7b2eeeecf37d4d66bece2e8f94802280e189b69ed00" "$RUNNER_TEMP/morphe-compat/official.mpp" \
+            | sha256sum -c -
+          printf '%s  %s\n' "75ede4e416edf147be8132b6c7693d78b37264a1a89dd2c4fa835efccefcdd9d" "$RUNNER_TEMP/morphe-compat/community.mpp" \
+            | sha256sum -c -
+      - name: Test official 2.0 patch metadata through actual Custom 2.0 CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar=$(find build/libs -type f -name '*-all.jar' | head -n 1)
+          test -n "$jar"
+          java -Djava.awt.headless=true -jar "$jar" list-patches \
+            --patches "$RUNNER_TEMP/morphe-compat/official.mpp" \
+            --out "$RUNNER_TEMP/morphe-compat/official.txt"
+          test -s "$RUNNER_TEMP/morphe-compat/official.txt"
+          grep -q 'Name:' "$RUNNER_TEMP/morphe-compat/official.txt"
+          echo "PASS: upstream v2.0.0 signed bundle loads with current engine"
+      - name: Test Rushiranpise 1.23.1 Amazon patches through actual Custom 2.0 CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar=$(find build/libs -type f -name '*-all.jar' | head -n 1)
+          java -Djava.awt.headless=true -jar "$jar" list-patches \
+            --patches "$RUNNER_TEMP/morphe-compat/community.mpp" \
+            --filter-package-name com.amazon.mShop.android.shopping \
+            --with-packages \
+            --out "$RUNNER_TEMP/morphe-compat/community.txt"
+          test -s "$RUNNER_TEMP/morphe-compat/community.txt"
+          grep -q 'Name:' "$RUNNER_TEMP/morphe-compat/community.txt"
+          echo "PASS: Rushiranpise 1.23.1 Amazon patch metadata loads with Patcher 2.2.0"
