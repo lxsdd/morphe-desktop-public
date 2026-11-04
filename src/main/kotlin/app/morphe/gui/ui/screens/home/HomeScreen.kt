@@ -65,6 +65,9 @@ import app.morphe.gui.util.sourceSigningKeyFingerprintMap
 import app.morphe.gui.util.sourceSigningKeyMap
 import app.morphe.gui.util.sourceUpdateMap
 import app.morphe.gui.util.sourceVersionMap
+import app.morphe.gui.ui.screens.home.components.proceedToPatching
+import app.morphe.gui.ui.theme.Defaults
+import app.morphe.gui.util.LocalPatchSourceHeader
 import java.awt.Desktop
 import java.io.File
 import java.util.UUID
@@ -126,6 +129,8 @@ fun HomeScreenContent(
         }
     }
 
+    var showChangelogDialog by remember { mutableStateOf(false) }
+    if (showChangelogDialog) ChangelogDialog(onDismiss = { showChangelogDialog = false })
     var showSourceManagementSheet by rememberSaveable { mutableStateOf(false) }
     var pendingReopenSheet by rememberSaveable { mutableStateOf(false) }
 
@@ -265,8 +270,8 @@ fun HomeScreenContent(
             deviceInfo = visibleDeviceUiState.deviceAppInfo[record.packageName],
             updateInfo = updateInfo,
             supportedApp = uiState.supportedApps.find { it.packageName == record.packageName },
-            activeSources = recordSources,
-            compatibleSources = compSources,
+            activeSources = detailRecordSources,
+            compatibleSources = detailCompatibleSources,
             allSources = allSources,
             bundleVersionsBySource = bundleVersionsBySource,
             isSimple = isSimple,
@@ -581,22 +586,8 @@ fun HomeScreenContent(
                             onDismissSourcesFailed = { viewModel.dismissSourcesFailedBanner() },
                             onShowChangelog = { showChangelogDialog = true },
                         )
-                        HomeSplitLayout(
-                            uiState = visibleDeviceUiState,
-                            padding = padding,
-                            sourceNamesByPackage = sourceNamesByPackage,
-                            patchSourcesForSelectedApk = patchSourcesForSelectedApk,
-                            patchesLoaded = patchesLoaded,
-                            onSortModeChange = { viewModel.setSortMode(it) },
-                            onShowDetail = onShowDetail,
-                            onShowDeviceApp = onShowDeviceApp,
-                            onFilterChange = { viewModel.setAppListFilter(it) },
-                            onRetry = onRetry,
-                            onRefreshDeviceInfo = { viewModel.refreshDeviceInfo() },
-                            onManageSources = { showSourceManagementSheet = true },
-                            onClearClick = onClearClick,
-                            onChangeClick = onChangeClick,
-                            onContinueClick = onContinueClick,
+                        HorizontalPager(
+                            state = pagerState,
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                             key = { index -> HomePage.entries[index] }
                         ) { index ->
@@ -672,7 +663,9 @@ fun HomeScreenContent(
                                         patchesLoaded = patchesLoaded,
                                         onSortModeChange = { viewModel.setSortMode(it) },
                                         onShowDetail = onShowDetail,
+                                        onShowDeviceApp = onShowDeviceApp,
                                         onFilterChange = { viewModel.setAppListFilter(it) },
+                                        onRefreshDeviceInfo = { viewModel.refreshDeviceInfo() },
                                         onRetry = onRetry,
                                         onManageSources = { openPage(HomePage.SOURCES) },
                                         onClearClick = onClearClick,
