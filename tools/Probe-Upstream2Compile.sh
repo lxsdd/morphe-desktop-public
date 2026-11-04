@@ -22,6 +22,7 @@ fi
 echo "TEMPORARY_MERGE_FOR_COMPILE_ONLY=1"
 echo "MIGRATION_COMPLETED=NO"
 echo "NOTE=Conflict hunks preferentially kept Custom, requiring independent functional reconciliation"
-git status --short | head -100
+git status --short > "$RUNNER_TEMP/morphe-merge-status.txt"
+sed -n '1,100p' "$RUNNER_TEMP/morphe-merge-status.txt"
 ./gradlew test --no-daemon -Dorg.gradle.mirror.maven.settings=true
 echo "TEMPORARY_MERGE_TESTS=PASS_NEEDS_MANUAL_CODE_AUDIT"
