@@ -264,7 +264,7 @@ fun HomeScreenContent(
         )
     }
     detailRecord?.takeIf { detailOriginSerial == null || detailOriginSerial == selectedSerial }?.let { record ->
-        val updateInfo = remember(record) { viewModel.recallUpdateInfo(record) }
+        val updateInfo = uiState.updateInfoByPackage[record.packageName] ?: viewModel.recallUpdateInfo(record)
         PatchedAppDetailDialog(
             record = record,
             state = uiState.patchedStates[record.packageName] ?: PatchedAppState.PATCHED,
