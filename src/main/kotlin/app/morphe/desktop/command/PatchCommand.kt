@@ -505,18 +505,7 @@ internal object PatchCommand : Callable<Int> {
 
         try {
             val startNanos = System.nanoTime()
-            val engineResult = runBlocking {
-                PatchEngine.patch(
-                    config = engineConfig,
-                    onProgress = { line ->
-                        when {
-                            line.startsWith("ERROR:", ignoreCase = true) || line.startsWith("FAILED:", ignoreCase = true) -> Logger.error(line)
-                            line.startsWith("WARNING:", ignoreCase = true) -> Logger.warn(line)
-                            else -> Logger.info(line)
-                        }
-                    },
-                )
-            }
+            val engineResult = runBlocking { PatchEngine.patch(engineConfig) }
 
             Logger.info("Patching took %.1f seconds".format(Locale.US, (System.nanoTime() - startNanos) / 1_000_000_000.0))
 

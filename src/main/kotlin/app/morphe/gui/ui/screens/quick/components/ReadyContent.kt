@@ -54,7 +54,7 @@ internal fun ReadyContent(
     val borderColor = MaterialTheme.colorScheme.outlineVariant
 
     val statusColorType = resolveStatusColorType(apkInfo.versionStatus, apkInfo.checksumStatus)
-    val isWarningState = apkInfo.versionStatus != VersionStatus.LATEST_STABLE && 
+    val isWarningState = apkInfo.versionStatus != VersionStatus.RECOMMENDED && 
                          apkInfo.versionStatus != VersionStatus.UNKNOWN
                           
     val accentColor = when {
@@ -63,7 +63,7 @@ internal fun ReadyContent(
         else -> statusColorType.toColor()
     }
     
-    val showWarning = apkInfo.versionStatus != VersionStatus.LATEST_STABLE &&
+    val showWarning = apkInfo.versionStatus != VersionStatus.RECOMMENDED &&
                       apkInfo.versionStatus != VersionStatus.UNKNOWN
 
     val enabledPatches = compatiblePatches.filter { it.isEnabled }

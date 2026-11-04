@@ -41,6 +41,8 @@ object EnabledSourcesLoader {
         val channel: PatchResolver.Channel = PatchResolver.Channel.UNKNOWN,
         val errorRes: StringResource? = null,
         val errorArgs: List<Any> = emptyList(),
+        /** Verified candidate public key for a changed patch signer. Never automatically trusted. */
+        val changedSignerPublicKey: String? = null,
     ) {
         suspend fun getUserErrorMessage(): String? =
             errorRes?.let { getString(it, *errorArgs.toTypedArray()) } ?: error
@@ -132,9 +134,8 @@ object EnabledSourcesLoader {
                         usePreRelease = source.usePreRelease,
                         pinnedTag = pinnedTag,
                         strictPin = false,
-                    ) { pct ->
-                        onDownloadProgress?.invoke(source.name, pct)
-                    }
+                        onDownloadProgress = { pct -> onDownloadProgress?.invoke(source.name, pct) },
+                    )
                 }
             }
         }
@@ -160,12 +161,14 @@ object EnabledSourcesLoader {
             is PatchResolver.Error.PrNoArtifact -> Res.string.source_error_pr_no_artifact to emptyList()
             is PatchResolver.Error.ReleaseFetchFailed -> Res.string.source_error_fetch_releases to emptyList()
             is PatchResolver.Error.PinnedTagNotFound,
-            is PatchResolver.Error.DownloadFailed -> null to emptyList()
+            is PatchResolver.Error.DownloadFailed,
+            is PatchResolver.Error.SignerChanged -> null to emptyList()
         }
 
         return ResolvedSource(
             source = source,
             error = err.message,
+            changedSignerPublicKey = (err as? PatchResolver.Error.SignerChanged)?.signer,
             errorRes = res,
             errorArgs = args,
             channel = channel,

@@ -121,7 +121,7 @@ internal fun ApkSelectedSection(
     val accents = MorpheTheme.colors
     val statusColorType = resolveStatusColorType(apkInfo.versionStatus, apkInfo.checksumStatus)
     
-    val showWarning = apkInfo.versionStatus != VersionStatus.LATEST_STABLE &&
+    val showWarning = apkInfo.versionStatus != VersionStatus.RECOMMENDED &&
                       apkInfo.versionStatus != VersionStatus.UNKNOWN
     val isWarningState = showWarning || apkInfo.isUnsupportedApp || apkInfo.hasLimitedInfo
     val buttonColor = if (isWarningState) {

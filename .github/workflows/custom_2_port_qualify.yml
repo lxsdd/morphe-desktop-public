@@ -1,0 +1,196 @@
+name: Custom 2.0 public port qualification
+
+on:
+  push:
+    branches:
+      - integration/custom-2.0.0-20261104
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: custom-2-port-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    name: Verified Custom tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Route Maven Central dependency reads via GCS mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.m2"
+          path="$HOME/.m2/settings.xml"
+          if [ ! -f "$path" ]; then
+            printf '%s\n' '<settings></settings>' > "$path"
+          fi
+          sed -i.bak 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
+          rm -f "$path.bak"
+      - name: Self-test read-only Amazon diagnostic (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Read-AmazonPlayStatus.ps1 -SelfTest
+      - name: Self-test Pixel 9 installer-attribution trial (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Trial-AmazonInstallerAttribution.ps1 -SelfTest
+      - name: Self-test read-only installed Amazon APK comparison (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Compare-AmazonInstalledApks.ps1 -SelfTest
+      - name: Self-test guarded Pixel 9 owner migration (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Migrate-AmazonPixel9UpdateOwner.ps1 -SelfTest
+      - name: Self-test Pixel 9 recent app owner inventory (Windows, no device)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/Read-Pixel9RecentAppUpdateOwners.ps1 -SelfTest
+      - name: Run tests with simulated ADB, no real device access
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew test --no-daemon -Dorg.gradle.mirror.maven.settings=true
+      - name: Build Windows desktop JAR without distribution
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew shadowJar --no-daemon -Dorg.gradle.mirror.maven.settings=true
+      - name: Verify Windows desktop JAR archive, launcher and SHA-256
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $jars = @(Get-ChildItem -LiteralPath 'build/libs' -Filter '*-all.jar' -File)
+          if ($jars.Count -ne 1) { throw "Expected exactly one executable JAR; found $($jars.Count)." }
+          Add-Type -AssemblyName System.IO.Compression
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($jars[0].FullName)
+          try {
+            if (-not ($archive.Entries.FullName -contains 'app/morphe/MorpheLauncherKt.class')) {
+              throw 'Morphe launcher entrypoint is missing.'
+            }
+          }
+          finally {
+            $archive.Dispose()
+          }
+          $hash = (Get-FileHash -LiteralPath $jars[0].FullName -Algorithm SHA256).Hash
+          Write-Host "WINDOWS_DESKTOP_JAR=PASS SHA256=$hash NO_ARTIFACT_UPLOAD=YES"
+
+  package-preflight:
+    name: Inspect ephemeral desktop JAR (do not upload)
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Route Maven Central dependency reads via GCS mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.m2"
+          path="$HOME/.m2/settings.xml"
+          if [ ! -f "$path" ]; then
+            printf '%s\n' '<settings></settings>' > "$path"
+          fi
+          sed -i.bak 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
+          rm -f "$path.bak"
+      - name: Build ephemeral fat JAR without distribution
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew shadowJar --no-daemon -Dorg.gradle.mirror.maven.settings=true
+      - name: Verify archive, entrypoint and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=$(find build/libs -maxdepth 1 -type f -name '*-all.jar' -print -quit)
+          test -n "$file" && test -s "$file"
+          unzip -t "$file" > /dev/null
+          unzip -Z -1 "$file" > "$RUNNER_TEMP/morphe-jar-entries.txt"
+          grep -Fqx 'app/morphe/MorpheLauncherKt.class' "$RUNNER_TEMP/morphe-jar-entries.txt"
+          sha256sum "$file"
+          echo "PASS: ephemeral desktop archive verified. No artifact has been uploaded."
+
+  community-patcher-compatibility:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    name: Official 2.x and legacy Amazon bundle ABI check
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Build current Custom Desktop CLI (no device)
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon shadowJar
+      - name: Verify immutable upstream release bundle SHA-256 checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/morphe-compat"
+          curl --fail --location --retry 3 --retry-delay 2 --silent --show-error \
+            -o "$RUNNER_TEMP/morphe-compat/official.mpp" \
+            "https://github.com/MorpheApp/morphe-patches/releases/download/v2.0.0/patches-2.0.0.mpp"
+          curl --fail --location --retry 3 --retry-delay 2 --silent --show-error \
+            -o "$RUNNER_TEMP/morphe-compat/community.mpp" \
+            "https://github.com/rushiranpise/morphe-patches/releases/download/v1.23.1/patches-1.23.1.mpp"
+          printf '%s  %s\n' "f0f5cfd857950ed61a26a7b2eeeecf37d4d66bece2e8f94802280e189b69ed00" "$RUNNER_TEMP/morphe-compat/official.mpp" \
+            | sha256sum -c -
+          printf '%s  %s\n' "75ede4e416edf147be8132b6c7693d78b37264a1a89dd2c4fa835efccefcdd9d" "$RUNNER_TEMP/morphe-compat/community.mpp" \
+            | sha256sum -c -
+      - name: Test official 2.0 patch metadata through actual Custom 2.0 CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar=$(find build/libs -type f -name '*-all.jar' | head -n 1)
+          test -n "$jar"
+          java -Djava.awt.headless=true -jar "$jar" list-patches \
+            --patches "$RUNNER_TEMP/morphe-compat/official.mpp" \
+            --out "$RUNNER_TEMP/morphe-compat/official.txt"
+          test -s "$RUNNER_TEMP/morphe-compat/official.txt"
+          grep -q 'Name:' "$RUNNER_TEMP/morphe-compat/official.txt"
+          echo "PASS: upstream v2.0.0 signed bundle loads with current engine"
+      - name: Test Rushiranpise 1.23.1 Amazon patches through actual Custom 2.0 CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar=$(find build/libs -type f -name '*-all.jar' | head -n 1)
+          java -Djava.awt.headless=true -jar "$jar" list-patches \
+            --patches "$RUNNER_TEMP/morphe-compat/community.mpp" \
+            --filter-package-name com.amazon.mShop.android.shopping \
+            --with-packages \
+            --out "$RUNNER_TEMP/morphe-compat/community.txt"
+          test -s "$RUNNER_TEMP/morphe-compat/community.txt"
+          grep -q 'Name:' "$RUNNER_TEMP/morphe-compat/community.txt"
+          echo "PASS: Rushiranpise 1.23.1 Amazon patch metadata loads with Patcher 2.2.0"

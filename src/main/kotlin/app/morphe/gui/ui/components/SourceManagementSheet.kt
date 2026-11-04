@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import app.morphe.engine.config.EngineConfigRepository
+import app.morphe.patcher.patch.PatchBundleSignature
 import app.morphe.engine.patches.PatchResolver.Channel
 import app.morphe.gui.data.model.PatchSource
 import app.morphe.gui.data.model.PatchSourceType
@@ -86,6 +87,8 @@ fun SourceManagementSheet(
     isLoading: Boolean = false,
     /** Map of source ID to failure error message. */
     sourceErrors: Map<String, String> = emptyMap(),
+    changedSignerPublicKeys: Map<String, String> = emptyMap(),
+    onTrustChangedSigner: (sourceId: String, newKey: String) -> Unit = { _, _ -> },
     /** Selection mode determining row interaction semantics. */
     mode: SourceSheetMode = SourceSheetMode.MULTI_TOGGLE,
     activeSourceId: String? = null,
@@ -93,6 +96,7 @@ fun SourceManagementSheet(
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var editingSource by remember { mutableStateOf<PatchSource?>(null) }
+    var pendingSignerReview by remember { mutableStateOf<Pair<PatchSource, String>?>(null) }
 
     // Live ordering rendered by the UI.
     val density = LocalDensity.current
@@ -203,6 +207,8 @@ fun SourceManagementSheet(
                         channel = sourceChannels[source.id],
                         isLoading = isLoading,
                         error = sourceErrors[source.id],
+                        proposedSigner = changedSignerPublicKeys[source.id],
+                        onRequestSignerReview = { candidate -> pendingSignerReview = source to candidate },
                         enabled = enabled,
                         mode = mode,
                         isActiveSelection = source.id == activeSourceId,
@@ -263,6 +269,42 @@ fun SourceManagementSheet(
         }
     )
 
+    pendingSignerReview?.let { (source, candidateKey) ->
+        // Fail closed if the source or proposed key changed since the dialog opened.
+        val isCurrent = sources.any { it.id == source.id && it.url == source.url } &&
+            changedSignerPublicKeys[source.id] == candidateKey &&
+            candidateKey.isNotBlank() && enabled
+        if (isCurrent) {
+            val fingerprint = remember(candidateKey) {
+                runCatching { PatchBundleSignature.fingerprint(candidateKey) }.getOrDefault("unavailable")
+            }
+            AlertDialog(
+                onDismissRequest = { pendingSignerReview = null },
+                title = { Text(stringResource(Res.string.source_signer_changed_title)) },
+                text = {
+                    Text(stringResource(
+                        Res.string.source_signer_changed_body,
+                        source.name, source.url ?: source.id, fingerprint
+                    ))
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        if (sources.any { it.id == source.id && it.url == source.url } &&
+                            changedSignerPublicKeys[source.id] == candidateKey) {
+                            onTrustChangedSigner(source.id, candidateKey)
+                        }
+                        pendingSignerReview = null
+                    }) { Text(stringResource(Res.string.source_signer_changed_accept)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingSignerReview = null }) {
+                        Text(stringResource(Res.string.cancel))
+                    }
+                },
+            )
+        }
+    }
+
     if (showAddDialog) {
         AddPatchSourceDialog(
             isQuickMode = mode == SourceSheetMode.SINGLE_SELECT,
@@ -294,6 +336,8 @@ private fun SourceRow(
     channel: Channel?,
     isLoading: Boolean,
     error: String? = null,
+    proposedSigner: String? = null,
+    onRequestSignerReview: (String) -> Unit = {},
     enabled: Boolean,
     onToggleEnabled: (Boolean) -> Unit,
     onEdit: () -> Unit,
@@ -450,6 +494,11 @@ private fun SourceRow(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (!proposedSigner.isNullOrBlank() && enabled) {
+                        TextButton(onClick = { onRequestSignerReview(proposedSigner) }) {
+                            Text(stringResource(Res.string.source_signer_changed_review))
+                        }
+                    }
                 }
             }
 
@@ -602,10 +651,8 @@ private fun ChannelBadge(
     channel: Channel?,
 ) {
     val label = when (channel) {
-        Channel.STABLE_LATEST -> stringResource(Res.string.version_label_latest_stable)
-        Channel.STABLE_OLDER -> stringResource(Res.string.source_sheet_channel_older_stable)
-        Channel.DEV_LATEST -> stringResource(Res.string.version_label_latest_dev)
-        Channel.DEV_OLDER -> stringResource(Res.string.source_sheet_channel_older_dev)
+        Channel.STABLE -> stringResource(Res.string.version_label_latest_stable)
+        Channel.PRERELEASE -> stringResource(Res.string.version_label_latest_dev)
         Channel.LOCAL -> stringResource(Res.string.source_sheet_local_label)
         else -> stringResource(Res.string.version_label_latest_stable)
     }

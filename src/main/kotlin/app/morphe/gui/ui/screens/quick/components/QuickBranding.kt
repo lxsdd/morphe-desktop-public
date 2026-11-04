@@ -85,8 +85,8 @@ internal fun PatchesVersionBadge(
                 color = primaryColor
             )
             val latestLabel = when (patchesChannel) {
-                Channel.STABLE_LATEST -> stringResource(Res.string.version_label_latest_stable)
-                Channel.DEV_LATEST -> stringResource(Res.string.version_label_latest_dev)
+                Channel.STABLE -> stringResource(Res.string.version_label_latest_stable)
+                Channel.PRERELEASE -> stringResource(Res.string.version_label_latest_dev)
                 else -> null
             }
             

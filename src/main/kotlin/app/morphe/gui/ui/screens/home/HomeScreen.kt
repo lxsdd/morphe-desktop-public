@@ -324,6 +324,32 @@ fun HomeScreenContent(
             sourceVersions = snapshot.sourceVersionMap(),
             sourceChannels = snapshot.sourceChannelMap(),
             sourceErrors = snapshot.sourceErrorMap(),
+            changedSignerPublicKeys = snapshot.resolved.mapNotNull { entry ->
+                entry.changedSignerPublicKey?.takeIf { it.isNotBlank() }?.let { entry.source.id to it }
+            }.toMap(),
+            onTrustChangedSigner = { id, candidateKey ->
+                val source = allSources.firstOrNull { it.id == id }
+                val current = viewModel.getResolvedSourcesSnapshot()?.resolved?.firstOrNull {
+                    it.source.id == id
+                }
+                // Check both source identity and candidate generation before any trust write.
+                if (source != null && current != null && current.source.url == source.url &&
+                    current.changedSignerPublicKey == candidateKey) {
+                    coroutineScope.launch {
+                        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            runCatching {
+                                val repository = patchSourceManager.getRepositoryForSource(source)
+                                    ?: error("Patch source is no longer available")
+                                repository.trustSigningKey(candidateKey)
+                            }
+                        }
+                        result.fold(
+                            onSuccess = { viewModel.retryLoadPatches() },
+                            onFailure = { viewModel.showError("Signing-key change not saved: "+(it.message ?: "unknown error")) }
+                        )
+                    }
+                }
+            },
             isLoading = uiState.isLoadingPatches,
             onToggleEnabled = { id, enabled ->
                 coroutineScope.launch {
@@ -382,7 +408,8 @@ fun HomeScreenContent(
                 VersionWarningDialog(
                     versionStatus = uiState.apkInfo!!.versionStatus,
                     currentVersion = uiState.apkInfo!!.versionName,
-                    suggestedVersion = uiState.apkInfo!!.suggestedVersion ?: "",
+                    requiredBuildCodes = uiState.apkInfo!!.requiredBuildCodes,
+                    currentBuildCode = uiState.apkInfo!!.versionCode?.toString(),
                     onConfirm = {
                         showVersionWarningDialog = false
                         val patchesFile = viewModel.getCachedPatchesFile()

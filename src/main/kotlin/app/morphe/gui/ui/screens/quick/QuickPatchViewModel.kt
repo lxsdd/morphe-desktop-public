@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.morphe.engine.MorpheConstants
 import app.morphe.engine.PatchEngine
+import app.morphe.engine.PatchEvent
 import app.morphe.engine.UpdateInfo
 import app.morphe.engine.apk.ApkInspector
 import app.morphe.engine.apk.ApkOutputNaming
@@ -32,7 +33,6 @@ import app.morphe.gui.data.repository.SeenPatchesRepository
 import app.morphe.gui.data.repository.UpdateCheckRepository
 import app.morphe.gui.ui.screens.patching.LogEntry
 import app.morphe.gui.ui.screens.patching.LogLevel
-import app.morphe.gui.ui.screens.patching.parseAndLogEngineMessage
 import app.morphe.gui.ui.screens.patching.resolveStepFailureMessage
 import app.morphe.gui.util.ChecksumStatus
 import app.morphe.gui.util.EnabledSourcesLoader
@@ -56,6 +56,17 @@ import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.getPluralString
 import org.jetbrains.compose.resources.getString
 import java.util.Locale
+
+/** Convert 2.0 structured patch events into legacy simple-mode progress labels. */
+private fun parseAndLogEngineMessage(message: String): Pair<String, LogLevel> {
+    val upper = message.uppercase(Locale.ROOT)
+    val level = when {
+        upper.startsWith("ERROR:") || upper.startsWith("FAILED:") -> LogLevel.ERROR
+        upper.startsWith("WARN:") || upper.startsWith("WARNING:") -> LogLevel.WARNING
+        else -> LogLevel.INFO
+    }
+    return message to level
+}
 
 /** ViewModel for Quick Patch mode. */
 class QuickPatchViewModel(
@@ -357,26 +368,20 @@ class QuickPatchViewModel(
             }
             val versionStatus = versionResolution.status
             val isRecommendedVersion = if (useExperimental && hasExperimental) {
-                versionStatus == VersionStatus.LATEST_EXPERIMENTAL
+                versionStatus == VersionStatus.EXPERIMENTAL
             } else {
-                versionStatus == VersionStatus.LATEST_STABLE
+                versionStatus == VersionStatus.RECOMMENDED
             }
             val versionWarning = when (versionStatus) {
-                VersionStatus.OLDER_STABLE ->
+                VersionStatus.SUPPORTED ->
                     getString(Res.string.quick_patch_warning_older_stable, versionResolution.suggestedVersion ?: "")
-                VersionStatus.LATEST_EXPERIMENTAL ->
+                VersionStatus.EXPERIMENTAL ->
                     getString(Res.string.quick_patch_warning_latest_experimental)
-                VersionStatus.OLDER_EXPERIMENTAL ->
-                    getString(Res.string.quick_patch_warning_older_experimental, versionResolution.suggestedVersion ?: "")
                 VersionStatus.BUILD_UNSUPPORTED ->
                     getString(Res.string.quick_patch_warning_build_unsupported)
-                VersionStatus.TOO_NEW ->
-                    getString(Res.string.quick_patch_warning_too_new)
-                VersionStatus.TOO_OLD ->
-                    getString(Res.string.quick_patch_warning_too_old)
-                VersionStatus.UNSUPPORTED_BETWEEN ->
+                VersionStatus.UNSUPPORTED ->
                     getString(Res.string.quick_patch_warning_unsupported_between)
-                VersionStatus.LATEST_STABLE,
+                VersionStatus.RECOMMENDED,
                 VersionStatus.UNKNOWN -> null
             }
 
@@ -534,7 +539,13 @@ class QuickPatchViewModel(
             val engineResult = try {
                 PatchEngine.patch(
                     config = engineConfig,
-                    onProgress = { message ->
+                    onEvent = { event ->
+                        val message = when (event) {
+                            is PatchEvent.Log -> event.message
+                            is PatchEvent.StepStarted -> event.step.name.replace('_', ' ')
+                            is PatchEvent.PatchApplied -> "Applied: ${event.name}"
+                        }
+
                         if (_uiState.value.phase == QuickPatchPhase.PATCHING) {
                             val (cleanMessage, level) = parseAndLogEngineMessage(message)
                             viewModelScope.launch(Dispatchers.Main) {

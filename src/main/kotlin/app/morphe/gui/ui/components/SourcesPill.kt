@@ -96,10 +96,10 @@ fun SourcesCountPill(
 private fun SourceLed(state: SourceLedState) {
     val color = when (state) {
         SourceLedState.DISABLED -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-        SourceLedState.STABLE_LATEST -> channelColor(Channel.STABLE_LATEST)
-        SourceLedState.STABLE_OLDER -> channelColor(Channel.STABLE_OLDER)
-        SourceLedState.DEV_LATEST -> channelColor(Channel.DEV_LATEST)
-        SourceLedState.DEV_OLDER -> channelColor(Channel.DEV_OLDER)
+        SourceLedState.STABLE_LATEST -> channelColor(Channel.STABLE)
+        SourceLedState.STABLE_OLDER -> channelColor(Channel.STABLE)
+        SourceLedState.DEV_LATEST -> channelColor(Channel.PRERELEASE)
+        SourceLedState.DEV_OLDER -> channelColor(Channel.PRERELEASE)
         SourceLedState.LOCAL -> channelColor(Channel.LOCAL)
         SourceLedState.ERROR -> MaterialTheme.colorScheme.error
     }
@@ -120,10 +120,8 @@ fun sourceLedState(
     // Errors take precedence over release channel state.
     if (hasError) return SourceLedState.ERROR
     return when (channel) {
-        Channel.STABLE_LATEST -> SourceLedState.STABLE_LATEST
-        Channel.STABLE_OLDER -> SourceLedState.STABLE_OLDER
-        Channel.DEV_LATEST -> SourceLedState.DEV_LATEST
-        Channel.DEV_OLDER -> SourceLedState.DEV_OLDER
+        Channel.STABLE -> SourceLedState.STABLE_LATEST
+        Channel.PRERELEASE -> SourceLedState.DEV_LATEST
         Channel.LOCAL -> SourceLedState.LOCAL
         null, Channel.UNKNOWN -> SourceLedState.STABLE_LATEST
     }

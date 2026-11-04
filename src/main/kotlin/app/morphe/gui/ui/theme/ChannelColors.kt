@@ -17,10 +17,8 @@ import app.morphe.engine.patches.PatchResolver.Channel
 fun channelColor(channel: Channel?): Color {
     val colors = MorpheTheme.colors
     return when (channel) {
-        Channel.STABLE_LATEST -> colors.secondary
-        Channel.STABLE_OLDER -> colors.warning
-        Channel.DEV_LATEST -> colors.tertiary
-        Channel.DEV_OLDER -> MaterialTheme.colorScheme.error
+        Channel.STABLE -> colors.secondary
+        Channel.PRERELEASE -> colors.tertiary
         Channel.LOCAL -> colors.primary
         null, Channel.UNKNOWN -> colors.secondary
     }

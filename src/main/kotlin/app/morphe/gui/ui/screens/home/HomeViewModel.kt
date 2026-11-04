@@ -900,8 +900,7 @@ class HomeViewModel(
                 val resolved = resolvedByName[sourceName]
                 // Missing metadata cannot establish an app-specific patch change.
                 if (resolved == null) continue
-                val prerelease = resolved.channel == PatchResolver.Channel.DEV_LATEST ||
-                    resolved.channel == PatchResolver.Channel.DEV_OLDER
+                val prerelease = resolved.channel == PatchResolver.Channel.PRERELEASE
                 val entries = changelogRepository.entriesFor(resolved.source, prerelease)
                 // A newer repository release alone is not a confirmed update for this app.
                 if (entries == null) continue
@@ -1313,6 +1312,7 @@ class HomeViewModel(
                 minSdk = minSdk,
                 suggestedVersion = suggestedVersion,
                 versionStatus = versionStatus,
+                requiredBuildCodes = versionResolution.requiredBuildCodes,
                 checksumStatus = checksumStatus,
                 isUnsupportedApp = !isSupported
             )
@@ -1563,6 +1563,7 @@ data class ApkInfo(
     val minSdk: Int? = null,
     val suggestedVersion: String? = null,
     val versionStatus: VersionStatus = VersionStatus.UNKNOWN,
+    val requiredBuildCodes: Set<Int> = emptySet(),
     val checksumStatus: ChecksumStatus = ChecksumStatus.NotConfigured,
     val isUnsupportedApp: Boolean = false,
     /** True if manifest parsing fell back to heuristics, producing approximate details. */
