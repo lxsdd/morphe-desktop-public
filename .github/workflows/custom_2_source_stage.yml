@@ -7,7 +7,9 @@ permissions:
   contents: write
 jobs:
   source-stage:
-    if: github.repository == 'lxsdd/morphe-desktop-public' && github.event.head_commit.message == 'ci(migration): enable isolated source-only stage for API port'
+    if: >-
+      github.repository == 'lxsdd/morphe-desktop-public' &&
+      github.event.head_commit.message == 'ci(migration): enable isolated source-only stage for API port'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
