@@ -999,4 +999,9 @@
     <string name="patch_play_suppression_caution">Sets versionCode to its maximum. May complicate future updates and removal. Not guaranteed to suppress every offer.</string>
     <string name="patch_play_suppression_selected">Already selected</string>
     <string name="patch_play_suppression_enable">Enable explicitly</string>
+
+    <string name="version_label_recommended">Recommended</string>
+    <string name="version_label_supported">Supported</string>
+    <string name="version_status_build_unsupported_with_code">Patches require build %1$s</string>
+    <string name="version_warning_build_unsupported_message">Current: v%1$s (build %2$s)\nRequired build: %3$s\n\nThis is a different build of the same version. The patches require a specific build.</string>
 </resources>

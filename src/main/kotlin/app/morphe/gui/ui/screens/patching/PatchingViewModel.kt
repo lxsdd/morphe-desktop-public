@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.morphe.engine.MorpheComponents
 import app.morphe.engine.PatchEngine
+import app.morphe.engine.PatchEvent
 import app.morphe.engine.UpdateChecker
 import app.morphe.engine.apk.ApkInspector
 import app.morphe.engine.apk.BundleFormats
@@ -154,7 +155,12 @@ class PatchingViewModel(
             val engineResult = try {
                 PatchEngine.patch(
                     config = engineConfig,
-                    onProgress = { message ->
+                    onEvent = { event ->
+                        val message = when (event) {
+                            is PatchEvent.Log -> event.message
+                            is PatchEvent.StepStarted -> event.step.name.replace('_', ' ')
+                            is PatchEvent.PatchApplied -> "Applied: ${event.name}"
+                        }
                         if (_uiState.value.status != PatchingStatus.CANCELLED) {
                             parseAndLogEngineMessage(message)
                             viewModelScope.launch(Dispatchers.Main) {

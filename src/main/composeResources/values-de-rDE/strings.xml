@@ -960,4 +960,9 @@ Wähle die APK erneut aus, um mit deinen gespeicherten Einstellungen zu patchen<
     <string name="patch_play_suppression_caution">Setzt den Versionscode auf den Maximalwert. Kann spätere Updates und das Entfernen des Patches erschweren. Kein garantierter Schutz.</string>
     <string name="patch_play_suppression_selected">Bereits ausgewählt</string>
     <string name="patch_play_suppression_enable">Bewusst aktivieren</string>
+
+    <string name="version_label_recommended">Empfohlen</string>
+    <string name="version_label_supported">Unterstützt</string>
+    <string name="version_status_build_unsupported_with_code">Patches erfordern Build %1$s</string>
+    <string name="version_warning_build_unsupported_message">Aktuell: v%1$s (Build %2$s)\nErforderlicher Build: %3$s\n\nDies ist ein anderer Build derselben Version. Die Patches erfordern einen bestimmten Build.</string>
 </resources>

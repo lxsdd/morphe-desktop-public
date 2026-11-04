@@ -117,7 +117,7 @@ class QuickPatchViewModel(
         // Load patches whenever quick mode becomes active.
         viewModelScope.launch {
             patchSourceManager.activeMode.collect { mode ->
-                if (mode == ActiveMode.SIMPLE) {
+                if (mode == ActiveMode.QUICK) {
                     loadPatchesAndSupportedApps()
                 }
             }
@@ -126,7 +126,7 @@ class QuickPatchViewModel(
         // Reload patches when the source changes and quick mode is active.
         viewModelScope.launch {
             patchSourceManager.sourceVersion.drop(1).collect {
-                if (patchSourceManager.activeMode.value != ActiveMode.SIMPLE) return@collect
+                if (patchSourceManager.activeMode.value != ActiveMode.QUICK) return@collect
                 Logger.info("QuickVM: Source changed, reloading patches...")
                 patchRepository = patchSourceManager.getActiveRepositorySync()
                 localPatchFilePath = patchSourceManager.getLocalFilePath()
