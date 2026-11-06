@@ -87,8 +87,7 @@ fun PatchingScreenContent(viewModel: PatchingViewModel) {
             viewModel.markAutoNavigated()
             navController.navigate(
                 ResultScreenRoute(
-                    outputPath = uiState.outputPath!!,
-                    isMount = viewModel.getConfig().mount
+                    outputPath = uiState.outputPath!!
                 )
             )
         } else if ((uiState.status == PatchingStatus.FAILED || uiState.status == PatchingStatus.CANCELLED) && !uiState.hasAutoNavigated) {
