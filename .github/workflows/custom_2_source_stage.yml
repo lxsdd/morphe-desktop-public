@@ -1,0 +1,20 @@
+name: Materialize isolated Custom 2.0 source stage (never a release)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  source-stage:
+    if: >-
+      github.repository == 'lxsdd/morphe-desktop-public' &&
+      github.event.head_commit.message == 'ci(migration): enable isolated source-only stage for API port'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Materialize new unqualified source staging branch
+        shell: bash
+        run: bash tools/Stage-Upstream2Source.sh

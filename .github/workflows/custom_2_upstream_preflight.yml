@@ -1,0 +1,31 @@
+name: Custom 2.0 upstream integration preflight (source only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: custom-2-upstream-preflight-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  migration-preflight:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check exact upstream 2.0 source merge without writing GitHub
+        shell: bash
+        env:
+          ALLOW_NEW_CUSTOM_HEAD: "1"
+        run: bash tools/Probe-Upstream2Migration.sh "$RUNNER_TEMP/morphe-migration.txt"
+      - name: Record source-only conflict report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom-2-0-source-merge-report
+          path: ${{ runner.temp }}/morphe-migration.txt
+          if-no-files-found: warn
+          retention-days: 2

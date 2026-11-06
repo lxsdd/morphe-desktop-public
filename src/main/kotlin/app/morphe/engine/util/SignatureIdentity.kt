@@ -6,6 +6,7 @@
 package app.morphe.engine.util
 
 import com.android.apksig.ApkVerifier
+import app.morphe.patcher.apk.ApkUtils
 import java.io.File
 import java.security.MessageDigest
 import java.security.KeyStore
@@ -27,6 +28,18 @@ object SignatureIdentity {
         null
     }
 
+
+    /**
+     * Resolve the actual signing certificate with the Patcher 2.0 keystore
+     * loader. Unlike the legacy BKS-only overload, this handles PKCS12,
+     * BKS and JKS without changing keys or writing to the keystore.
+     * Failure remains UNKNOWN (null), never a matching signature.
+     */
+    fun idForKeystore(details: ApkUtils.KeyStoreDetails): String? = try {
+        ApkUtils.readKeyStore(details).getCertificate(details.alias)?.let(::idForCert)
+    } catch (_: Exception) {
+        null
+    }
 
     /** Collision-resistant fingerprint for matching verified APKs against signing identities. */
     fun sha256ForCert(cert: Certificate): String =

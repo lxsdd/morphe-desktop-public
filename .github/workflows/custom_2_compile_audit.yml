@@ -1,0 +1,37 @@
+name: Custom 2.0 temporary merge compile audit (no distribution)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: custom-2-temporary-compile-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  compatibility:
+    if: github.repository == 'lxsdd/morphe-desktop-public'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Route Maven Central dependency reads via GCS mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.m2"
+          path="$HOME/.m2/settings.xml"
+          if [ ! -f "$path" ]; then printf '%s\n' '<settings></settings>' > "$path"; fi
+          sed -i.bak 's#</settings>#<mirrors><mirror><id>gcs-maven-central</id><mirrorOf>central</mirrorOf><url>https://maven-central.storage-download.googleapis.com/maven2/</url></mirror></mirrors></settings>#' "$path"
+          rm -f "$path.bak"
+      - name: Disposable upstream 2.0 compatibility and test audit
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash tools/Probe-Upstream2Compile.sh

@@ -9,6 +9,7 @@ import app.morphe.engine.model.CompatiblePackage
 import app.morphe.engine.model.PatchMetadata
 import app.morphe.engine.model.SupportedApp
 import app.morphe.engine.options.toPatchOption
+import app.morphe.engine.util.compareVersions
 import app.morphe.patcher.patch.Patch
 import java.io.File
 import java.io.FileNotFoundException
@@ -20,7 +21,7 @@ typealias CompatibleVersionsMap = Map<String, VersionMap>
 object SupportedAppCatalog {
 
     /** Converts a library [Patch] to a [PatchMetadata] model. */
-    fun Patch<*>.toMetadata(): PatchMetadata {
+    fun Patch.toMetadata(): PatchMetadata {
         val compatiblePackages: List<CompatiblePackage> = this.compatibility
             ?.mapNotNull { compatibility ->
                 val packageName = compatibility.packageName ?: return@mapNotNull null
@@ -51,12 +52,13 @@ object SupportedAppCatalog {
             compatiblePackages = compatiblePackages,
             options = this.options.values.map { it.toPatchOption() },
             isEnabled = this.default,
-            category = this.category?.takeIf { it.isNotBlank() }
+            category = this.category?.takeIf { it.isNotBlank() },
+            availabilityResolver = this.availability,
         )
     }
 
     /** Extracts supported apps from library [Patch] objects. */
-    fun extractSupportedApps(patches: Iterable<Patch<*>>): List<SupportedApp> =
+    fun extractSupportedApps(patches: Iterable<Patch>): List<SupportedApp> =
         extractSupportedAppsFromMetadata(patches.map { it.toMetadata() })
 
     fun extractSupportedAppsFromMetadata(patches: Iterable<PatchMetadata>): List<SupportedApp> {
@@ -96,10 +98,10 @@ object SupportedAppCatalog {
         }
 
         return packageVersionsMap.map { (packageName, versions) ->
-            val versionList = versions.toList().sortedDescending()
+            val versionList = versions.toList().sortedWith { a, b -> compareVersions(b, a) }
             val experimentalList = (packageExperimentalMap[packageName] ?: emptySet())
                 .minus(versions)
-                .toList().sortedDescending()
+                .toList().sortedWith { a, b -> compareVersions(b, a) }
             val recommendedVersion = SupportedApp.getRecommendedVersion(versionList)
             val latestExperimental = experimentalList.firstOrNull()
             SupportedApp(
@@ -126,7 +128,7 @@ object SupportedAppCatalog {
         packageNames: Set<String>? = null,
         countUnusedPatches: Boolean = false,
         includeExperimental: Boolean = false,
-        patches: Iterable<Patch<*>>,
+        patches: Iterable<Patch>,
     ): CompatibleVersionsMap {
         val allPackageNames: Set<String> = buildSet {
             for (patch in patches) {

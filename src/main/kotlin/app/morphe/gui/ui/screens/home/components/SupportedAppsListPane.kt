@@ -67,6 +67,7 @@ internal fun SupportedAppsListPane(
     onManageSources: () -> Unit = {},
     sortMode: HomeAppSortMode = HomeAppSortMode.RECOMMENDED,
     onSortModeChange: (HomeAppSortMode) -> Unit = {},
+    isSimple: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -106,11 +107,13 @@ internal fun SupportedAppsListPane(
     val confirmedAppUpdates = remember(patchedRecords, updateInfoByPackage) {
         patchedRecords.count { hasConfirmedAppUpdate(updateInfoByPackage[it.packageName]) }
     }
-    val confirmedPatchUpdates = remember(patchedRecords, updateInfoByPackage) {
-        patchedRecords.count { hasConfirmedPatchUpdate(updateInfoByPackage[it.packageName]) }
+    val confirmedPatchUpdates = remember(patchedRecords, updateInfoByPackage, patchedStates) {
+        patchedRecords.count {
+            hasConfirmedPatchUpdate(updateInfoByPackage[it.packageName], patchedStates[it.packageName])
+        }
     }
-    val categoryRecords = remember(filter, filteredRecords, updateInfoByPackage) {
-        visiblePatchedRecords(filter, filteredRecords, updateInfoByPackage)
+    val categoryRecords = remember(filter, filteredRecords, updateInfoByPackage, patchedStates) {
+        visiblePatchedRecords(filter, filteredRecords, updateInfoByPackage, patchedStates)
     }
     val activeCount = when (filter) {
         AppListFilter.ALL -> supportedApps.size
@@ -285,6 +288,7 @@ internal fun SupportedAppsListPane(
                             SupportedAppListRow(
                                 app = app,
                                 isExpanded = expandedPackage == app.packageName,
+                                isSimple = isSimple,
                                 onClick = {
                                     expandedPackage = if (expandedPackage == app.packageName) null
                                                       else app.packageName

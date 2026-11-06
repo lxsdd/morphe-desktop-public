@@ -8,20 +8,20 @@ package app.morphe.gui.ui.screens.patching.components
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,8 +32,11 @@ import app.morphe.gui.ui.screens.patching.PatchingStatus
 import app.morphe.gui.ui.screens.patching.PatchingUiState
 import app.morphe.gui.ui.theme.Animations
 import app.morphe.gui.ui.theme.MorpheTheme
-import app.morphe.gui.util.rememberZenoProgress
-import app.morphe.gui.util.resolveStepName
+import app.morphe.gui.util.FormatUtils
+import app.morphe.gui.util.countsItems
+import app.morphe.gui.util.currentLocale
+import app.morphe.gui.util.label
+import app.morphe.gui.util.rememberEasedProgress
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
@@ -46,12 +49,9 @@ internal fun progressGradient(): Pair<Color, Color> {
 internal fun ExpertProgressHeader(
     uiState: PatchingUiState
 ) {
-    val currentStatus by rememberUpdatedState(uiState.status)
-    val isActive = currentStatus == PatchingStatus.PREPARING || currentStatus == PatchingStatus.PATCHING
-    val smoothProgress = rememberZenoProgress(
-        progress = uiState.progress,
-        isActive = isActive
-    )
+    val smoothProgress = rememberEasedProgress(uiState.progress)
+    // The task is named only while a step runs, so a run that stopped in one shows where it stopped
+    val runningTask = uiState.runningTask?.takeIf { uiState.isInProgress }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -62,10 +62,10 @@ internal fun ExpertProgressHeader(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val stepNameToDisplay = if (uiState.status == PatchingStatus.COMPLETED) {
-                stringResource(Res.string.patching_step_all_done)
-            } else {
-                resolveStepName(uiState.currentStepName)
+            val stepNameToDisplay = when {
+                uiState.status == PatchingStatus.COMPLETED -> stringResource(Res.string.patching_step_all_done)
+                runningTask != null -> runningTask.task.label()
+                else -> uiState.currentStep?.label().orEmpty()
             }
 
             AnimatedContent(
@@ -89,14 +89,21 @@ internal fun ExpertProgressHeader(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (uiState.totalPatches > 0) {
+                // In the classes or entries of the task that runs, or else in patches
+                val countedTask = runningTask?.takeIf { it.task.countsItems }
+                if (countedTask != null || uiState.totalPatches > 0) {
                     val countColor = MorpheTheme.colors.primary
+                    val locale = currentLocale()
                     MorpheBadge(
                         containerColor = countColor.copy(alpha = 0.18f),
                         contentColor = countColor,
                     ) {
                         Text(
-                            text = "${uiState.patchedCount} / ${uiState.totalPatches}",
+                            text = if (countedTask != null) {
+                                "${FormatUtils.formatCount(countedTask.done, locale)} / ${FormatUtils.formatCount(countedTask.total, locale)}"
+                            } else {
+                                "${uiState.patchedCount} / ${uiState.totalPatches}"
+                            },
                             style = MorpheTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
                             color = countColor,
                         )
@@ -107,7 +114,7 @@ internal fun ExpertProgressHeader(
             }
         }
 
-        ExpertLinearProgressBar(progress = smoothProgress)
+        ExpertLinearProgressBar(progress = { smoothProgress })
 
         AnimatedVisibility(
             visible = uiState.heapSamples.isNotEmpty()
@@ -141,30 +148,23 @@ private fun PercentageBadge(progress: Float) {
 }
 
 @Composable
-private fun ExpertLinearProgressBar(progress: Float) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(10.dp)
-            .clip(MorpheTheme.shapes.small)
-            .background(
-                lerp(
-                    MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
-                    MaterialTheme.colorScheme.onSurface,
-                    0.1f,
-                )
-            )
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(fraction = progress.coerceIn(0f, 1f))
-                .clip(MorpheTheme.shapes.small)
-                .background(
-                    progressGradient().let { (start, end) ->
-                        Brush.horizontalGradient(listOf(start, end))
-                    }
-                )
-        )
-    }
+private fun ExpertLinearProgressBar(progress: () -> Float) {
+    val strokeWidth = 6.dp
+    val stroke = with(LocalDensity.current) { Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round) }
+    val trackColor = lerp(
+        MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        MaterialTheme.colorScheme.onSurface,
+        0.1f,
+    )
+
+    LinearWavyProgressIndicator(
+        progress = progress,
+        modifier = Modifier.fillMaxWidth().height(16.dp),
+        color = MorpheTheme.colors.primary,
+        trackColor = trackColor,
+        stroke = stroke,
+        trackStroke = stroke,
+        stopSize = 0.dp,
+        amplitude = { WavyProgressIndicatorDefaults.indicatorAmplitude(it) }
+    )
 }

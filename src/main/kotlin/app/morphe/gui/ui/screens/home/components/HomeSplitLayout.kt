@@ -33,6 +33,9 @@ internal fun HomeSplitLayout(
     onClearClick: () -> Unit,
     onChangeClick: () -> Unit,
     onContinueClick: () -> Unit,
+    selectedPatchSource: String? = null,
+    onSelectPatchSource: ((String) -> Unit)? = null,
+    isSimple: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(
@@ -97,6 +100,9 @@ internal fun HomeSplitLayout(
                     onChangeClick = onChangeClick,
                     onContinueClick = onContinueClick,
                     patchSourceNames = patchSourcesForSelectedApk,
+                    selectedPatchSource = selectedPatchSource,
+                    onSelectPatchSource = onSelectPatchSource,
+                    isSimple = isSimple,
                 )
             }
         }
