@@ -926,4 +926,52 @@
     <!-- GUI 2.0 navigation (required at startup) -->
     <string name="nav_sources">Quellen</string>
     <string name="nav_apps">Apps</string>
+
+    <!-- Non-destructive upstream 2.1.0 resource additions -->
+    <string name="patching_task_decoding_dex">DEX-Dateien werden gelesen</string>
+    <string name="patching_task_extracting_resources">Ressourcen werden extrahiert</string>
+    <string name="patching_task_decoding_resources">Ressourcen werden dekodiert</string>
+    <string name="patching_task_indexing_classes">Klassen werden indexiert</string>
+    <string name="patching_task_compiling_dex">DEX-Dateien werden kompiliert</string>
+    <string name="patching_task_compiling_resources">Ressourcen werden kompiliert</string>
+    <string name="patching_task_writing_apk">APK-Datei wird geschrieben</string>
+    <string name="patch_selection_root_mode_description">Root-Mount-Modus</string>
+    <string name="patch_selection_lock_unavailable">Nicht verfügbar für Root-Mount</string>
+    <string name="patch_selection_run_info_dev_group">Entwickleroptionen</string>
+    <string name="patch_selection_run_info_bytecode_mode">Bytecode-Modus: %1$s</string>
+    <string name="patch_selection_run_info_validate">Fingerabdruck-Validierung: %1$s</string>
+    <string name="patch_selection_run_info_verify_sdk">Android-SDK-Verifizierung: %1$s</string>
+    <string name="result_adb_badge_root_mount">Root-Mount</string>
+    <string name="result_adb_mount_button">Mounten auf %1$s</string>
+    <string name="result_adb_mounting_on_device">Wird auf %1$s gemountet…</string>
+    <string name="result_adb_mount_successful">Mounten erfolgreich!</string>
+    <string name="result_adb_mount_su_prompt_hint">Wird auf %1$s gemountet… Überprüfen Sie Ihr Gerät, um die Superuser-Berechtigung zu erteilen, falls Sie dazu aufgefordert werden</string>
+    <string name="result_adb_unmount_button">Unmount von %1$s</string>
+    <string name="result_adb_unmounting_on_device">Wird von %1$s ungemountet…</string>
+    <string name="result_adb_root_not_detected">Root-Zugriff wurde auf %1$s nicht erkannt. Stellen Sie sicher, dass Magisk/KernelSU/APatch installiert ist und die su-Berechtigung erteilt wurde</string>
+    <string name="result_adb_stock_app_not_installed">Die Standard-App %1$s ist auf %2$s nicht installiert. Installieren Sie zuerst die offizielle App, bevor Sie mounten</string>
+    <string name="settings_dev_bytecode_mode_label">Bytecode-Modus</string>
+    <string name="settings_dev_bytecode_mode_desc">Transformationsmodus, der während des Patchens auf den DEX-Bytecode angewendet wird</string>
+    <string name="settings_dev_bytecode_mode_strip_fast">Schnell</string>
+    <string name="settings_dev_bytecode_mode_strip_safe">Sicher</string>
+    <string name="settings_dev_bytecode_mode_full">Vollständig</string>
+    <string name="settings_dev_validate_label">Fingerabdruck-Validierung</string>
+    <string name="settings_dev_validate_desc">Überprüfen, ob jedes match() nur einer Methode entspricht (langsameres Patchen, für Patch-Tests)</string>
+    <string name="settings_dev_verify_sdk_label">Android-SDK-Verifizierung</string>
+    <string name="settings_dev_verify_sdk_desc">Überprüfen Sie die gepatchte DEX- und APK-Datei mit den Android-SDK-Tools (d8, zipalign). Es können Fehlalarme auftreten</string>
+    <string name="settings_dev_sdk_path_label">Android-SDK-Verzeichnis</string>
+    <string name="settings_dev_sdk_path_auto">Automatisch erkannt</string>
+    <string name="settings_dev_sdk_not_found">Android-SDK nicht gefunden. Setzen Sie ANDROID_HOME oder suchen Sie das SDK-Verzeichnis</string>
+    <string name="settings_dev_sdk_picker_title">Android-SDK-Verzeichnis auswählen</string>
+    <string name="settings_section_storage">Speicher &amp; Cache</string>
+    <string name="settings_cache_summary">Cache: %1$s (Patches + Protokolle)</string>
+    <string name="settings_cache_clear_button">Cache leeren</string>
+    <string name="settings_cache_cleared">Cache geleert</string>
+    <string name="settings_cache_clear_failed">Leeren fehlgeschlagen</string>
+    <string name="settings_cache_confirm_title">Cache leeren?</string>
+    <string name="settings_cache_confirm_message">Dadurch werden heruntergeladene Patches und Protokolldateien gelöscht. Patches werden bei Bedarf erneut heruntergeladen</string>
+    <string name="settings_storage_open_app_data_button">App-Daten öffnen</string>
+    <string name="settings_storage_open_logs_button">Protokolle öffnen</string>
+    <string name="settings_about_licenses_title">Open-Source-Lizenzen</string>
+    <string name="settings_about_licenses_desc">Lizenzen von Drittanbieter-Bibliotheken anzeigen</string>
 </resources>
