@@ -1,4 +1,4 @@
-name: Custom 2.0 source-stage tests (no release)
+name: Custom 2.1 source-stage tests (no release)
 on:
   push:
     branches:
@@ -39,6 +39,17 @@ jobs:
       - name: Verify default Compose resource keys before compiling
         shell: bash
         run: python tools/verify_compose_resource_keys.py
+      - name: Download and hash-verify official stable Patches 2.1.0 (Linux smoke)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="$RUNNER_TEMP/official-patches-2.1.0.mpp"
+          curl -fL --retry 2 --retry-delay 2 --connect-timeout 20 \
+            'https://github.com/MorpheApp/morphe-patches/releases/download/v2.1.0/patches-2.1.0.mpp' \
+            -o "$bundle"
+          echo '114eafa139ea3018f35af3498e8e67fe7850d4dd22a6065a02e891699dcc5e96  '"$bundle" | sha256sum -c -
+          echo "MORPHE_OFFICIAL_PATCHES_TEST_FILE=$bundle" >> "$GITHUB_ENV"
       - name: Compile and test source-stage (never upload binaries)
         shell: bash
         env:
@@ -76,20 +87,20 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $jars = @(Get-ChildItem -LiteralPath 'build/libs' -Filter '*-all.jar' -File)
           if ($jars.Count -ne 1) { throw 'Expected exactly one JAR for preview' }
-          $dir = Join-Path $env:RUNNER_TEMP 'morphe-custom-2.0.0'
+          $dir = Join-Path $env:RUNNER_TEMP 'morphe-custom-2.1.0'
           New-Item -ItemType Directory -Path $dir -Force | Out-Null
           Copy-Item -LiteralPath $jars[0].FullName -Destination $dir
           $hash = (Get-FileHash -LiteralPath $jars[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $($jars[0].Name)" | Set-Content -Path (Join-Path $dir 'SHA256SUMS.txt') -Encoding utf8
           @(
-            'Morphe Desktop Custom 2.0.0 - review candidate, not an upstream release.'
+            'Morphe Desktop Custom 2.1.0 - review candidate, not an upstream release.'
             "Source commit: ${{ github.sha }}"
             'Built and tested on a public Windows GitHub Actions runner.'
             'This archive contains desktop software only, no patched Android APK or signing material.'
             'The app has not been exercised with a real phone in this qualification.'
             'Preserve your current working 1.19 JAR until device acceptance.'
           ) | Set-Content -Path (Join-Path $dir 'README.txt') -Encoding utf8
-          $archive = Join-Path $env:RUNNER_TEMP 'Morphe-Desktop-Custom-2.0.0-Windows.zip'
+          $archive = Join-Path $env:RUNNER_TEMP 'Morphe-Desktop-Custom-2.1.0-Windows.zip'
           Compress-Archive -Path (Join-Path $dir '*') -DestinationPath $archive -CompressionLevel Optimal
           if ((Get-Item $archive).Length -lt 1024) { throw 'Invalid or empty desktop ZIP' }
           Write-Host "CUSTOM_2_ZIP=PASS FILE=$archive SHA256=$((Get-FileHash $archive -Algorithm SHA256).Hash)"
@@ -97,7 +108,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: Morphe-Desktop-Custom-2.0.0-Windows-${{ github.sha }}
-          path: ${{ runner.temp }}/Morphe-Desktop-Custom-2.0.0-Windows.zip
+          name: Morphe-Desktop-Custom-2.1.0-Windows-${{ github.sha }}
+          path: ${{ runner.temp }}/Morphe-Desktop-Custom-2.1.0-Windows.zip
           retention-days: 2
           if-no-files-found: error
