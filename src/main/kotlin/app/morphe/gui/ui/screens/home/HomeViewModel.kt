@@ -108,7 +108,7 @@ class HomeViewModel(
     // Cached patches and supported apps
     private var cachedPatches: List<PatchMetadata> = emptyList()
     private var cachedPatchesFile: File? = null
-    /** All resolved patch files across enabled sources. */
+    /** Only successfully loaded patch files across enabled sources. */
     private var cachedAllPatchFiles: List<File> = emptyList()
     private var loadJob: Job? = null
     /** Automatic device-first navigation must never override a tab chosen by the user. */
@@ -121,9 +121,7 @@ class HomeViewModel(
     /** Display names for each resolved patch file, ordered matching [getAllResolvedPatchFiles]. */
     fun getAllResolvedPatchSourceNames(): List<String> {
         val allSources = patchSourceManager.allSources.value
-        val fromResult = cachedSourcesResult
-            ?.resolved
-            ?.filter { it.patchFile != null }
+        val fromResult = cachedSourcesResult?.usableResolvedSources
             ?.map { PatchSourceNaming.resolveSourceName(file = it.patchFile, candidateName = it.source.name, sources = allSources) }
         if (!fromResult.isNullOrEmpty()) return fromResult
 
@@ -155,7 +153,7 @@ class HomeViewModel(
             ?.toSet()
 
         val relevantResolved = if (!relevantSourceIds.isNullOrEmpty()) {
-            cachedSourcesResult?.resolved?.filter { it.source.id in relevantSourceIds && it.patchFile != null }
+            cachedSourcesResult?.usableResolvedSources?.filter { it.source.id in relevantSourceIds }
         } else {
             null
         }
@@ -165,7 +163,8 @@ class HomeViewModel(
         } else {
             getAllResolvedPatchFiles()
         }
-        val primaryPatchFile = patchFiles.firstOrNull() ?: cachedPatchesFile ?: inputFile
+        val primaryPatchFile = patchFiles.firstOrNull()
+            ?: throw IllegalStateException("No compatible patch source selected for this patch operation.")
 
         val outputPath = ApkOutputNaming.outputApkPath(
             inputApk = inputFile,
@@ -178,7 +177,7 @@ class HomeViewModel(
         val resolvedSources = if (!relevantResolved.isNullOrEmpty()) {
             relevantResolved
         } else {
-            cachedSourcesResult?.resolved?.filter { it.patchFile != null }
+            cachedSourcesResult?.usableResolvedSources
         }
         val allSources = patchSourceManager.allSources.value
         val sourcesSnapshot = if (!resolvedSources.isNullOrEmpty()) {
@@ -272,7 +271,8 @@ class HomeViewModel(
         val inputFile = File(apkPath)
         val selectedApkVersion = inspectRepatchInput(record, apkPath)
         val engineConfigData = engineConfigRepository.loadConfig()
-        val primaryPatchFile = patchFiles.firstOrNull() ?: cachedPatchesFile ?: inputFile
+        val primaryPatchFile = patchFiles.firstOrNull()
+            ?: throw IllegalStateException("No compatible patch source selected for this patch operation.")
 
         val outputPath = ApkOutputNaming.outputApkPath(
             inputApk = inputFile,
@@ -410,6 +410,9 @@ class HomeViewModel(
                 isDefaultSource = patchSourceManager.isDefaultSource()
                 lastLoadedVersion = null
                 cachedPatchesFile = null
+                cachedAllPatchFiles = emptyList()
+                cachedPatches = emptyList()
+                cachedSourcesResult = null
                 // Preserve update banner and navigation state across source changes.
                 val carriedUpdate = _uiState.value.updateInfo
                 val carriedDismissed = _uiState.value.dismissedUpdateVersion
@@ -657,7 +660,11 @@ class HomeViewModel(
                             Logger.error("Patch source '${src.sourceName}' failed to load", err)
                         }
                     }
-                    // Retain snapshot so source management sheet displays failure state.
+                    // Preserve diagnostics but never carry forward previously
+                    // qualified file paths after a failed source reload.
+                    cachedPatches = emptyList()
+                    cachedPatchesFile = null
+                    cachedAllPatchFiles = emptyList()
                     cachedSourcesResult = result
                     _uiState.value = _uiState.value.copy(
                         isLoadingPatches = false,
@@ -667,16 +674,17 @@ class HomeViewModel(
                 }
 
                 cachedPatches = result.unionPatches
-                // Cache first resolved file for legacy single-file consumers.
-                val firstResolved = result.resolved.firstOrNull { it.patchFile != null }
+                // Files are eligible only after a successful real patch class load.
+                val usableResolved = result.usableResolvedSources
+                val firstResolved = usableResolved.firstOrNull()
                 cachedPatchesFile = firstResolved?.patchFile
-                cachedAllPatchFiles = result.resolved.mapNotNull { it.patchFile }
+                cachedAllPatchFiles = usableResolved.mapNotNull { it.patchFile }
                 lastLoadedVersion = firstResolved?.resolvedVersion
                 cachedSourcesResult = result
 
                 // Reading bundle manifests opens each .mpp; do it off the UI thread.
                 val effectiveNames = withContext(Dispatchers.IO) {
-                    result.resolved.mapNotNull { (source, file) ->
+                    usableResolved.mapNotNull { (source, file) ->
                         if (file == null) return@mapNotNull null
                         val manifestName = runCatching { java.util.jar.JarFile(file).use { it.manifest?.mainAttributes?.getValue("Name") } }.getOrNull()
                         val effectiveName = manifestName?.takeUnless { it.isBlank() || PatchSourceNaming.isRawOrCorruptedName(it) }
@@ -701,18 +709,18 @@ class HomeViewModel(
 
                 Logger.info(
                     "Loaded ${supportedApps.size} supported apps from " +
-                            "${result.resolved.count { it.patchFile != null }} source(s): " +
+                            "${usableResolved.size} source(s): " +
                             supportedApps.map { it.displayName }
                 )
 
                 // Consider offline only when all resolved sources used cache fallback.
-                val resolvedSources = result.resolved.filter { it.patchFile != null }
+                val resolvedSources = usableResolved
                 val isOffline = resolvedSources.isNotEmpty() && resolvedSources.all { it.isOffline }
                 val displayVersion = firstResolved?.resolvedVersion
                 val sourceName = if (result.resolved.size == 1) {
                     firstResolved?.source?.name ?: patchSourceManager.getActiveSourceName()
                 } else {
-                    val count = result.resolved.count { it.patchFile != null }
+                    val count = usableResolved.size
                     getPluralString(Res.plurals.count_sources, count, count)
                 }
 
@@ -796,7 +804,7 @@ class HomeViewModel(
 
     /** Background-resolves the latest patches to preview available app upgrades. */
     private fun eagerlyResolveLatestApps() {
-        val anyBehind = cachedSourcesResult?.resolved?.any {
+        val anyBehind = cachedSourcesResult?.usableResolvedSources?.any {
             it.patchFile != null && it.resolvedVersion != null &&
                 isNewerVersion(it.latestAvailableVersion ?: it.resolvedVersion, it.resolvedVersion)
         } == true
@@ -951,15 +959,13 @@ class HomeViewModel(
 
     /** Maps source names to their currently resolved versions. */
     private fun resolvedVersionBySource(): Map<String, String?> =
-        cachedSourcesResult?.resolved
-            ?.filter { it.patchFile != null }
+        cachedSourcesResult?.usableResolvedSources
             ?.associate { it.source.name to it.resolvedVersion }
             ?: emptyMap()
 
     /** Maps source names to their newest available versions. */
     private fun latestAvailableBySource(): Map<String, String?> =
-        cachedSourcesResult?.resolved
-            ?.filter { it.patchFile != null }
+        cachedSourcesResult?.usableResolvedSources
             ?.associate { it.source.name to (it.latestAvailableVersion ?: it.resolvedVersion) }
             ?: emptyMap()
 
@@ -1008,8 +1014,7 @@ class HomeViewModel(
     }
 
     fun activePatchSources(): List<ActivePatchSource> =
-        cachedSourcesResult?.resolved
-            ?.filter { it.patchFile != null }
+        cachedSourcesResult?.usableResolvedSources
             ?.map { ActivePatchSource(it.source.id, it.source.name, it.resolvedVersion) }
             ?: emptyList()
 
@@ -1050,7 +1055,7 @@ class HomeViewModel(
     /** The patch source headers for [packageName], naming the loaded sources with patches for it. */
     fun patchSourceHeadersFor(packageName: String): PatchSourceHeaders? {
         val snapshot = cachedSourcesResult ?: return null
-        val loaded = snapshot.resolved.filter { it.patchFile != null }
+        val loaded = snapshot.usableResolvedSources
             .associate { it.source.id to (it.source to it.resolvedVersion) }
         return patchSourceHeaders(
             snapshot.patchesBySource.entries
@@ -1209,7 +1214,19 @@ class HomeViewModel(
             engineConfigRepository.loadConfig().excludedMppPatterns,
             onDownloadProgress,
         )
-        val resolvedOk = result.resolved.filter { it.patchFile != null }
+        val usableIds = result.usableResolvedSources.map { it.source.id }.toSet()
+        val rejected = enabled.filterNot { (source, _) -> source.name in localFiles }
+            .map { it.first }.filter { it.id !in usableIds }
+        if (rejected.isNotEmpty()) {
+            val errors = rejected.joinToString("; ") { source ->
+                val problem = result.loaded.perSource.firstOrNull { it.sourceId == source.id }?.error?.message
+                    ?: result.resolved.firstOrNull { it.source.id == source.id }?.error
+                    ?: "no compatible patches loaded"
+                "${source.name}: $problem"
+            }
+            return Result.failure(IllegalStateException("Requested patch source unavailable: $errors"))
+        }
+        val resolvedOk = result.usableResolvedSources
 
         val files = mutableListOf<String>()
         val names = mutableListOf<String>()
@@ -1218,8 +1235,17 @@ class HomeViewModel(
             names += r.source.name
         }
         localFiles.forEach { (name, file) ->
-            if (!file.exists()) {
+            if (!file.isFile) {
                 return Result.failure(PatchException("Patch file not found: ${file.name}", Res.string.error_patch_file_not_found, listOf(file.name)))
+            }
+            // A manually selected local MPP must pass the same load gate.
+            val checked = MultiSourceLoader.load(listOf(MultiSourceLoader.SourceInput(name, name, file)))
+                .perSource.single()
+            if (!checked.isSuccess || checked.patches.isEmpty()) {
+                return Result.failure(IllegalStateException(
+                    "Selected patch bundle '$name' cannot be loaded: " +
+                        (checked.error?.message ?: "no compatible patches")
+                ))
             }
             files += file.absolutePath
             names += name

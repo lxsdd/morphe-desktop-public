@@ -5,6 +5,8 @@
 
 package app.morphe.engine.patches
 
+import app.morphe.engine.PatchBundleIncompatibleException
+import app.morphe.engine.PatcherCompatibility
 import app.morphe.engine.workspace.WorkspaceManager
 import app.morphe.patcher.patch.Patch
 import app.morphe.patcher.patch.loadPatchesFromJar
@@ -24,6 +26,15 @@ object PatchBundleLoader {
     /** Loads each `.mpp` file into a [LoadedBundle], preserving input order. */
     fun loadEach(files: Iterable<File>): List<LoadedBundle> =
         files.map { file ->
+            // All GUI and CLI consumers share the same fail-closed Patcher
+            // version rule, even when they bypass the multi-source preview.
+            PatcherCompatibility.incompatibilityMessage(file)?.let { message ->
+                throw PatchBundleIncompatibleException(
+                    message = message,
+                    requiredPatcherVersion = PatcherCompatibility.requiredPatcherVersion(file),
+                    currentPatcherVersion = PatcherCompatibility.currentPatcherVersion,
+                )
+            }
             val shadowCopy = WorkspaceManager.createShadowCopy(file, prefix = "bundle-${file.nameWithoutExtension}")
             LoadedBundle(
                 sourceFile = file,

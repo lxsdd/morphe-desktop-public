@@ -1,12 +1,17 @@
 package app.morphe.engine
 
 import app.morphe.engine.patches.RemotePatchSourceFactory
+import app.morphe.engine.patches.PatchBundleLoader
+import app.morphe.gui.data.model.PatchSource
+import app.morphe.gui.data.model.PatchSourceType
+import app.morphe.gui.util.EnabledSourcesLoader
 import app.morphe.patcher.patch.PatchBundleSignature
 import java.io.File
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -92,5 +97,29 @@ class OfficialStablePatchBundleSmokeTest {
         assertTrue(compatible.isSuccess)
         assertTrue(compatible.patches.isNotEmpty())
         assertEquals(compatible.patches.toSet(), loaded.allPatches)
+
+        // The UI cannot carry a failed but downloaded source into patching.
+        val snapshot = EnabledSourcesLoader.Result(
+            resolved = listOf(
+                EnabledSourcesLoader.ResolvedSource(
+                    PatchSource("amazon", "Amazon Patches", PatchSourceType.GITHUB), third,
+                ),
+                EnabledSourcesLoader.ResolvedSource(
+                    PatchSource("official", "Morphe Patches", PatchSourceType.DEFAULT), official,
+                ),
+            ),
+            loaded = loaded,
+            unionPatches = emptyList(),
+            patchesBySource = emptyMap(),
+        )
+        assertEquals(listOf("official"), snapshot.usableResolvedSources.map { it.source.id })
+        assertEquals(listOf(official), snapshot.usableResolvedSources.mapNotNull { it.patchFile })
+
+        // Direct PatchEngine/CLI consumers have a matching independent guard.
+        val rejection = assertFailsWith<PatchBundleIncompatibleException> {
+            PatchBundleLoader.loadEach(listOf(third))
+        }
+        assertTrue(rejection.message?.contains("requires Morphe Patcher 1.8.0") == true)
+        assertTrue(PatchBundleLoader.loadEach(listOf(official)).single().patches.isNotEmpty())
     }
 }

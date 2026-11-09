@@ -62,6 +62,17 @@ object EnabledSourcesLoader {
         val patchesBySource: Map<String, List<PatchMetadata>>,
     ) {
         val anyLoaded: Boolean get() = loaded.allPatches.isNotEmpty()
+
+        /** Only successfully loaded nonempty MPPs may enter a patch config.
+         * Failed downloads remain in [resolved] for visible diagnostics. */
+        val usableResolvedSources: List<ResolvedSource>
+            get() {
+                val loadedIds = loaded.perSource
+                    .filter { it.isSuccess && it.patches.isNotEmpty() }
+                    .map { it.sourceId }
+                    .toSet()
+                return resolved.filter { it.patchFile != null && it.source.id in loadedIds }
+            }
     }
 
     /** Resolves and loads every enabled source in parallel. */

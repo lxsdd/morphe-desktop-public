@@ -39,6 +39,18 @@ device changes. Synthetic tests model success, cancellation/no-consent,
 stale APK, wrong package, owner change, disconnect, failed uninstall and
 failed reinstall. No claim of real Android installation or Play update fix.
 
+## 2026-11-09: qualified-source boundary across GUI and direct patching
+
+Downloaded or cached MPPs are **not** automatically patchable.
+Only successfully loaded, nonempty sources contribute to Simple/Expert
+patch configurations, source names, snapshot histories and version metadata.
+A requested source that failed loading blocks the operation rather than being
+silently replaced, and local override files undergo an explicit load check.
+Direct PatchEngine/CLI bundle loading independently applies the same major-
+version check before class reflection. SHA-pinned real third-party legacy and
+official bundle tests cover the negative/positive paths. Source errors remain
+visible and existing signing-key trust is not changed or enrolled.
+
 ## 2026-11-09: confirmed legacy Amazon patch-source incompatibility
 
 The hash-pinned `rushiranpise/morphe-patches` v1.23.1 MPP (SHA-256
