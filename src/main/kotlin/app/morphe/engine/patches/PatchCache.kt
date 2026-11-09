@@ -5,6 +5,7 @@
 
 package app.morphe.engine.patches
 
+import app.morphe.engine.CacheManager
 import app.morphe.engine.MorpheData
 import app.morphe.engine.model.Release
 import app.morphe.engine.model.ReleaseAsset
@@ -149,33 +150,18 @@ object PatchCache {
         )
     }
 
-    /** Deletes all cached patch files for [repoPath]. */
+    /**
+     * Clear downloadable bundles without deleting this source's persistent
+     * signing.key or other trust/state files. Never silently reset signer trust.
+     */
     fun clearSource(repoPath: String): Boolean {
-        return try {
-            val patchesDir = sourceDir(repoPath)
-            var failedCount = 0
-            patchesDir.listFiles()?.forEach { file ->
-                try {
-                    if (!file.deleteRecursively()) {
-                        failedCount++
-                        Logger.warn("Failed to delete ${file.name}")
-                    }
-                } catch (e: Exception) {
-                    failedCount++
-                    Logger.warn("Failed to delete ${file.name}: ${e.message ?: e::class.simpleName}")
-                }
-            }
-            if (failedCount > 0) {
-                Logger.warn("Patches cache clear incomplete for $repoPath: $failedCount file(s) locked")
-                false
-            } else {
-                Logger.info("Patches cache cleared for $repoPath")
-                true
-            }
-        } catch (e: Exception) {
-            Logger.warn("Failed to clear patches cache for $repoPath: ${e.message ?: e::class.simpleName}")
-            false
+        val result = CacheManager.clearPatchDownloads("Patches", sourceDir(repoPath))
+        if (result.failedFiles != 0) {
+            Logger.warn("Patches cache clear incomplete for $repoPath: ${result.failedFiles} file(s) locked")
+            return false
         }
+        Logger.info("Downloaded patches cleared for $repoPath; signer trust preserved")
+        return true
     }
 
     /** Finds newest `.mpp` in [dir], ignoring non-patch files and exclusions. */

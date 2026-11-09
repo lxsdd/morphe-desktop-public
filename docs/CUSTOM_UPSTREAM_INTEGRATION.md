@@ -1,5 +1,17 @@
 # Morphe Desktop Custom: authoritative source and upstream integration
 
+## Patch-cache trust preservation — 2026-11-09 (source-stage)
+
+Both global cache clearing and source-specific clearing previously deleted the
+per-source `signing.key` trust pin. The new common patch-download cleanup
+removes only downloaded .mpp/.jar files, leaving signer pins, refused-release
+markers and other metadata intact. Storage callers addressing the root patch
+cache are routed through the same safe logic. The displayed cleared cache size
+counts downloadable patch bytes, not the persistent trust metadata. Synthetic
+scratch-only tests cover multiple sources, nested bundles, capitalization,
+non-cache data preservation and error cases. This fixes a trust-reset path
+without modifying any user's installed sources or trusting new keys.
+
 ## Owner migration parity block — 2026-11-09 (source-stage, no hardware mutation)
 
 The shared `AdbMigrationRequiredException` now leads to an explicit review action

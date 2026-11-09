@@ -148,7 +148,7 @@ class PatchSourceManager(
         val repo = getRepositoryForSource(source) ?: return
         repo.trustSigningKey(newKey)
         _sourceVersion.value++
-        Logger.info("Trusted new signing key for source '${source.name}' (id=$sourceId, key=$newKey)")
+        Logger.info("Signing-key trust explicitly changed for source '${source.name}' (id=$sourceId)")
     }
 
     /** Clears cached repository data and notifies observers. */

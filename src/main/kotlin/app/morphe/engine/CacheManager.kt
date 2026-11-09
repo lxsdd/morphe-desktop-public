@@ -31,7 +31,7 @@ object CacheManager {
 
     /** Calculates total byte size across patches, logs, and scratch directories. */
     fun getCacheSizeBytes(): Long =
-        getDirectorySize(MorpheData.patchesDir) +
+        getPatchDownloadSize(MorpheData.patchesDir) +
             getDirectorySize(MorpheData.logsDir) +
             WorkspaceManager.getScratchSize()
 
@@ -45,14 +45,62 @@ object CacheManager {
     /** Deletes cached patches, logs, and temporary scratch files. */
     fun clearCaches(): ClearResult = ClearResult(
         listOf(
-            clearDirectoryContents("Patches", MorpheData.patchesDir),
+            clearPatchDownloads("Patches", MorpheData.patchesDir),
             clearDirectoryContents("Logs", MorpheData.logsDir),
             WorkspaceManager.clearScratch(),
         ),
     )
 
-    /** Deletes all files inside [dir], returning deletion metrics. */
+    /**
+     * Only delete downloaded .mpp/.jar files. Trust pins (signing.key),
+     * signer refusal evidence, and unrelated source metadata are NOT cache.
+     * This shared primitive covers both per-source and global cache clearing.
+     */
+    fun clearPatchDownloads(label: String, dir: File): DirResult {
+        val downloads = try {
+            if (!dir.exists()) emptyList()
+            else if (!dir.isDirectory) return DirResult(label, 0L, 0, 1)
+            else dir.walkTopDown().filter { file ->
+                file.isFile && (file.extension.equals("mpp", ignoreCase = true) ||
+                    file.extension.equals("jar", ignoreCase = true))
+            }.toList()
+        } catch (_: Exception) {
+            return DirResult(label, 0L, 0, 1)
+        }
+        var bytesFreed = 0L
+        var filesDeleted = 0
+        var failedFiles = 0
+        downloads.forEach { file ->
+            try {
+                val bytes = file.length()
+                if (file.delete()) {
+                    bytesFreed += bytes
+                    filesDeleted++
+                } else {
+                    failedFiles++
+                }
+            } catch (_: Exception) {
+                failedFiles++
+            }
+        }
+        return DirResult(label, bytesFreed, filesDeleted, failedFiles)
+    }
+
+    /** Only count downloadable patch cache bytes, not persistent signer pins. */
+    fun getPatchDownloadSize(dir: File): Long = try {
+        if (!dir.isDirectory) 0L else dir.walkTopDown()
+            .filter { it.isFile && (it.extension.equals("mpp", true) || it.extension.equals("jar", true)) }
+            .sumOf { it.length() }
+    } catch (_: Exception) {
+        0L
+    }
+
+    /** Deletes general cache contents, but protects signer pins in the patch cache. */
     fun clearDirectoryContents(label: String, dir: File): DirResult {
+        // Storage UI callers may still address the root cache directly.
+        if (runCatching { dir.canonicalFile == MorpheData.patchesDir.canonicalFile }.getOrDefault(false)) {
+            return clearPatchDownloads(label, dir)
+        }
         var bytesFreed = 0L
         var filesDeleted = 0
         var failedFiles = 0
