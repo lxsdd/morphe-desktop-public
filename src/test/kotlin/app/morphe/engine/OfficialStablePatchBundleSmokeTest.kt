@@ -7,7 +7,6 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -56,8 +55,10 @@ class OfficialStablePatchBundleSmokeTest {
 
     /**
      * SHA-256 pinned public rushiranpise v1.23.1 is the historically configured
-     * Amazon source. Loading it alongside official 2.1.0 under Patcher 2.3.0
-     * is a compatibility check only; it NEVER records signer trust on disk.
+     * Amazon source. It is UNSIGNED according to PatchBundleSignature.verify:
+     * this test observes that state instead of trusting it. Loading it alongside
+     * signed official 2.1.0 under Patcher 2.3.0 is only a compatibility check;
+     * it NEVER records signer trust on disk or changes user source preferences.
      */
     @Test
     fun amazonThirdPartyStableLoadsAlongsideOfficialWithoutTrustMutation() = runBlocking {
@@ -70,8 +71,9 @@ class OfficialStablePatchBundleSmokeTest {
         assertTrue(official.isFile && official.length() > 1024)
         assertTrue(third.isFile && third.length() > 1024)
         assertEquals("2.3.0", PatcherCompatibility.currentPatcherVersion)
-        // The third-party public signature is observed, never automatically trusted.
-        assertNotNull(PatchBundleSignature.verify(third), "Third-party stable MPP must carry a signature")
+        // This SHA-256-pinned third-party release is unsigned, not an official key rotation.
+        // Preserve fail-closed app trust handling; a standalone smoke must not enroll trust.
+        assertNull(PatchBundleSignature.verify(third), "Unexpected third-party signature change; review trust policy")
         assertNull(PatcherCompatibility.incompatibilityMessage(third))
         val mixed = MultiSourceLoader.load(
             listOf(
