@@ -54,14 +54,13 @@ class OfficialStablePatchBundleSmokeTest {
     }
 
     /**
-     * SHA-256 pinned public rushiranpise v1.23.1 is the historically configured
-     * Amazon source. It is UNSIGNED according to PatchBundleSignature.verify:
-     * this test observes that state instead of trusting it. Loading it alongside
-     * signed official 2.1.0 under Patcher 2.3.0 is only a compatibility check;
-     * it NEVER records signer trust on disk or changes user source preferences.
+     * This historically configured Amazon bundle is hash-pinned but is UNSIGNED
+     * and requires Patcher 1.8.0. It must NOT be accepted as a compatible
+     * source by Desktop 2.1.1 / Patcher 2.3.0. The official source remains usable.
+     * Read-only verification; never enroll signer trust or alter preferences.
      */
     @Test
-    fun amazonThirdPartyStableLoadsAlongsideOfficialWithoutTrustMutation() = runBlocking {
+    fun amazonThirdPartyLegacyBundleIsRejectedWhileOfficialStillLoads() = runBlocking {
         val officialPath = System.getenv("MORPHE_OFFICIAL_PATCHES_TEST_FILE")
             ?.takeIf { it.isNotBlank() } ?: return@runBlocking
         val thirdPath = System.getenv("MORPHE_THIRDPARTY_PATCHES_TEST_FILE")
@@ -71,21 +70,17 @@ class OfficialStablePatchBundleSmokeTest {
         assertTrue(official.isFile && official.length() > 1024)
         assertTrue(third.isFile && third.length() > 1024)
         assertEquals("2.3.0", PatcherCompatibility.currentPatcherVersion)
-        // This SHA-256-pinned third-party release is unsigned, not an official key rotation.
-        // Preserve fail-closed app trust handling; a standalone smoke must not enroll trust.
-        assertNull(PatchBundleSignature.verify(third), "Unexpected third-party signature change; review trust policy")
-        assertNull(PatcherCompatibility.incompatibilityMessage(third))
-        val mixed = MultiSourceLoader.load(
-            listOf(
-                MultiSourceLoader.SourceInput("official", "Morphe Patches", official),
-                MultiSourceLoader.SourceInput("amazon", "rushiranpise Morphe Patches", third),
-            )
+        assertNull(PatchBundleSignature.verify(third), "Unexpected signature change requires trust review")
+        assertEquals("1.8.0", PatcherCompatibility.requiredPatcherVersion(third))
+        val incompatible = PatcherCompatibility.incompatibilityMessage(third)
+        assertTrue(incompatible?.contains("requires Morphe Patcher 1.8.0") == true)
+        assertTrue(incompatible.contains("ships 2.3.0"))
+        assertNull(PatcherCompatibility.incompatibilityMessage(official))
+        val loaded = MultiSourceLoader.load(
+            listOf(MultiSourceLoader.SourceInput("official", "Morphe Patches", official))
         )
-        assertEquals(listOf("official", "amazon"), mixed.perSource.map { it.sourceId })
-        mixed.perSource.forEach { source ->
-            assertTrue(source.isSuccess, "Source ${source.sourceName} failed: ${source.error?.message}")
-            assertTrue(source.patches.isNotEmpty(), "Source ${source.sourceName} loaded no patches")
-            assertTrue(mixed.allPatches.containsAll(source.patches))
-        }
+        assertEquals(listOf("official"), loaded.perSource.map { it.sourceId })
+        assertTrue(loaded.perSource.single().isSuccess)
+        assertTrue(loaded.perSource.single().patches.isNotEmpty())
     }
 }

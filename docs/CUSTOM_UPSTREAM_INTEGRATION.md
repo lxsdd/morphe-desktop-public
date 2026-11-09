@@ -39,6 +39,22 @@ device changes. Synthetic tests model success, cancellation/no-consent,
 stale APK, wrong package, owner change, disconnect, failed uninstall and
 failed reinstall. No claim of real Android installation or Play update fix.
 
+## 2026-11-09: confirmed legacy Amazon patch-source incompatibility
+
+The hash-pinned `rushiranpise/morphe-patches` v1.23.1 MPP (SHA-256
+`75ede4e416edf147be8132b6c7693d78b37264a1a89dd2c4fa835efccefcdd9d`)
+has **no detectable bundle signature** and its manifest requires **Morphe
+Patcher 1.8.0**. Desktop 2.1.1 ships Patcher **2.3.0**, so this old bundle
+is correctly **incompatible**. The previous co-loading smoke asserted
+compatibility incorrectly and failed. The corrected regression verifies
+the precise incompatibility and separately confirms that the signed official
+Patches 2.1.0 still load. **Never bypass this major-version gate or
+automatically enroll signer trust to make a test pass.** The Amazon-specific
+third-party patches are **not** qualified for Patcher 2.3.0; preserving a
+usable Amazon patch flow requires a separately reviewed compatible upstream
+release or a properly authorized source migration with license and
+signature/provenance checks. No saved user source is deleted or reset.
+
 ## Development checkpoint — 2026-11-09 (public Draft PR #44, not promoted)
 
 The official Morphe Desktop `v2.1.1` release (`813359f9c71c886befeea6bc7035b842414fb450`)
