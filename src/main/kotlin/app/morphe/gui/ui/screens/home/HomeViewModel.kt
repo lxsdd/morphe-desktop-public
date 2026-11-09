@@ -20,6 +20,8 @@ import app.morphe.engine.config.EngineConfigRepository
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.installation.AdbApkInstaller
 import app.morphe.engine.installation.AdbInstallRequest
+import app.morphe.gui.util.DeviceInstallConfirmationGate
+import app.morphe.gui.util.DeviceInstallConfirmationRequest
 import app.morphe.gui.util.PatchedApkRelinker
 import app.morphe.gui.util.PatchedApkRelinkResult
 import app.morphe.engine.patches.PatchCache
@@ -469,29 +471,57 @@ class HomeViewModel(
     private var lastFailedSourceIds: Set<String> = emptySet()
     private var sourcesFailedBannerDismissed: Boolean = false
 
-    /** Installs the existing output APK for [packageName] onto the selected device. */
-    fun installPatchedApp(packageName: String) {
+    /** Installs a history APK only after an explicit exact-APK/device confirmation. */
+    fun installPatchedApp(packageName: String, confirmation: DeviceInstallConfirmationRequest) {
         val record = patchedRecordsByPackage[packageName] ?: return
         val target = DeviceMonitor.state.value.captureOperationTarget() ?: return
         if (_uiState.value.installingPackage != null) return
+        if (target.serial != confirmation.target.serial ||
+            confirmation.packageName != record.installedPackageName ||
+            !DeviceInstallConfirmationGate.matchesHistoryOutput(
+                confirmation, record.outputApkPath, record.outputApkSha256, record.apkVersion
+            )
+        ) {
+            showError("Install confirmation no longer matches this history APK or selected device.")
+            return
+        }
         _uiState.value = _uiState.value.copy(installingPackage = packageName)
         viewModelScope.launch {
             // Reconfirm exact patched APK identity before ADB is contacted. Never
             // install a moved, substituted or unverified output file by filename.
             val result: Result<Unit> = withContext(Dispatchers.IO) {
-                when (val checked = PatchedApkRelinker().validate(record, File(record.outputApkPath))) {
+                val selected = DeviceMonitor.state.value.captureOperationTarget()
+                if (selected?.serial != target.serial ||
+                    !DeviceInstallConfirmationGate.stillMatches(confirmation, selected) ||
+                    !DeviceInstallConfirmationGate.matchesHistoryOutput(
+                        confirmation, record.outputApkPath, record.outputApkSha256, record.apkVersion
+                    )
+                ) {
+                    Result.failure(IllegalStateException(
+                        "Selected device or history APK changed after confirmation; installation cancelled."
+                    ))
+                } else when (val checked = PatchedApkRelinker().validate(record, File(record.outputApkPath))) {
                     is PatchedApkRelinkResult.Rejected -> Result.failure(IllegalStateException(checked.reason))
                     is PatchedApkRelinkResult.Success -> {
                         val adbPath = adbManager.findAdb()
                         if (adbPath.isNullOrBlank()) {
                             Result.failure(IllegalStateException("ADB is not available on this computer."))
+                        } else if (DeviceMonitor.state.value.captureOperationTarget()?.serial != target.serial ||
+                            !DeviceInstallConfirmationGate.matchesHistoryOutput(
+                                confirmation, checked.apk.canonicalPath,
+                                record.outputApkSha256, record.apkVersion
+                            )
+                        ) {
+                            Result.failure(IllegalStateException(
+                                "Device or APK changed before install; cancelled without ADB installation."
+                            ))
                         } else {
                             AdbApkInstaller().install(
                                 AdbInstallRequest(
                                     adbPath = adbPath,
                                     apk = File(checked.apk.canonicalPath),
                                     deviceSerial = target.serial,
-                                    expectedPackageName = record.installedPackageName,
+                                    expectedPackageName = confirmation.packageName,
                                 )
                             ).map { Unit }
                         }

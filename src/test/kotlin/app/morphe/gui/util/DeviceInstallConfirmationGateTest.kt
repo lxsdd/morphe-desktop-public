@@ -56,6 +56,25 @@ class DeviceInstallConfirmationGateTest {
         assertFalse(DeviceInstallConfirmationGate.stillMatches(request, target, inspect, checksum))
     }
 
+    @Test fun `history consent must match the exact saved output fingerprint and path`() {
+        val request = DeviceInstallConfirmationGate.prepare(apk, target, inspect, checksum).getOrThrow()
+        assertTrue(DeviceInstallConfirmationGate.matchesHistoryOutput(
+            request, apk.canonicalPath, "a".repeat(64), "5.1"
+        ))
+        assertFalse(DeviceInstallConfirmationGate.matchesHistoryOutput(
+            request, apk.path, null, "5.1"
+        ))
+        assertFalse(DeviceInstallConfirmationGate.matchesHistoryOutput(
+            request, apk.path, "b".repeat(64), "5.1"
+        ))
+        assertFalse(DeviceInstallConfirmationGate.matchesHistoryOutput(
+            request, apk.path, "a".repeat(64), "5.2"
+        ))
+        assertFalse(DeviceInstallConfirmationGate.matchesHistoryOutput(
+            request, File(dir, "different.apk").path, "a".repeat(64), "5.1"
+        ))
+    }
+
     @Test fun `invalid inputs are rejected before any install confirmation`() {
         assertTrue(DeviceInstallConfirmationGate.prepare(
             File(dir, "missing.apk"), target, inspect, checksum).isFailure)

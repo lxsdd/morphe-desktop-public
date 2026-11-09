@@ -37,6 +37,24 @@ object DeviceInstallConfirmationGate {
         )
     }
 
+    /**
+     * History reinstallation must not silently install an APK from a different
+     * entry or an old output path. The user must have confirmed the exact bytes.
+     * This is read-only and deliberately rejects older records without a hash.
+     */
+    fun matchesHistoryOutput(
+        request: DeviceInstallConfirmationRequest,
+        expectedOutputPath: String,
+        expectedSha256: String?,
+        expectedVersionName: String?,
+    ): Boolean = runCatching {
+        expectedSha256 != null &&
+            expectedSha256.matches(Regex("[0-9a-fA-F]{64}")) &&
+            request.apkSha256.equals(expectedSha256, ignoreCase = true) &&
+            request.versionName.equals(expectedVersionName, ignoreCase = true) &&
+            File(request.apkPath).canonicalFile == File(expectedOutputPath).canonicalFile
+    }.getOrDefault(false)
+
     /** Reject changed device, bytes, package or version immediately before ADB. */
     fun stillMatches(
         request: DeviceInstallConfirmationRequest,

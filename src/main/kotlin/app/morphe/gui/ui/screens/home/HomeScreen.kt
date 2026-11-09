@@ -35,6 +35,7 @@ import app.morphe.gui.data.repository.PatchSourceManager
 import app.morphe.gui.navigateComplex
 import app.morphe.gui.ui.components.AddPatchSourceDialog
 import app.morphe.gui.ui.components.ChangelogDialog
+import app.morphe.gui.ui.components.DeviceInstallConfirmationDialog
 import app.morphe.gui.ui.components.MorpheErrorBar
 import app.morphe.gui.ui.components.SourceManagementSheet
 import app.morphe.gui.ui.components.SourcesPage
@@ -53,6 +54,8 @@ import app.morphe.gui.ui.screens.home.components.UninstallConfirmDialog
 import app.morphe.gui.ui.screens.home.components.VersionWarningDialog
 import app.morphe.gui.ui.screens.home.components.handleContinue
 import app.morphe.gui.ui.screens.home.components.openFilePicker
+import app.morphe.gui.util.DeviceInstallConfirmationGate
+import app.morphe.gui.util.DeviceInstallConfirmationRequest
 import app.morphe.gui.util.DeviceMonitor
 import app.morphe.gui.util.captureOperationTarget
 import app.morphe.gui.util.PatchException
@@ -75,8 +78,14 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+
+private data class PendingHistoryInstall(
+    val recordPackageName: String,
+    val confirmation: DeviceInstallConfirmationRequest,
+)
 
 @Composable
 fun HomeScreen(
@@ -172,6 +181,71 @@ fun HomeScreenContent(
         )
     }
 
+    var historyInstallConfirm by remember { mutableStateOf<PendingHistoryInstall?>(null) }
+    var preparingHistoryInstall by remember { mutableStateOf(false) }
+
+    fun requestHistoryInstall(packageName: String) {
+        if (preparingHistoryInstall || historyInstallConfirm != null ||
+            uiState.installingPackage != null) return
+        val saved = viewModel.getPatchedRecord(packageName) ?: return
+        val selected = DeviceMonitor.state.value.captureOperationTarget()
+        if (selected == null) {
+            viewModel.showError("Select a ready Android device before confirming installation.")
+            return
+        }
+        preparingHistoryInstall = true
+        coroutineScope.launch {
+            try {
+                val request = withContext(Dispatchers.IO) {
+                    DeviceInstallConfirmationGate.prepare(File(saved.outputApkPath), selected)
+                }
+                val stillSelected = DeviceMonitor.state.value.captureOperationTarget()?.serial == selected.serial
+                val current = viewModel.getPatchedRecord(packageName)
+                if (!stillSelected || current == null) {
+                    viewModel.showError("Device or history entry changed; installation cancelled.")
+                } else {
+                    request.fold(
+                        onSuccess = { approval ->
+                            if (approval.packageName != current.installedPackageName ||
+                                !DeviceInstallConfirmationGate.matchesHistoryOutput(
+                                    approval, current.outputApkPath,
+                                    current.outputApkSha256, current.apkVersion
+                                )
+                            ) {
+                                viewModel.showError(
+                                    "APK differs from the recorded patched output. Repatch or relink it first."
+                                )
+                            } else {
+                                historyInstallConfirm = PendingHistoryInstall(packageName, approval)
+                            }
+                        },
+                        onFailure = { err ->
+                            viewModel.showError(err.message ?: "Could not verify the output APK.")
+                        },
+                    )
+                }
+            } finally {
+                preparingHistoryInstall = false
+            }
+        }
+    }
+
+    historyInstallConfirm?.let { pending ->
+        DeviceInstallConfirmationDialog(
+            request = pending.confirmation,
+            stillSelectedAndReady =
+                monitoredDevices.captureOperationTarget()?.serial == pending.confirmation.target.serial &&
+                !preparingHistoryInstall,
+            previouslyInstalled = pending.confirmation.packageName in
+                visibleDeviceUiState.deviceInstalledPackages,
+            onDismiss = { historyInstallConfirm = null },
+            onConfirm = {
+                historyInstallConfirm = null
+                viewModel.installPatchedApp(pending.recordPackageName, pending.confirmation)
+            },
+        )
+    }
+
     var uninstallConfirm by remember { mutableStateOf<PatchedAppRecord?>(null) }
     var uninstallAlsoForget by remember { mutableStateOf(false) }
     val onUninstall: (String) -> Unit = { pkg ->
@@ -204,6 +278,9 @@ fun HomeScreenContent(
         untrackedDevicePackage = pkg
     }
     LaunchedEffect(selectedSerial) {
+        if (historyInstallConfirm?.confirmation?.target?.serial != selectedSerial) {
+            historyInstallConfirm = null
+        }
         if (detailOriginSerial != null && detailOriginSerial != selectedSerial) detailRecord = null
         if (untrackedOriginSerial != selectedSerial) untrackedDevicePackage = null
     }
@@ -351,7 +428,7 @@ fun HomeScreenContent(
                     detailRecord = updated
                 }
             },
-            onInstall = { viewModel.installPatchedApp(record.packageName) },
+            onInstall = { requestHistoryInstall(record.packageName) },
             onUninstall = { onUninstall(record.packageName) },
             installing = uiState.installingPackage == record.packageName,
             uninstalling = uiState.uninstallingPackage == record.packageName,

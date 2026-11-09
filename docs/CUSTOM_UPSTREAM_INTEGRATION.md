@@ -1,12 +1,29 @@
 # Morphe Desktop Custom: authoritative source and upstream integration
 
+## History install safety parity — 2026-11-09 (source-stage)
+
+The patched-app history detail's normal Install/Reinstall action previously
+bypassed final device/APK consent even though result screens already showed it.
+History now uses the same explicit confirmation dialog for the selected
+ADB serial, installed package and actual APK version. Before showing the
+dialog it verifies the history output's full SHA-256 identity and original
+path. At action time HomeViewModel checks the selected serial, current history
+record, output fingerprint, APK package/version and recorded output path again,
+and invokes the installer with expected package identity only after successful
+revalidation. Invalid/stale history, changed APK, device switch, missing hash
+or wrong package fail closed, without fallback to another device. Positive
+and negative tests cover the common history-output consent gate. No Android
+device, user APK, source trust or saved history was modified by CI.
+
 ## Real third-party source compatibility smoke — 2026-11-09
 
 Linux CI now obtains the public stable `rushiranpise/morphe-patches` v1.23.1 MPP
 (SHA-256 `75ede4e416edf147be8132b6c7693d78b37264a1a89dd2c4fa835efccefcdd9d`)
 alongside the official signed 2.1.0 MPP, verifies both released bytes and
-checks Patcher 2.3.0 can load both in the same source-loader run. The verified
-rushiranpise v1.23.1 release has **no detectable bundle signature**:
+checks the signed official bundle remains usable while the incompatible
+rushiranpise bundle is rejected before reflection. The verified
+rushiranpise v1.23.1 release requires Patcher **1.8.0**, not bundled **2.3.0**,
+and has **no detectable bundle signature**:
 SHA-256 integrity matches the published release, but is NOT proof of signer
 identity. No trust is automatically granted, nor are stored source preferences
 or pinned keys reset. This synthetic compatibility evidence cannot verify all of
