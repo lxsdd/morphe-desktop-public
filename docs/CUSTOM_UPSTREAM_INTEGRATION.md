@@ -46,7 +46,10 @@ The hash-pinned `rushiranpise/morphe-patches` v1.23.1 MPP (SHA-256
 has **no detectable bundle signature** and its manifest requires **Morphe
 Patcher 1.8.0**. Desktop 2.1.1 ships Patcher **2.3.0**, so this old bundle
 is correctly **incompatible**. The previous co-loading smoke asserted
-compatibility incorrectly and failed. The corrected regression verifies
+compatibility incorrectly and failed. The production MultiSourceLoader now
+checks the manifest-required Patcher version **before** class reflection and
+reports a per-source incompatibility instead of accepting a partially loadable
+legacy bundle; the regression proves the official source remains loaded. The corrected regression verifies
 the precise incompatibility and separately confirms that the signed official
 Patches 2.1.0 still load. **Never bypass this major-version gate or
 automatically enroll signer trust to make a test pass.** The Amazon-specific

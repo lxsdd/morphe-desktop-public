@@ -77,10 +77,20 @@ class OfficialStablePatchBundleSmokeTest {
         assertTrue(incompatible.contains("ships 2.3.0"))
         assertNull(PatcherCompatibility.incompatibilityMessage(official))
         val loaded = MultiSourceLoader.load(
-            listOf(MultiSourceLoader.SourceInput("official", "Morphe Patches", official))
+            listOf(
+                MultiSourceLoader.SourceInput("amazon", "rushiranpise Morphe Patches", third),
+                MultiSourceLoader.SourceInput("official", "Morphe Patches", official),
+            )
         )
-        assertEquals(listOf("official"), loaded.perSource.map { it.sourceId })
-        assertTrue(loaded.perSource.single().isSuccess)
-        assertTrue(loaded.perSource.single().patches.isNotEmpty())
+        assertEquals(listOf("amazon", "official"), loaded.perSource.map { it.sourceId })
+        val rejected = loaded.perSource[0]
+        assertFalse(rejected.isSuccess)
+        assertTrue(rejected.error is PatchBundleIncompatibleException)
+        assertTrue(rejected.error?.message?.contains("requires Morphe Patcher 1.8.0") == true)
+        assertTrue(rejected.patches.isEmpty())
+        val compatible = loaded.perSource[1]
+        assertTrue(compatible.isSuccess)
+        assertTrue(compatible.patches.isNotEmpty())
+        assertEquals(compatible.patches.toSet(), loaded.allPatches)
     }
 }

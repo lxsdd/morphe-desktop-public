@@ -64,6 +64,17 @@ object MultiSourceLoader {
 
     private suspend fun loadOne(input: SourceInput): LoadedSource = withContext(Dispatchers.IO) {
         try {
+            // Fail closed before reflecting over patch classes: a Patcher 1.x
+            // bundle may otherwise appear to load under Patcher 2.x by accident.
+            // Preserve sibling sources and give the UI an explicit source error.
+            PatcherCompatibility.incompatibilityMessage(input.patchFile)?.let { message ->
+                throw PatchBundleIncompatibleException(
+                    message = message,
+                    requiredPatcherVersion = PatcherCompatibility.requiredPatcherVersion(input.patchFile),
+                    currentPatcherVersion = PatcherCompatibility.currentPatcherVersion,
+                    appVersion = UpdateChecker.currentVersion(),
+                )
+            }
             // Shadow-copy creation may fail (missing file, access denied). Keep
             // that failure scoped to this source instead of cancelling siblings.
             val tempCopy = WorkspaceManager.createShadowCopy(input.patchFile, prefix = "morphe-mp-${input.sourceId}")
