@@ -6,6 +6,7 @@ import java.io.File
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -33,5 +34,22 @@ class OfficialStablePatchBundleSmokeTest {
         val loaded = result.perSource.single()
         assertTrue(loaded.isSuccess, "Official stable patch release failed: ${loaded.error?.message}")
         assertTrue(loaded.patches.isNotEmpty(), "Stable patch release unexpectedly has no patches")
+
+        // A failing source copy must not abort the good official bundle. This
+        // reproduces the source-loader failure that formerly escaped the try.
+        val missing = File(file.parentFile, "missing-source-${System.nanoTime()}.mpp")
+        assertFalse(missing.exists())
+        val mixed = MultiSourceLoader.load(
+            listOf(
+                MultiSourceLoader.SourceInput("missing", "Missing source", missing),
+                MultiSourceLoader.SourceInput("official", "Morphe Patches", file),
+            )
+        )
+        assertEquals(listOf("missing", "official"), mixed.perSource.map { it.sourceId })
+        assertFalse(mixed.perSource[0].isSuccess)
+        assertTrue(mixed.perSource[0].patches.isEmpty())
+        assertTrue(mixed.perSource[1].isSuccess)
+        assertTrue(mixed.perSource[1].patches.isNotEmpty())
+        assertEquals(mixed.perSource[1].patches, mixed.allPatches)
     }
 }

@@ -9,6 +9,7 @@ import app.morphe.engine.util.Logger
 import app.morphe.engine.workspace.WorkspaceManager
 import app.morphe.patcher.patch.Patch
 import app.morphe.patcher.patch.loadPatchesFromJar
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -62,8 +63,10 @@ object MultiSourceLoader {
     }
 
     private suspend fun loadOne(input: SourceInput): LoadedSource = withContext(Dispatchers.IO) {
-        val tempCopy = WorkspaceManager.createShadowCopy(input.patchFile, prefix = "morphe-mp-${input.sourceId}")
         try {
+            // Shadow-copy creation may fail (missing file, access denied). Keep
+            // that failure scoped to this source instead of cancelling siblings.
+            val tempCopy = WorkspaceManager.createShadowCopy(input.patchFile, prefix = "morphe-mp-${input.sourceId}")
             val patches = loadPatchesFromJar(setOf(tempCopy))
             Logger.info("MultiSourceLoader: loaded ${patches.size} patches from '${input.sourceName}'")
             LoadedSource(
@@ -71,6 +74,8 @@ object MultiSourceLoader {
                 sourceName = input.sourceName,
                 patches = patches,
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             // Catch LinkageErrors and exceptions from incompatible patcher bundles without failing other sources.
             val req = PatcherCompatibility.requiredPatcherVersion(input.patchFile)

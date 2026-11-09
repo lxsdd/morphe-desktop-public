@@ -1,5 +1,24 @@
 # Morphe Desktop Custom: authoritative source and upstream integration
 
+## Development checkpoint — 2026-11-09 (public Draft PR #44, not promoted)
+
+The official Morphe Desktop `v2.1.1` release (`813359f9c71c886befeea6bc7035b842414fb450`)
+fixes split-bundle staging when the selected input is a relative path. This
+unmerged public source-stage now carries that fix and focused tests for relative,
+same-workspace, and missing split input. It also isolates patch source shadow-copy
+errors so one unavailable source cannot cancel otherwise valid bundle loads;
+cancellation still propagates. The official 2.1.0 MPP remains SHA-256-pinned
+(`114eafa139ea3018f35af3498e8e67fe7850d4dd22a6065a02e891699dcc5e96`)
+and signature-verified under Patcher 2.3.0.
+
+Source push CI performs Windows/Linux tests plus Windows JAR structural checks,
+with **no public binary artifact upload**. This is source qualification, not
+the private FULL/CANDIDATE or Windows UI/Android hardware acceptance. Public
+`main` and private `main` remain unchanged; private feature parity, source
+trust UX, and real device acceptance are still required.
+
+---
+
 ## Status (2026-10-23)
 
 | Role | Repository/ref | Meaning |

@@ -260,23 +260,11 @@ object PatchEngine {
                 val actualInputApk = if (PatchStep.MERGING_SPLITS in config.steps) {
                     report(PatchEvent.StepStarted(PatchStep.MERGING_SPLITS))
                     info("Merging split APK bundle...")
-                    val mergedApk = File(tempDir, "${config.inputApk.nameWithoutExtension}-merged.apk")
-                    val stagedBundle = if (config.inputApk.parentFile?.canonicalFile == tempDir.canonicalFile) {
-                        config.inputApk
-                    } else {
-                        File(tempDir, config.inputApk.name).also { staged ->
-                            Files.deleteIfExists(staged.toPath())
-                            try {
-                                Files.createSymbolicLink(staged.toPath(), config.inputApk.toPath())
-                            } catch (_: Exception) {
-                                try {
-                                    Files.createLink(staged.toPath(), config.inputApk.toPath())
-                                } catch (_: Exception) {
-                                    config.inputApk.copyTo(staged, overwrite = true)
-                                }
-                            }
-                        }
-                    }
+                    // Official 2.1.1 fix: a relative source must never become a dangling
+                    // symlink after it is staged in a different working directory.
+                    val inputApk = config.inputApk.absoluteFile
+                    val mergedApk = File(tempDir, "${inputApk.nameWithoutExtension}-merged.apk")
+                    val stagedBundle = stageSplitBundleInput(inputApk, tempDir)
 
                     try {
                         ApkMerger(JulLogger.getLogger("app.morphe.patcher.ApkMerger").toMorpheLogger()).merge(
@@ -285,13 +273,13 @@ object PatchEngine {
                             cleanMetaInf = false,
                         )
                     } finally {
-                        if (stagedBundle != config.inputApk) {
+                        if (stagedBundle != inputApk) {
                             runCatching { Files.deleteIfExists(stagedBundle.toPath()) }
                         }
                         tempDir.listFiles()?.filter { it.name.startsWith("tmp_") }?.forEach {
                             it.deleteRecursivelyInParallel()
                         }
-                        cleanupLegacyBundleTmp(config.inputApk)
+                        cleanupLegacyBundleTmp(inputApk)
                     }
                     mergedApkToCleanup = mergedApk
                     mergedApk
@@ -749,6 +737,30 @@ object PatchEngine {
                 }
             }
         }
+        }
+    }
+
+    /**
+     * Stage a split bundle under the merge workspace. The link must target the
+     * absolute input path: a relative input otherwise resolves from the staging
+     * directory instead of the original process working directory (upstream 2.1.1).
+     */
+    internal fun stageSplitBundleInput(inputApk: File, tempDir: File): File {
+        val input = inputApk.absoluteFile
+        require(input.isFile) { "Split bundle input does not exist or is not a file: ${input.path}" }
+        if (input.parentFile?.canonicalFile == tempDir.canonicalFile) return input
+
+        return File(tempDir, input.name).also { staged ->
+            Files.deleteIfExists(staged.toPath())
+            try {
+                Files.createSymbolicLink(staged.toPath(), input.toPath())
+            } catch (_: Exception) {
+                try {
+                    Files.createLink(staged.toPath(), input.toPath())
+                } catch (_: Exception) {
+                    input.copyTo(staged, overwrite = true)
+                }
+            }
         }
     }
 
