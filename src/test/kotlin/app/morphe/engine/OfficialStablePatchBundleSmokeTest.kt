@@ -50,6 +50,6 @@ class OfficialStablePatchBundleSmokeTest {
         assertTrue(mixed.perSource[0].patches.isEmpty())
         assertTrue(mixed.perSource[1].isSuccess)
         assertTrue(mixed.perSource[1].patches.isNotEmpty())
-        assertEquals(mixed.perSource[1].patches, mixed.allPatches)
+        assertEquals(mixed.perSource[1].patches.toSet(), mixed.allPatches)
     }
 }
