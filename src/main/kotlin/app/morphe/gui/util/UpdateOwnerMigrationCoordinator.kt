@@ -168,16 +168,6 @@ class UpdateOwnerMigrationCoordinator(
                 }
             }
         } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) { Result.failure(e) }
-            onPackageStateChanged(request.deviceSerial, request.packageName)
-            if (replacement.isSuccess) UpdateOwnerMigrationResult.Success
-            else UpdateOwnerMigrationResult.ReinstallFailed(
-                "The app was uninstalled but could not be restored: " +
-                    (replacement.exceptionOrNull()?.message ?: "Reinstallation failed.") +
-                    " Keep the original APK and app-data backup."
-            )
-        } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             blocked("Migration preflight could not be completed: ${e.message ?: e::class.simpleName}")
