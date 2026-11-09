@@ -29,6 +29,8 @@ import app.morphe.gui.ui.screens.result.components.OutputFileCard
 import app.morphe.gui.ui.screens.result.components.AdbInstallSection
 import app.morphe.gui.ui.theme.*
 import app.morphe.gui.util.DeviceDeploymentState
+import app.morphe.gui.util.DeviceInstallConfirmationGate
+import app.morphe.gui.util.DeviceInstallConfirmationRequest
 import app.morphe.gui.util.DeviceOperationTarget
 import app.morphe.gui.util.DevicePackageMutations
 import app.morphe.gui.util.captureOperationTarget
@@ -39,7 +41,9 @@ import app.morphe.gui.util.UpdateOwnerMigrationResult
 import app.morphe.gui.util.getUserMessage
 import app.morphe.morphe_desktop.generated.resources.*
 import java.io.File
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 
@@ -60,14 +64,44 @@ internal fun SimpleResultContent(
     var activeInstallTarget by remember(outputPath) { mutableStateOf<DeviceOperationTarget?>(null) }
     val adbManager = remember { AdbManager() }
     val migration = remember(outputPath) { OwnerMigrationUiState(adbManager) }
+    var installConfirmation by remember(outputPath) { mutableStateOf<DeviceInstallConfirmationRequest?>(null) }
+    var preparingConfirmation by remember(outputPath) { mutableStateOf(false) }
     val engineConfigRepository: EngineConfigRepository = koinInject()
     val scope = rememberCoroutineScope()
     val completedScroll = rememberScrollState()
 
-    fun installOnDevice(requested: DeviceOperationTarget? = null) {
-        if (migration.busy || deployments.values.any { it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING }) return
+    fun requestInstallConfirmation(requested: DeviceOperationTarget? = null) {
+        if (preparingConfirmation || installConfirmation != null || migration.busy ||
+            deployments.values.any { it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING }) return
         val target = requested ?: DeviceMonitor.state.value.captureOperationTarget() ?: return
-        if (DeviceMonitor.state.value.devices.none { it.id == target.serial && it.isReady }) return
+        if (DeviceMonitor.state.value.captureOperationTarget()?.serial != target.serial) return
+        preparingConfirmation = true
+        scope.launch {
+            try {
+                val prepared = withContext(Dispatchers.IO) {
+                    DeviceInstallConfirmationGate.prepare(outputFile, target)
+                }
+                if (DeviceMonitor.state.value.captureOperationTarget()?.serial != target.serial) {
+                    deployments = deployments + (target.serial to deployments.forSerial(target.serial)
+                        .installFailed("Device selection changed before confirmation."))
+                } else {
+                    prepared.fold(
+                        onSuccess = { installConfirmation = it },
+                        onFailure = { err ->
+                            deployments = deployments + (target.serial to deployments.forSerial(target.serial)
+                                .installFailed(err.message ?: "Could not verify the selected APK."))
+                        },
+                    )
+                }
+            } finally { preparingConfirmation = false }
+        }
+    }
+
+    fun installOnDevice(requested: DeviceOperationTarget, expectedPackageName: String) {
+        if (migration.busy || deployments.values.any { it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING }) return
+        val target = requested
+        if (DeviceMonitor.state.value.captureOperationTarget()?.serial != target.serial ||
+            DeviceMonitor.state.value.devices.none { it.id == target.serial && it.isReady }) return
         migration.clear()
         activeInstallTarget = target
         val previous = deployments.forSerial(target.serial)
@@ -76,6 +110,7 @@ internal fun SimpleResultContent(
             val result = adbManager.installApk(
                 apkPath = outputPath,
                 deviceId = target.serial,
+                expectedPackageName = expectedPackageName,
                 onProgress = { line ->
                     deployments = deployments + (target.serial to
                         deployments.forSerial(target.serial).installing(line))
@@ -172,10 +207,10 @@ internal fun SimpleResultContent(
                     deployments = deployments,
                     installTarget = activeInstallTarget,
                     onDeviceSelected = { DeviceMonitor.selectDevice(it) },
-                    onInstallClick = { installOnDevice() },
-                    onRetryClick = { installOnDevice(activeInstallTarget) },
+                    onInstallClick = { requestInstallConfirmation() },
+                    onRetryClick = { requestInstallConfirmation(activeInstallTarget) },
                     migrationAvailable = migration.request?.deviceSerial == monitorState.selectedDevice?.id,
-migrationBusy = migration.busy,
+migrationBusy = migration.busy || preparingConfirmation || installConfirmation != null,
                     onMigrationClick = { migration.showDialog() },
                     onDismissError = {
                         migration.clear()
@@ -208,6 +243,39 @@ migrationBusy = migration.busy,
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
             adapter = rememberScrollbarAdapter(completedScroll),
             style = MorpheScrollbarStyle(),
+        )
+    }
+
+    val pendingInstall = installConfirmation
+    if (pendingInstall != null) {
+        DeviceInstallConfirmationDialog(
+            request = pendingInstall,
+            stillSelectedAndReady =
+                DeviceMonitor.state.value.captureOperationTarget()?.serial == pendingInstall.target.serial,
+            previouslyInstalled = deployments.forSerial(pendingInstall.target.serial).installed == true,
+            onDismiss = { if (!preparingConfirmation) installConfirmation = null },
+            onConfirm = {
+                if (!preparingConfirmation) {
+                    preparingConfirmation = true
+                    installConfirmation = null
+                    scope.launch {
+                        try {
+                            val selected = DeviceMonitor.state.value.captureOperationTarget()
+                            val verified = withContext(Dispatchers.IO) {
+                                DeviceInstallConfirmationGate.stillMatches(pendingInstall, selected)
+                            }
+                            if (!verified ||
+                                DeviceMonitor.state.value.captureOperationTarget()?.serial != pendingInstall.target.serial) {
+                                deployments = deployments + (pendingInstall.target.serial to
+                                    deployments.forSerial(pendingInstall.target.serial).installFailed(
+                                        "APK or device changed. No installation was started."))
+                            } else {
+                                installOnDevice(pendingInstall.target, pendingInstall.packageName)
+                            }
+                        } finally { preparingConfirmation = false }
+                    }
+                }
+            },
         )
     }
 

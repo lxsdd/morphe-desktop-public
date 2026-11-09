@@ -39,6 +39,17 @@ device changes. Synthetic tests model success, cancellation/no-consent,
 stale APK, wrong package, owner change, disconnect, failed uninstall and
 failed reinstall. No claim of real Android installation or Play update fix.
 
+## 2026-11-09: exact-target normal installation confirmation
+
+Simple and Expert results now use a shared final confirmation of the
+selected device serial, APK package and version. The APK is identified and
+SHA-256-checked before showing the confirmation and is checked again just
+before invoking the normal ADB installer, which also receives an exact
+expected package name. Device selection or APK content changes cancel
+the operation without a substitute target. The separate owner-migration
+consent and all existing signing/ownership checks remain in force.
+Synthetic tests use only temporary fixture files; no real device writes.
+
 ## 2026-11-09: qualified-source boundary across GUI and direct patching
 
 Downloaded or cached MPPs are **not** automatically patchable.
