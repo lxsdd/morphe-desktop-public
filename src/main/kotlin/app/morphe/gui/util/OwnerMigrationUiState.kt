@@ -46,15 +46,26 @@ class OwnerMigrationUiState(private val manager: AdbManager) {
         }
     }
 
-    suspend fun confirm(selectedDeviceSerial: String?): UpdateOwnerMigrationResult {
-        val pending = request ?: return UpdateOwnerMigrationResult.Blocked("No migration request.")
-        if (busy) return UpdateOwnerMigrationResult.Blocked("Migration is already running.")
-        if (selectedDeviceSerial != pending.deviceSerial) {
-            return UpdateOwnerMigrationResult.Blocked("Selected device changed. No app was removed.")
-        }
+    /**
+     * Reserve the migration synchronously in the click handler so another install
+     * cannot start before a coroutine reaches the first suspension point.
+     */
+    fun beginConfirmation(): Boolean {
+        if (busy || request == null || !dialogVisible) return false
         busy = true
+        return true
+    }
+
+    suspend fun confirm(selectedDeviceSerial: String?): UpdateOwnerMigrationResult {
+        if (!busy) return UpdateOwnerMigrationResult.Blocked("Confirmation was not started.")
         return try {
-            UpdateOwnerMigrationCoordinator.using(manager).execute(pending, confirmedDataLoss = true)
+            val pending = request
+                ?: return UpdateOwnerMigrationResult.Blocked("No migration request.")
+            if (selectedDeviceSerial != pending.deviceSerial) {
+                UpdateOwnerMigrationResult.Blocked("Selected device changed. No app was removed.")
+            } else {
+                UpdateOwnerMigrationCoordinator.using(manager).execute(pending, confirmedDataLoss = true)
+            }
         } finally {
             busy = false
         }

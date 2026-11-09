@@ -22,6 +22,7 @@ class UpdateOwnerMigrationCoordinatorTest {
     private val expectedOwner = InstalledPackageOwnership.OwnedBy("com.android.vending")
     private var owner: InstalledPackageOwnership = expectedOwner
     private var ready = true
+    private var notifyFailure = false
     private var removeResult: Result<Unit> = Result.success(Unit)
     private var installResult: Result<Unit> = Result.success(Unit)
     private val calls = mutableListOf<String>()
@@ -58,7 +59,10 @@ class UpdateOwnerMigrationCoordinatorTest {
             assertEquals(FileChecksum.sha256(source), FileChecksum.sha256(apk))
             installResult
         },
-        onPackageStateChanged = { serial, pkg -> calls += "notify:$serial:$pkg" },
+        onPackageStateChanged = { serial, pkg ->
+            calls += "notify:$serial:$pkg"
+            if (notifyFailure) error("listener down")
+        },
         inspect = { identity },
         scratchDirectory = { File(root, "scratch") },
     )
@@ -141,6 +145,13 @@ class UpdateOwnerMigrationCoordinatorTest {
         assertIs<UpdateOwnerMigrationResult.ReinstallFailed>(outcome)
         assertTrue(outcome.message.contains("uninstalled"))
         assertEquals(2, calls.count { it.startsWith("notify:") })
+    }
+
+    @Test
+    fun `notification failure cannot interrupt post-uninstall recovery`() = runBlocking {
+        notifyFailure = true
+        assertEquals(UpdateOwnerMigrationResult.Success, coordinator().execute(request(), true))
+        assertEquals(1, calls.count { it.startsWith("install:") })
     }
 
     @Test

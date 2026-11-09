@@ -15,6 +15,7 @@ import app.morphe.engine.util.FileChecksum
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 data class MigrationApkIdentity(val packageName: String, val versionName: String?)
@@ -134,24 +135,39 @@ class UpdateOwnerMigrationCoordinator(
                 return@withContext blocked("Installed package or update owner changed. Retry the normal install first.")
             }
 
-            val removal = try { uninstall(request.packageName, request.deviceSerial) } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) { Result.failure(e) }
-            // Even an unsuccessful uninstall might have changed the package state.
-            onPackageStateChanged(request.deviceSerial, request.packageName)
-            if (removal.isFailure) {
-                return@withContext UpdateOwnerMigrationResult.UninstallFailed(
-                    removal.exceptionOrNull()?.message ?: "Uninstall failed."
-                )
+            // Once removal is attempted, a view/navigation cancellation must not
+            // discard the verified APK snapshot before the replacement attempt.
+            // Do not allow UI state-notification failures to abort recovery.
+            withContext(NonCancellable) {
+                val removal = try {
+                    uninstall(request.packageName, request.deviceSerial)
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
+                runCatching { onPackageStateChanged(request.deviceSerial, request.packageName) }
+                if (removal.isFailure) {
+                    UpdateOwnerMigrationResult.UninstallFailed(
+                        removal.exceptionOrNull()?.message ?: "Uninstall failed."
+                    )
+                } else {
+                    val replacement = try {
+                        if (hash(snapshot) != request.patchedApkSha256 ||
+                            inspect(snapshot)?.packageName != request.packageName
+                        ) Result.failure(IllegalStateException("Verified APK snapshot changed after uninstall."))
+                        else install(snapshot, request.deviceSerial, request.packageName)
+                    } catch (e: Exception) {
+                        Result.failure(e)
+                    }
+                    runCatching { onPackageStateChanged(request.deviceSerial, request.packageName) }
+                    if (replacement.isSuccess) UpdateOwnerMigrationResult.Success
+                    else UpdateOwnerMigrationResult.ReinstallFailed(
+                        "The app was uninstalled but could not be restored: " +
+                            (replacement.exceptionOrNull()?.message ?: "Reinstallation failed.") +
+                            " Keep the original APK and app-data backup."
+                    )
+                }
             }
-
-            // Never substitute the original changing file after uninstall.
-            val replacement = try {
-                if (hash(snapshot) != request.patchedApkSha256 ||
-                    inspect(snapshot)?.packageName != request.packageName
-                ) Result.failure(IllegalStateException("Verified APK snapshot changed after uninstall."))
-                else install(snapshot, request.deviceSerial, request.packageName)
-            } catch (e: CancellationException) {
+        } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) { Result.failure(e) }
             onPackageStateChanged(request.deviceSerial, request.packageName)

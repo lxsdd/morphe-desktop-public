@@ -43,6 +43,7 @@ internal fun AdbInstallSection(
     onInstallClick: () -> Unit,
     onRetryClick: () -> Unit,
     migrationAvailable: Boolean = false,
+    migrationBusy: Boolean = false,
     onMigrationClick: () -> Unit = {},
     onDismissError: () -> Unit,
     modifier: Modifier = Modifier,
@@ -53,7 +54,7 @@ internal fun AdbInstallSection(
     val selectedState = selected?.let { deployments.forSerial(it.id) }
     val anyInstalling = deployments.values.any {
         it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING
-    }
+    } || migrationBusy
     Column(
         modifier = modifier.widthIn(max = 520.dp).fillMaxWidth()
             .border(1.dp, borderColor, MorpheTheme.shapes.medium)

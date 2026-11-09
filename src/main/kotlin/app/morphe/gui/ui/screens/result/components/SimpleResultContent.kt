@@ -65,7 +65,7 @@ internal fun SimpleResultContent(
     val completedScroll = rememberScrollState()
 
     fun installOnDevice(requested: DeviceOperationTarget? = null) {
-        if (deployments.values.any { it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING }) return
+        if (migration.busy || deployments.values.any { it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING }) return
         val target = requested ?: DeviceMonitor.state.value.captureOperationTarget() ?: return
         if (DeviceMonitor.state.value.devices.none { it.id == target.serial && it.isReady }) return
         migration.clear()
@@ -175,6 +175,7 @@ internal fun SimpleResultContent(
                     onInstallClick = { installOnDevice() },
                     onRetryClick = { installOnDevice(activeInstallTarget) },
                     migrationAvailable = migration.request?.deviceSerial == monitorState.selectedDevice?.id,
+migrationBusy = migration.busy,
                     onMigrationClick = { migration.showDialog() },
                     onDismissError = {
                         migration.clear()
@@ -218,7 +219,7 @@ internal fun SimpleResultContent(
             error = migration.error,
             onDismiss = { migration.dismiss() },
             onConfirm = {
-                if (!migration.busy) scope.launch {
+                if (migration.beginConfirmation()) scope.launch {
                     when (val outcome = migration.confirm(
                         DeviceMonitor.state.value.captureOperationTarget()?.serial
                     )) {

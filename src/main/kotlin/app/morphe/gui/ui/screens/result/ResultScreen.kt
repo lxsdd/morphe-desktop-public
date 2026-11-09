@@ -183,7 +183,7 @@ fun ResultScreenContent(outputPath: String) {
     }
 
     fun installViaAdb(requestedTarget: DeviceOperationTarget? = null) {
-        if (deployments.values.any { it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING }) return
+        if (migration.busy || deployments.values.any { it.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING }) return
         val target = requestedTarget ?: DeviceMonitor.state.value.captureOperationTarget() ?: return
         // Never silently redirect an explicit install to a different selected device.
         if (DeviceMonitor.state.value.devices.none { it.id == target.serial && it.isReady }) {
@@ -317,6 +317,7 @@ fun ResultScreenContent(outputPath: String) {
                         onInstallClick = { installViaAdb() },
                         onRetryClick = { installViaAdb(installTarget) },
                         migrationAvailable = migration.request?.deviceSerial == monitorState.selectedDevice?.id,
+migrationBusy = migration.busy,
                         onMigrationClick = { migration.showDialog() },
                         onDismissError = {
                             migration.clear()
@@ -419,7 +420,7 @@ fun ResultScreenContent(outputPath: String) {
             error = migration.error,
             onDismiss = { migration.dismiss() },
             onConfirm = {
-                if (!migration.busy) scope.launch {
+                if (migration.beginConfirmation()) scope.launch {
                     when (val outcome = migration.confirm(
                         DeviceMonitor.state.value.captureOperationTarget()?.serial
                     )) {
