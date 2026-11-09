@@ -136,6 +136,9 @@ tasks {
         useJUnitPlatform()
         testLogging {
             events("FAILED")
+            // Keep assertion messages and nested source loader causes visible in CI,
+            // so a failed signed-MPP smoke test does not require a blind rerun.
+            exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         }
     }
 
