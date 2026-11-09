@@ -1,5 +1,15 @@
 # Morphe Desktop Custom: authoritative source and upstream integration
 
+## Real third-party source compatibility smoke — 2026-11-09
+
+Linux CI now obtains the public stable `rushiranpise/morphe-patches` v1.23.1 MPP
+(SHA-256 `75ede4e416edf147be8132b6c7693d78b37264a1a89dd2c4fa835efccefcdd9d`)
+alongside the official signed 2.1.0 MPP, verifies both released bytes and
+checks Patcher 2.3.0 can load both in the same source-loader run. It observes
+the third-party signature but deliberately does **not** enroll that key as a
+trusted source. This synthetic compatibility evidence cannot verify all of
+the user's saved patch sources or grant trust for any signer change.
+
 ## Patch-cache trust preservation — 2026-11-09 (source-stage)
 
 Both global cache clearing and source-specific clearing previously deleted the

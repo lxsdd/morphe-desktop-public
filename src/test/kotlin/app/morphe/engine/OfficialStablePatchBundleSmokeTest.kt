@@ -7,6 +7,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -51,5 +52,38 @@ class OfficialStablePatchBundleSmokeTest {
         assertTrue(mixed.perSource[1].isSuccess)
         assertTrue(mixed.perSource[1].patches.isNotEmpty())
         assertEquals(mixed.perSource[1].patches.toSet(), mixed.allPatches)
+    }
+
+    /**
+     * SHA-256 pinned public rushiranpise v1.23.1 is the historically configured
+     * Amazon source. Loading it alongside official 2.1.0 under Patcher 2.3.0
+     * is a compatibility check only; it NEVER records signer trust on disk.
+     */
+    @Test
+    fun amazonThirdPartyStableLoadsAlongsideOfficialWithoutTrustMutation() = runBlocking {
+        val officialPath = System.getenv("MORPHE_OFFICIAL_PATCHES_TEST_FILE")
+            ?.takeIf { it.isNotBlank() } ?: return@runBlocking
+        val thirdPath = System.getenv("MORPHE_THIRDPARTY_PATCHES_TEST_FILE")
+            ?.takeIf { it.isNotBlank() } ?: return@runBlocking
+        val official = File(officialPath)
+        val third = File(thirdPath)
+        assertTrue(official.isFile && official.length() > 1024)
+        assertTrue(third.isFile && third.length() > 1024)
+        assertEquals("2.3.0", PatcherCompatibility.currentPatcherVersion)
+        // The third-party public signature is observed, never automatically trusted.
+        assertNotNull(PatchBundleSignature.verify(third), "Third-party stable MPP must carry a signature")
+        assertNull(PatcherCompatibility.incompatibilityMessage(third))
+        val mixed = MultiSourceLoader.load(
+            listOf(
+                MultiSourceLoader.SourceInput("official", "Morphe Patches", official),
+                MultiSourceLoader.SourceInput("amazon", "rushiranpise Morphe Patches", third),
+            )
+        )
+        assertEquals(listOf("official", "amazon"), mixed.perSource.map { it.sourceId })
+        mixed.perSource.forEach { source ->
+            assertTrue(source.isSuccess, "Source ${source.sourceName} failed: ${source.error?.message}")
+            assertTrue(source.patches.isNotEmpty(), "Source ${source.sourceName} loaded no patches")
+            assertTrue(mixed.allPatches.containsAll(source.patches))
+        }
     }
 }

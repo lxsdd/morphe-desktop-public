@@ -39,7 +39,7 @@ jobs:
       - name: Verify default Compose resource keys before compiling
         shell: bash
         run: python tools/verify_compose_resource_keys.py
-      - name: Download and hash-verify official stable Patches 2.1.0 (Linux smoke)
+      - name: Hash-verify official and Amazon-compatible stable MPPs (Linux smoke)
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
@@ -50,6 +50,12 @@ jobs:
             -o "$bundle"
           echo '114eafa139ea3018f35af3498e8e67fe7850d4dd22a6065a02e891699dcc5e96  '"$bundle" | sha256sum -c -
           echo "MORPHE_OFFICIAL_PATCHES_TEST_FILE=$bundle" >> "$GITHUB_ENV"
+          thirdparty="$RUNNER_TEMP/rushiranpise-patches-1.23.1.mpp"
+          curl -fL --retry 2 --retry-delay 2 --connect-timeout 20 \
+            'https://github.com/rushiranpise/morphe-patches/releases/download/v1.23.1/patches-1.23.1.mpp' \
+            -o "$thirdparty"
+          echo '75ede4e416edf147be8132b6c7693d78b37264a1a89dd2c4fa835efccefcdd9d  '"$thirdparty" | sha256sum -c -
+          echo "MORPHE_THIRDPARTY_PATCHES_TEST_FILE=$thirdparty" >> "$GITHUB_ENV"
       - name: Compile and test source-stage (never upload binaries)
         shell: bash
         env:
