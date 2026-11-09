@@ -9,6 +9,7 @@ import app.morphe.engine.installation.AdbApkInstaller
 import app.morphe.engine.installation.AdbInstallRequest
 import app.morphe.engine.installation.AdbPackageOwnershipProbe
 import app.morphe.engine.installation.InstalledPackageOwnership
+import app.morphe.engine.installation.ProcessAdbCommandRunner
 import app.morphe.library.installation.installer.AdbRootInstaller
 import app.morphe.library.installation.installer.DeviceNotFoundException
 import app.morphe.library.installation.installer.Installer
@@ -357,6 +358,7 @@ class AdbManager {
         deviceId: String,
         allowDowngrade: Boolean = true,
         installerPackage: String? = null,
+        expectedPackageName: String? = null,
         onProgress: (String) -> Unit = {},
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val adb = findAdb() ?: return@withContext Result.failure(
@@ -383,6 +385,7 @@ class AdbManager {
                 apk = apkFile,
                 deviceSerial = target.id,
                 allowDowngrade = allowDowngrade,
+                expectedPackageName = expectedPackageName,
                 installerPackage = requestedInstaller,
             ),
             onProgress = onProgress,
@@ -397,6 +400,22 @@ class AdbManager {
                 Result.failure(error)
             },
         )
+    }
+
+    /** Strict read-only owner probe for one explicit, ready device and one package. */
+    suspend fun readPackageUpdateOwnership(
+        deviceId: String,
+        packageName: String,
+    ): Result<InstalledPackageOwnership> = withContext(Dispatchers.IO) {
+        val adb = findAdb() ?: return@withContext Result.failure(
+            AdbException("ADB binary not found", AdbErrorCode.ADB_NOT_FOUND)
+        )
+        val target = resolveTargetDevice(deviceId).getOrElse {
+            return@withContext Result.failure(it)
+        }
+        runCatching {
+            AdbPackageOwnershipProbe(ProcessAdbCommandRunner()).probe(adb, target.id, packageName)
+        }
     }
 
     /** Verifies that the target device is connected and ready for installation. */

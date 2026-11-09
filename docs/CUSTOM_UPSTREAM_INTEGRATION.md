@@ -1,5 +1,20 @@
 # Morphe Desktop Custom: authoritative source and upstream integration
 
+## Owner migration parity block — 2026-11-09 (source-stage, no hardware mutation)
+
+The shared `AdbMigrationRequiredException` now leads to an explicit review action
+on both Simple and Expert patch result views. The shared confirmation dialog
+shows the exact package, device serial, captured APK version, foreign/missing
+owner and permanent data-loss warning. The destructive button requires a fresh
+acknowledgement. No automatic uninstall, fallback device, installer spoof or
+signer bypass is introduced. The coordinator rechecks APK SHA-256 and manifest
+identity, snapshots the APK before removal, rechecks the exact device/owner,
+and only then calls the existing common ADB uninstall and verified install
+backend. UI state is per output/serial and is invalidated when the selected
+device changes. Synthetic tests model success, cancellation/no-consent,
+stale APK, wrong package, owner change, disconnect, failed uninstall and
+failed reinstall. No claim of real Android installation or Play update fix.
+
 ## Development checkpoint — 2026-11-09 (public Draft PR #44, not promoted)
 
 The official Morphe Desktop `v2.1.1` release (`813359f9c71c886befeea6bc7035b842414fb450`)

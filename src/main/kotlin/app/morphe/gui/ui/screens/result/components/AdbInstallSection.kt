@@ -42,6 +42,8 @@ internal fun AdbInstallSection(
     onDeviceSelected: (AdbDevice) -> Unit,
     onInstallClick: () -> Unit,
     onRetryClick: () -> Unit,
+    migrationAvailable: Boolean = false,
+    onMigrationClick: () -> Unit = {},
     onDismissError: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -126,10 +128,19 @@ internal fun AdbInstallSection(
                     size = MorpheButtonSize.COMPACT,
                     onClick = onDismissError)
                 if (installTarget?.serial == selected?.id) {
-                    MorpheButton(label = stringResource(Res.string.retry),
-                        variant = MorpheButtonVariant.DANGER,
-                        size = MorpheButtonSize.COMPACT,
-                        onClick = onRetryClick)
+                    if (migrationAvailable) {
+                        MorpheButton(
+                            label = "Review owner migration",
+                            variant = MorpheButtonVariant.DANGER,
+                            size = MorpheButtonSize.COMPACT,
+                            onClick = onMigrationClick,
+                        )
+                    } else {
+                        MorpheButton(label = stringResource(Res.string.retry),
+                            variant = MorpheButtonVariant.DANGER,
+                            size = MorpheButtonSize.COMPACT,
+                            onClick = onRetryClick)
+                    }
                 }
             }
         } else if (selectedState?.installPhase == DeviceDeploymentState.InstallPhase.INSTALLING) {

@@ -38,6 +38,8 @@ import app.morphe.gui.util.DevicePackageMutations
 import app.morphe.gui.util.DeviceDeploymentState
 import app.morphe.gui.util.forSerial
 import app.morphe.gui.util.DeviceOperationTarget
+import app.morphe.gui.util.OwnerMigrationUiState
+import app.morphe.gui.util.UpdateOwnerMigrationResult
 import app.morphe.gui.util.captureOperationTarget
 import app.morphe.gui.util.FormatUtils
 import app.morphe.gui.util.currentLocale
@@ -86,6 +88,7 @@ fun ResultScreenContent(outputPath: String) {
     val outputFile = File(outputPath)
     val scope = rememberCoroutineScope()
     val adbManager = remember { AdbManager() }
+    val migration = remember(outputPath) { OwnerMigrationUiState(adbManager) }
     val engineConfigRepository: EngineConfigRepository = koinInject()
 
     // ADB state from DeviceMonitor
@@ -188,6 +191,7 @@ fun ResultScreenContent(outputPath: String) {
                 .installFailed("Device ${target.displayName} is no longer ready."))
             return
         }
+        migration.clear()
         val previous = deployments.forSerial(target.serial)
         val wasInstalled = previous.installed == true
         installTarget = target
@@ -202,6 +206,9 @@ fun ResultScreenContent(outputPath: String) {
                     deployments = deployments + (target.serial to deployments.forSerial(target.serial).installing(progress))
                 },
             )
+            if (result.isFailure) {
+                migration.recordFailure(result.exceptionOrNull(), target, outputPath)
+            }
             deployments = deployments + (target.serial to result.fold(
                 onSuccess = {
                     installedOnTarget = target
@@ -309,7 +316,10 @@ fun ResultScreenContent(outputPath: String) {
                         onDeviceSelected = { DeviceMonitor.selectDevice(it) },
                         onInstallClick = { installViaAdb() },
                         onRetryClick = { installViaAdb(installTarget) },
+                        migrationAvailable = migration.request?.deviceSerial == monitorState.selectedDevice?.id,
+                        onMigrationClick = { migration.showDialog() },
                         onDismissError = {
+                            migration.clear()
                             installTarget?.let { target ->
                                 val current = deployments.forSerial(target.serial)
                                 deployments = deployments + (target.serial to current.copy(
@@ -399,6 +409,47 @@ fun ResultScreenContent(outputPath: String) {
                 )
             }
         }
+    }
+
+    val pendingMigration = migration.request
+    if (migration.dialogVisible && pendingMigration != null) {
+        UpdateOwnerMigrationDialog(
+            request = pendingMigration,
+            isBusy = migration.busy,
+            error = migration.error,
+            onDismiss = { migration.dismiss() },
+            onConfirm = {
+                if (!migration.busy) scope.launch {
+                    when (val outcome = migration.confirm(
+                        DeviceMonitor.state.value.captureOperationTarget()?.serial
+                    )) {
+                        UpdateOwnerMigrationResult.Success -> {
+                            migration.clear()
+                            val target = DeviceOperationTarget(
+                                pendingMigration.deviceSerial, pendingMigration.deviceName
+                            )
+                            installedOnTarget = target
+                            DevicePackageMutations.notify(target.serial, pendingMigration.packageName)
+                            deployments = deployments + (target.serial to
+                                deployments.forSerial(target.serial).installed(
+                                    "Installed on ${target.displayName} after confirmed migration"
+                                ))
+                        }
+                        is UpdateOwnerMigrationResult.Blocked -> migration.reportError(outcome.message)
+                        is UpdateOwnerMigrationResult.UninstallFailed -> {
+                            migration.reportError(outcome.message)
+                            deployments = deployments + (pendingMigration.deviceSerial to
+                                deployments.forSerial(pendingMigration.deviceSerial).installFailed(outcome.message))
+                        }
+                        is UpdateOwnerMigrationResult.ReinstallFailed -> {
+                            migration.reportError(outcome.message)
+                            deployments = deployments + (pendingMigration.deviceSerial to
+                                deployments.forSerial(pendingMigration.deviceSerial).installFailed(outcome.message))
+                        }
+                    }
+                }
+            },
+        )
     }
 }
 
