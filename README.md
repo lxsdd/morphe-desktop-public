@@ -1,146 +1,78 @@
-# Morphe Desktop Custom — unofficial community fork
+# Morphe Desktop Custom
 
-> **Independent, unofficial derivative.** Not endorsed by the original Morphe
-> maintainers. The Morphe name, marks and brand assets remain with their
-> owners. See [NOTICE](NOTICE) for additional GPLv3 Section 7 conditions.
+**Unofficial community-maintained fork of [Morphe Desktop](https://github.com/MorpheApp/morphe-desktop).** Independent of and not endorsed by the original Morphe project. The original project's name, logos and trademarks belong to their respective owners. See [LICENSE](LICENSE) and [NOTICE](NOTICE), including the additional GPLv3 Section 7 conditions.
 
-**2.1.1 public beta:** [releases](https://github.com/lxsdd/morphe-desktop-public/releases)
-· [Features, source parity and verification](docs/PUBLIC_BETA_2_1_1.md).
+[**Download the public Windows beta (2.1.1-beta.1)**](https://github.com/lxsdd/morphe-desktop-public/releases/tag/custom-v2.1.1-beta.1) · [Release details and reproducibility](docs/PUBLIC_BETA_2_1_1.md) · [Full documentation](docs/documentation.md)
 
-<h1 align="center">Morphe Desktop</h1>
+> **Beta notice:** This is a public preview, not an official Morphe release or a guarantee that a particular patched app will work on your device. The private development repository, user data, credentials and private builds are not published here.
 
+## What's in this Custom edition?
 
-## About
-Morphe Desktop is a command-line and a GUI application that uses [Morphe Patcher](https://github.com/MorpheApp/morphe-patcher) to patch Android apps.
+Morphe Desktop Custom is a desktop **GUI and CLI** for patching Android apps using compatible Morphe Patcher bundles. This public **2.1.1** beta includes the current device-oriented Custom interface and the owner-reviewed application source, with the following improvements:
 
-Morphe Desktop's CLI is based on the prior work of [ReVanced](https://github.com/ReVanced/revanced-cli).
-The GUI is developed by the Morphe team.
-All modifications made by Morphe can be found in the Git history.
+| Area | Features |
+| --- | --- |
+| **Apps on your device** | Read-only ADB inventory for the **selected device**, with installed app names and versions, source compatibility and detail views. Package names remain visible when a friendly label is unavailable. Cached app labels avoid repeatedly resolving unchanged apps. |
+| **Updates and filtering** | Separate views for **app updates** and **patch updates**, plus your apps and on-device inventory. Status filters, sorting and explicit scanning/loading states help distinguish observed device facts from patch catalog suggestions. |
+| **APK patching** | Streamlined **Simple mode**, full **Expert mode**, supported APK / split-bundle inspection, multi-source patch selection, patch options and detailed progress/results. A different APK selected by the user is the input for the next patch operation. |
+| **Patch sources and trust** | Source management, version/update information, informative compatibility errors for older patch bundles, signer verification and explicit trust decisions. Saved sources are not reset merely because one becomes incompatible. |
+| **Installation** | Explicit ADB installation of a verified patched APK to the **chosen device**. A separate **Install existing APK** option supports a fresh install on a device where the app is absent, without patching again. Existing installations, ambiguous ownership and uncertain inputs fail closed; no silent uninstall/downgrade or other-device fallback. |
+| **UI and dialogs** | Consistent close/dismiss behavior for overlays, clearer confirmation dialogs and error messages, improved responsive layouts and native app-name display where available. |
+| **Safety** | APK identity and SHA-256 checks, read-only package/owner probes, exact-device targeting and warnings about signer or Android update-ownership mismatches. No claim that successful ADB installation suppresses Google Play update offers. |
 
+### Current interface
 
-## Prerequisites
-1. Java Runtime Environment 21 or above ([Azul Zulu JRE](https://www.azul.com/downloads/?version=java-21-lts&package=jre#zulu), [Temurin](https://adoptium.net/temurin/releases?version=21&os=any&arch=any) or [OpenJDK](https://jdk.java.net/archive/)).
-2. Morphe Desktop jar file (morphe-desktop-*-all.jar). Download this unofficial beta from [this repository's releases](https://github.com/lxsdd/morphe-desktop-public/releases). Official upstream builds are a separate product.
+Screenshots below are captured from the **real 2.1.1 application** on a clean Linux desktop session without connected Android devices or personal patch sources. Your colors, language, installed apps and available sources may look different on Windows.
 
-   **Alternative: Homebrew (macOS/Linux).** Install [Homebrew](https://brew.sh), then run `brew install morphe`. Homebrew installs OpenJDK as a dependency. Run `morphe --help` to get started. See the [Morphe formula](https://formulae.brew.sh/formula/morphe).
-3. If using CLI: Patches MPP file (patches-*.mpp). Download the latest Morphe official patch files from [here](https://github.com/MorpheApp/morphe-patches/releases/latest).
-4. Desired app file (app.apk or app.apkm). Download your apk from [APK Mirror](https://www.apkmirror.com/).
-5. [Optional] [Android Debug Bridge (ADB)](https://developer.android.com/studio/command-line/adb) If you want to install the patched APK file to your device directly from your computer.
+| Apps / device workspace | Patch source management |
+| --- | --- |
+| ![Morphe Desktop Custom 2.1.1 Apps workspace, clean profile](docs/images/current/desktop-apps.png) | ![Morphe Desktop Custom 2.1.1 Sources page, clean profile](docs/images/current/desktop-sources.png) |
 
-## Documentation
-Learn how to use Morphe Desktop by following the [documentation](/docs/documentation.md).
+## Download and run on Windows
 
-## Getting Started
-Morphe Desktop is a powerful little application that allows you to patch and install(via ADB) android apps. Although sticking to the suggested apps is recommended, 
-you can try and experiment with other apps to your hearts content!
+1. Download `Morphe-Desktop-Custom-2.1.1-BETA-*.zip` from the [public release](https://github.com/lxsdd/morphe-desktop-public/releases/tag/custom-v2.1.1-beta.1). Check the associated `SHA256SUMS.txt` if you want to verify the download.
+2. Extract the entire ZIP to a folder of your choice; don't run the launcher from inside the archive.
+3. Run `Start-Morphe-Windows.cmd`. You need **Java 21 or newer** for a direct JAR launch; the release documentation covers the packaged Windows launcher.
+4. Open **Sources** to review patch bundles and their compatibility, then use **Apps** to choose an APK or inspect a connected, authorized ADB device. Select patches and any installation target yourself.
 
-Morphe Desktop runs in two modes:
-- CLI: You can run the CLI mode by directly calling it in your preferred terminal.
-- GUI: You can run the GUI mode by double-clicking the .jar file. This will open the Morphe Desktop window.
+The application may fetch verified platform-specific GUI libraries on its first GUI start. No third-party Android APK, signing key or patch source is included in the release ZIP. **Do not install an APK whose provenance you do not trust.**
 
-While there are a lot of things that you can do and explore, for the time being in this section, we'll focus on running our first patching and getting a patched apk with the CLI and GUI.
+### Install an already patched APK without repatching
 
-> [!TIP]
-> If this your first time using Morphe Desktop, head over to the [GUI](#gui) section instead of [CLI](#cli). 
-> Once you get the hang of things, you can start tinkering with the CLI!
+Connect and authorize the Android device with ADB, then select **Apps → On device → Install existing APK** (German UI: **Apps → Auf Gerät → Vorhandene APK installieren**). Select a single `.apk`, review the read-only validation and choose the precise target device. Installation requires a second confirmation and is intended for an app **not already installed** there. It does not migrate, replace, downgrade or uninstall an existing app.
 
-### First Run
+For a newly downloaded source APK to be patched, select that **new file** in the patch workflow; an older cached APK is not silently substituted.
 
-#### GUI
-The GUI is far more user-friendly and straightforward than the CLI. On your first run it opens in **Simple mode** (the streamlined default path).
+## CLI
 
-##### Steps:
-1. Double-click the downloaded `morphe-desktop-*-all.jar`. It should open like this:
+The beta also supports the command line. With Java 21+ and a compatible, trusted `.mpp` bundle:
 
-![Morphe GUI Home Screen](docs/images/main_readme/home_screen.png)
+```bash
+java -jar morphe-desktop-*-all.jar patch -p patches-*.mpp your_app.apk
+```
 
-> [!NOTE]
-> **First launch only.** Morphe ships as a single small jar. The command-line tool runs on its own, but the GUI needs a couple of platform-specific components (the Skiko renderer and JNA) that aren't bundled, so the download stays small. The **first** time you open the GUI, Morphe fetches the right components for your operating system into `morphe-data/libs/` and shows a brief setup window before the home screen appears. This happens only once. Later launches reuse the cached files and need no internet connection.
+Use the actual JAR filename in place of `*` if your shell does not expand wildcards. Upstream Homebrew packages and official upstream builds are **not** this Custom fork.
 
-2. Drag and drop your `.apk` (or `.apkm` / `.xapk` / `.apks` bundle) into the window. Once it's analyzed, select your preferred patch source from the dropdown if multiple sources support the app, then click **Patch** to begin:
+## Limitations and trust boundaries
 
-![Morphe GUI App Selected](docs/images/main_readme/app_selected.png)
+- Supported patches depend on the **patcher major version, the patch bundle, the target app and its version**. Old bundle URLs are not guaranteed to work with Patcher 2.3.0. The app distinguishes incompatible old sources from ordinary network/update errors.
+- A new available patch version does not prove it is applicable to every installed app. App updates, patch updates and actual installed patch evidence are shown separately.
+- Android signing certificates, installer attribution, Android update ownership and **Google Play update offers** are different concepts. Replacing an app from Google Play with a differently signed APK can be blocked. The optional `Disable Play Store updates` patch has significant version-code and rollback trade-offs and is never enabled silently.
+- Source tests on Ubuntu, Windows and macOS and a verified public Windows ZIP do not constitute tests on every Android device, or acceptance of any particular APK installation.
 
-3. Patching starts and streams its progress. You'll see something like this:
+For source and safety details, see [public beta verification](docs/PUBLIC_BETA_2_1_1.md), [documentation](docs/documentation.md) and [release checksums](https://github.com/lxsdd/morphe-desktop-public/releases/tag/custom-v2.1.1-beta.1).
 
-![Morphe GUI Patching](docs/images/main_readme/patching.png)
+## Build from source
 
-> [!NOTE]
-> If you run into any issues or errors, head over to the [documentation](/docs/documentation.md).
+Use a JDK 21 toolchain. From this public repository's checked-out release commit:
 
+```bash
+python tools/verify_public_beta_source_manifest.py
+./gradlew build --no-daemon
+```
 
-4. When it finishes you'll land on the result screen. Copy the patched APK to your device and install it, or with ADB enabled, install it straight from Morphe.
+The [manifest](tools/public_beta_source_manifest.tsv) binds application, resources, build files and tests to the accepted source snapshot. The public beta source and release are distinct from the private development workspace. Contributions should follow [CONTRIBUTING.md](CONTRIBUTING.md).
 
-![Morphe GUI Result](docs/images/main_readme/success.png)
+## License and attribution
 
-Bravo! That's your first successful patch! When you're ready for granular control (selecting individual patches and editing patch options), switch on **Expert mode** in Settings. You can also manage patch sources anytime using the **Sources** tab in the top navigation bar. See the [documentation](docs/documentation.md).
-
-
-#### CLI
-Following the [prerequisites](#prerequisites) section will get you the two basic but very required files for most patching:
-- morphe-desktop-*-all.jar file
-- patches-*.mpp
-
-Ideally place both of these files and your desired apk (preferably YouTube for your first run) file in the same folder for now to avoid path headaches.
-
-##### Steps:
-1. Open the terminal in the folder you have placed your files. If you are not in that folder, go there by:
-    ```
-    cd path/to/your/folder
-    ```
-
-2. Run the `ls` command if required to check the contents of the folder and confirm that you have all the files over there.
-
-3. Now run the patch command to instruct the morphe-desktop.jar to run the patching process by using the patch command on your apk file like this:
-    ```sh
-    # Downloaded JAR:
-    java -jar morphe-desktop-*-all.jar patch -p patches-*.mpp your_app.apk
-
-    # Homebrew:
-    morphe patch -p patches-*.mpp your_app.apk
-    ```
-4. This should start the patching process. You should be able to see a bunch of patches being applied like such:
-    ```
-    INFO: Loading patches 
-    INFO: Decoding app manifest
-    INFO: Setting patch options
-    INFO: "Override certificate pinning" disabled
-    .
-    .
-    .
-    .
-    .
-    INFO: Aligning APK 
-    INFO: Signing APK
-    INFO: Saved to /your/path/your_app-patched.apk
-    ```
-
-> [!NOTE]
-> If you run into any issues or errors, please head over to the [documentation](/docs/documentation.md).
-
-5. You should now have a patched apk with the name of:
-    ```
-    your_app-patched.apk
-    ```
-Voilà! This is your final patched apk. Go ahead, install this apk on your device and try it out!
-
-Now head over to the [documentation](/docs/documentation.md)
-
-[//]: # (## Everything else)
-## Contributing
-Thank you for considering contributing to Morphe Desktop.
-You can find the contribution guidelines [here](CONTRIBUTING.md).
-
-
-[//]: # (### Building)
-
-[//]: # (To build Morphe Desktop, you can follow the [documentation]&#40;/docs&#41;.)
-
-
-## License
-Morphe Patches are licensed under the [GNU General Public License v3.0](LICENSE), with additional conditions under GPLv3 Section 7:
-
-- **Attribution (7b):** Any use of this code, including derivative works, must preserve all original notices and disclaimers.
-- **Name & Branding Restrictions (7c & 7e):** Derivative works must use their own distinct branding. The **"Morphe"** name, logos, and trademarks may not be used for the branding or title of derivative works (e.g., names like *"Morphe Plus"*, *"Morphe Expanded"*, or *"Morphe UserXYZ"* are strictly prohibited).
-
-See the [LICENSE](LICENSE) file for the full GPLv3 terms and the [NOTICE](NOTICE) file for full conditions of GPLv3 Section 7
+Distributed under the terms of [GPLv3](LICENSE), subject to the original project's additional terms in [NOTICE](NOTICE) (including attribution and branding restrictions under GPLv3 Section 7). This repository's title and disclaimer identify it as an unofficial community fork; neither the original trademark nor upstream affiliation is claimed.
