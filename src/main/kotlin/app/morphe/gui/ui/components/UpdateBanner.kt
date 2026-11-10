@@ -14,21 +14,14 @@ import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
-/**
- * Non-blocking banner shown when a newer CLI release is available.
- *
- * Three actions:
- *  - DOWNLOAD opens the release page in the user's browser.
- *  - LATER hides the banner for the rest of the session (returns next startup).
- *  - SKIP v{latestVersion} hides the banner persistently for this version
- *    only, reappearing when an even newer version drops.
- */
+/** Non-blocking banner notifying the user when an update is available. */
 @Composable
 fun UpdateBanner(
     info: UpdateInfo,
     onDismissForSession: () -> Unit,
     onDismissForVersion: () -> Unit,
     modifier: Modifier = Modifier,
+    onShowChangelog: (() -> Unit)? = null,
 ) {
     val uriHandler = LocalUriHandler.current
 
@@ -46,6 +39,12 @@ fun UpdateBanner(
             },
             modifier = Modifier.weight(1f),
         )
+        if (onShowChangelog != null) {
+            MorpheBannerAction(
+                label = stringResource(Res.string.changelog_dialog_title),
+                onClick = onShowChangelog,
+            )
+        }
         MorpheBannerAction(
             label = stringResource(Res.string.download),
             icon = MorpheIcons.Download,

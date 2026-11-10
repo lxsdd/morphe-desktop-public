@@ -25,26 +25,30 @@ internal fun HomeSplitLayout(
     patchesLoaded: Boolean,
     onSortModeChange: (HomeAppSortMode) -> Unit,
     onShowDetail: (PatchedAppRecord) -> Unit,
+    onShowDeviceApp: (String) -> Unit,
     onFilterChange: (AppListFilter) -> Unit,
     onRetry: () -> Unit,
+    onRefreshDeviceInfo: () -> Unit,
+    onRetryDeviceLabels: () -> Unit,
+    onInstallExistingApk: () -> Unit,
     onManageSources: () -> Unit,
     onClearClick: () -> Unit,
     onChangeClick: () -> Unit,
     onContinueClick: () -> Unit,
+    selectedPatchSource: String? = null,
+    onSelectPatchSource: ((String) -> Unit)? = null,
+    isSimple: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(
         modifier = modifier
-            // Small cute padding for small cute space
-            // between the HeaderBar's bottom
-            // divider and the actual body section.
             .padding(
                 start = 10.dp,
                 end = padding,
                 top = 4.dp,
                 bottom = padding,
             ),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.TopStart,
     ) {
         val bodyViewport = this.maxHeight
         Row(
@@ -52,35 +56,45 @@ internal fun HomeSplitLayout(
             horizontalArrangement = Arrangement.spacedBy(padding),
             verticalAlignment = Alignment.Top,
         ) {
-            // Left: browse/discover supported apps (wizard step 1).
             SupportedAppsListPane(
                 supportedApps = uiState.supportedApps,
                 patchedStates = uiState.patchedStates,
                 patchedRecords = uiState.patchedRecords,
                 deviceAppInfo = uiState.deviceAppInfo,
+                deviceInstalledPackages = uiState.deviceInstalledPackages,
+                deviceAppLabels = uiState.deviceAppLabels,
+                deviceLabelIndexState = uiState.deviceLabelIndexState,
+                deviceLabelIndexedCount = uiState.deviceLabelIndexedCount,
+                deviceInventorySerial = uiState.deviceInventorySerial,
+                deviceRefreshSerial = uiState.deviceRefreshSerial,
+                deviceRefreshStage = uiState.deviceRefreshStage,
                 updateInfoByPackage = uiState.updateInfoByPackage,
                 sortMode = uiState.sortMode,
                 onSortModeChange = onSortModeChange,
                 onShowDetail = onShowDetail,
+                onShowDeviceApp = onShowDeviceApp,
                 filter = uiState.appListFilter,
                 onFilterChange = onFilterChange,
                 sourceNamesByPackage = sourceNamesByPackage,
                 isLoading = uiState.isLoadingPatches,
                 loadError = uiState.patchLoadError,
                 onRetry = onRetry,
+                onRefreshDeviceInfo = onRefreshDeviceInfo,
+                onRetryDeviceLabels = onRetryDeviceLabels,
+                onInstallExistingApk = onInstallExistingApk,
                 onManageSources = onManageSources,
-                modifier = Modifier
-                    .weight(1.2f)
-                    .heightIn(max = bodyViewport),
+                modifier = (if (uiState.appListFilter == AppListFilter.DEVICE) {
+                    // Device inventory is read-only: use the full workspace instead
+                    // of leaving an unrelated APK drop target on the right.
+                    Modifier.fillMaxWidth()
+                } else {
+                    Modifier.weight(1.2f)
+                }).heightIn(max = bodyViewport),
             )
-            // Right: APK info / drop zone (wizard step 2, pick the
-            // APK you want patched). Content centers vertically when
-            // it fits, scrolls when it doesn't, so the CONTINUE
-            // button is never clipped off the bottom.
-            Column(
+            if (uiState.appListFilter != AppListFilter.DEVICE) Column(
                 modifier = Modifier
                     .weight(1f)
-                    .align(Alignment.CenterVertically)
+                    .align(Alignment.Top)
                     .heightIn(max = bodyViewport)
                     .padding(top = 16.dp)
                     .verticalScroll(rememberScrollState()),
@@ -93,6 +107,9 @@ internal fun HomeSplitLayout(
                     onChangeClick = onChangeClick,
                     onContinueClick = onContinueClick,
                     patchSourceNames = patchSourcesForSelectedApk,
+                    selectedPatchSource = selectedPatchSource,
+                    onSelectPatchSource = onSelectPatchSource,
+                    isSimple = isSimple,
                 )
             }
         }

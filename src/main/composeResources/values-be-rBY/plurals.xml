@@ -1,15 +1,93 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <plurals name="home_header_sources_failed">
+        <item quantity="one">Не ўдалося загрузіць %1$d крыніцу патча. Выкарыстоўваюцца тыя, што загрузіліся паспяхова</item>
+        <item quantity="few">Не ўдалося загрузіць %1$d крыніц патча. Выкарыстоўваюцца тыя, што загрузіліся паспяхова</item>
+        <item quantity="many">Не ўдалося загрузіць %1$d крыніц патча. Выкарыстоўваюцца тыя, што загрузіліся паспяхова</item>
+        <item quantity="other">Не ўдалося загрузіць %1$d крыніц патча. Выкарыстоўваюцца тыя, што загрузіліся паспяхова</item>
+    </plurals>
+    <plurals name="home_banner_update_available">
+        <item quantity="one">Даступна абнаўленне для %1$d прапатчанай праграмы</item>
+        <item quantity="few">Даступны абнаўленні для %1$d прапатчаных праграм</item>
+        <item quantity="many">Даступны абнаўленні для %1$d прапатчаных праграм</item>
+        <item quantity="other">Даступны абнаўленні для %1$d прапатчаных праграм</item>
+    </plurals>
+    <plurals name="settings_runtime_logs_saved_success">
+        <item quantity="one">Захован %1$d радок у %2$s</item>
+        <item quantity="few">Захавана %1$d радка у %2$s</item>
+        <item quantity="many">Захавана %1$d радкоў у %2$s</item>
+        <item quantity="other">Захавана %1$d радка у  %2$s</item>
+    </plurals>
     <plurals name="count_sources">
         <item quantity="one">%1$d крыніца</item>
         <item quantity="few">%1$d крыніцы</item>
-        <item quantity="many">%1$d крыніцы</item>
-        <item quantity="other">%1$d крыніц</item>
+        <item quantity="many">%1$d крыніц</item>
+        <item quantity="other">%1$d крыніцы</item>
+    </plurals>
+    <plurals name="licenses_dialog_footer_count">
+        <item quantity="one">%1$d бібліятэка</item>
+        <item quantity="few">%1$d бібліятэкі</item>
+        <item quantity="many">%1$d бібліятэк</item>
+        <item quantity="other">%1$d бібліятэкі</item>
+    </plurals>
+    <plurals name="patch_selection_selected_count">
+        <item quantity="one">выбрана %1$d з %2$d</item>
+        <item quantity="few">выбрана %1$d з %2$d</item>
+        <item quantity="many">выбрана %1$d з %2$d</item>
+        <item quantity="other">Выбрана %1$d з %2$d</item>
     </plurals>
     <plurals name="patch_selection_group_patch_count">
         <item quantity="one">%1$d патч</item>
-        <item quantity="few">%1$d патча</item>
+        <item quantity="few">%1$d патчы</item>
         <item quantity="many">%1$d патчаў</item>
-        <item quantity="other">%1$d патча</item>
+        <item quantity="other">%1$d патчы</item>
+    </plurals>
+    <plurals name="settings_app_cards_override_count">
+        <item quantity="one">%1$d картка перакрывае гэта</item>
+        <item quantity="few">%1$d карткі перакрываюць гэта</item>
+        <item quantity="many">%1$d карткі перакрываюць гэта</item>
+        <item quantity="other">%1$d карткі перакрываюць гэта</item>
+    </plurals>
+    <plurals name="home_detail_download_bundles">
+        <item quantity="one">Спампаваць %1$d пакунак</item>
+        <item quantity="few">Спампаваць %1$d пакатунак</item>
+        <item quantity="many">Спампаваць %1$d пакатункаў</item>
+        <item quantity="other">Спампаваць %1$d пакатункаў</item>
+    </plurals>
+    <plurals name="patching_graph_cpu_cores_detail">
+        <item quantity="one">%1$d ядро</item>
+        <item quantity="few">%1$d ядра</item>
+        <item quantity="many">%1$d ядраў</item>
+        <item quantity="other">%1$d ядраў</item>
+    </plurals>
+    <plurals name="changelog_change_count">
+        <item quantity="one">%1$d змена</item>
+        <item quantity="few">%1$d змены</item>
+        <item quantity="many">%1$d змен</item>
+        <item quantity="other">%1$d змены</item>
+    </plurals>
+    <plurals name="changelog_days_ago">
+        <item quantity="one">%1$d дзень таму</item>
+        <item quantity="few">%1$d дні таму</item>
+        <item quantity="many">%1$d дзён таму</item>
+        <item quantity="other">%1$d дня таму</item>
+    </plurals>
+    <plurals name="changelog_feature_count">
+        <item quantity="one">%1$d функцыя</item>
+        <item quantity="few">%1$d функцый</item>
+        <item quantity="many">%1$d функцый</item>
+        <item quantity="other">%1$d функцый</item>
+    </plurals>
+    <plurals name="changelog_fix_count">
+        <item quantity="one">%1$d выпраўленне</item>
+        <item quantity="few">%1$d выпраўленні</item>
+        <item quantity="many">%1$d выпраўленняў</item>
+        <item quantity="other">%1$d выпраўленняў</item>
+    </plurals>
+    <plurals name="changelog_performance_count">
+        <item quantity="one">%1$d аптымізацыя</item>
+        <item quantity="few">%1$d аптымізацыі</item>
+        <item quantity="many">%1$d аптымізацый</item>
+        <item quantity="other">%1$d аптымізацый</item>
     </plurals>
 </resources>

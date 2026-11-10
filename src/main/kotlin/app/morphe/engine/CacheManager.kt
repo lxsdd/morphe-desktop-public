@@ -5,16 +5,14 @@
 
 package app.morphe.engine
 
+import app.morphe.engine.util.deleteRecursivelyInParallel
+import app.morphe.engine.workspace.WorkspaceManager
 import java.io.File
 
-/**
- * Clears Morphe's on-disk caches. Shared by the GUI's "Clear Cache" action and
- * the CLI's `utility clear-cache` subcommand so both wipe the same set of
- * directories: downloaded patches, logs, and temp scratch.
- */
+/** Manages cache sizing and deletion across patches, logs, and workspace scratch. */
 object CacheManager {
 
-    /** What was cleared from a single directory. */
+    /** Summary of files and bytes cleared from a single directory. */
     data class DirResult(
         val label: String,
         val bytesFreed: Long,
@@ -22,7 +20,7 @@ object CacheManager {
         val failedFiles: Int,
     )
 
-    /** Outcome of a [clearCaches] run, with a per-directory breakdown. */
+    /** Overall outcome of a [clearCaches] run. */
     data class ClearResult(
         val perDirectory: List<DirResult>,
     ) {
@@ -31,35 +29,108 @@ object CacheManager {
         val success: Boolean get() = failedFiles == 0
     }
 
-    /**
-     * Deletes the contents of the patches cache, logs, and temp scratch
-     * directories (keeping the top-level directories themselves).
-     *
-     * Best-effort: a file that can't be deleted (e.g. a log still held open by
-     * the running process) is counted in [DirResult.failedFiles] rather than
-     * aborting the rest.
-     */
+    /** Calculates total byte size across patches, logs, and scratch directories. */
+    fun getCacheSizeBytes(): Long =
+        getPatchDownloadSize(MorpheData.patchesDir) +
+            getDirectorySize(MorpheData.logsDir) +
+            WorkspaceManager.getScratchSize()
+
+    /** Computes total byte size of files inside [dir]. */
+    fun getDirectorySize(dir: File): Long = try {
+        dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+    } catch (_: Exception) {
+        0L
+    }
+
+    /** Deletes cached patches, logs, and temporary scratch files. */
     fun clearCaches(): ClearResult = ClearResult(
         listOf(
-            clearContents("Patches", MorpheData.patchesDir),
-            clearContents("Logs", MorpheData.logsDir),
-            clearContents("Temp", MorpheData.tmpDir),
+            clearPatchDownloads("Patches", MorpheData.patchesDir),
+            clearDirectoryContents("Logs", MorpheData.logsDir),
+            WorkspaceManager.clearScratch(),
         ),
     )
 
-    private fun clearContents(label: String, dir: File): DirResult {
+    /**
+     * Only delete downloaded .mpp/.jar files. Trust pins (signing.key),
+     * signer refusal evidence, and unrelated source metadata are NOT cache.
+     * This shared primitive covers both per-source and global cache clearing.
+     */
+    fun clearPatchDownloads(label: String, dir: File): DirResult {
+        val downloads = try {
+            if (!dir.exists()) emptyList()
+            else if (!dir.isDirectory) return DirResult(label, 0L, 0, 1)
+            else dir.walkTopDown().filter { file ->
+                file.isFile && (file.extension.equals("mpp", ignoreCase = true) ||
+                    file.extension.equals("jar", ignoreCase = true))
+            }.toList()
+        } catch (_: Exception) {
+            return DirResult(label, 0L, 0, 1)
+        }
+        var bytesFreed = 0L
+        var filesDeleted = 0
+        var failedFiles = 0
+        downloads.forEach { file ->
+            try {
+                val bytes = file.length()
+                if (file.delete()) {
+                    bytesFreed += bytes
+                    filesDeleted++
+                } else {
+                    failedFiles++
+                }
+            } catch (_: Exception) {
+                failedFiles++
+            }
+        }
+        return DirResult(label, bytesFreed, filesDeleted, failedFiles)
+    }
+
+    /** Only count downloadable patch cache bytes, not persistent signer pins. */
+    fun getPatchDownloadSize(dir: File): Long = try {
+        if (!dir.isDirectory) 0L else dir.walkTopDown()
+            .filter { it.isFile && (it.extension.equals("mpp", true) || it.extension.equals("jar", true)) }
+            .sumOf { it.length() }
+    } catch (_: Exception) {
+        0L
+    }
+
+    /** Deletes general cache contents, but protects signer pins in the patch cache. */
+    fun clearDirectoryContents(label: String, dir: File): DirResult {
+        // Storage UI callers may still address the root cache directly.
+        if (runCatching { dir.canonicalFile == MorpheData.patchesDir.canonicalFile }.getOrDefault(false)) {
+            return clearPatchDownloads(label, dir)
+        }
         var bytesFreed = 0L
         var filesDeleted = 0
         var failedFiles = 0
 
-        dir.listFiles()?.forEach { entry ->
-            // Measure before deleting.
-            val files = entry.walkTopDown().filter { it.isFile }.toList()
-            val size = files.sumOf { it.length() }
-            if (entry.deleteRecursively()) {
-                bytesFreed += size
-                filesDeleted += files.size
-            } else {
+        val entries = try {
+            dir.listFiles() ?: emptyArray()
+        } catch (_: Exception) {
+            emptyArray()
+        }
+
+        entries.forEach { entry ->
+            runCatching {
+                val files = try {
+                    entry.walkTopDown().filter { it.isFile }.toList()
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                val size = files.sumOf { it.length() }
+                val deleted = if (entry.isDirectory) {
+                    entry.deleteRecursivelyInParallel()
+                } else {
+                    entry.delete()
+                }
+                if (deleted) {
+                    bytesFreed += size
+                    filesDeleted += if (files.isNotEmpty()) files.size else 1
+                } else {
+                    failedFiles++
+                }
+            }.onFailure {
                 failedFiles++
             }
         }

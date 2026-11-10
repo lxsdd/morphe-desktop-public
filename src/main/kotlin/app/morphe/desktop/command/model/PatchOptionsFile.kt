@@ -86,7 +86,7 @@ private fun sha256ForFiles(files: Set<File>): String? = when {
  * @param existingMeta optional metadata to preserve (e.g. original [PatchBundleMeta.createdAt]).
  */
 @OptIn(ExperimentalSerializationApi::class)
-fun Set<Patch<*>>.toPatchBundle(
+fun Set<Patch>.toPatchBundle(
     sourceFiles: Set<File> = emptySet(),
     existingMeta: PatchBundleMeta? = null,
 ): PatchBundle {
@@ -123,7 +123,7 @@ fun Set<Patch<*>>.toPatchBundle(
  * @param sourceFiles the .mpp file(s) used to load these patches.
  */
 @OptIn(ExperimentalSerializationApi::class)
-fun Set<Patch<*>>.mergeWithBundle(
+fun Set<Patch>.mergeWithBundle(
     existing: PatchBundle?,
     sourceFiles: Set<File> = emptySet(),
 ): PatchBundle {

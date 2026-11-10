@@ -8,213 +8,104 @@ package app.morphe.engine
 import app.morphe.patcher.patch.Patch
 import app.morphe.patcher.patch.SupportedAbi
 
+/**
+ * Adapters for the preserved private Quick/CLI presentation on the Patcher 2.3
+ * non-generic Patch API. Compatibility must come from the signed bundle's typed
+ * declarations; the removed Patcher 1.x fallback fields cannot be synthesized.
+ */
 typealias VersionMap = LinkedHashMap<String, Int>
 typealias CompatibleVersionsMap = Map<String, VersionMap>
 
-
-fun Patch<*>.versionCodesFor(
+fun Patch.versionCodesFor(
     packageName: String?,
     versionName: String,
-): Map<SupportedAbi, Int>? {
-    val compat = compatibility ?: return null
-    return compat
-        .filter { packageName == null || it.packageName == null || it.packageName == packageName }
-        .flatMap { it.targets }
-        .find { it.version == versionName && !it.versionCodes.isNullOrEmpty() }
-        ?.versionCodes
-}
+): Map<SupportedAbi, Int>? = compatibility.orEmpty()
+    .asSequence()
+    .filter { packageName == null || it.packageName == null || it.packageName == packageName }
+    .flatMap { it.targets.asSequence() }
+    .firstOrNull { it.version == versionName && !it.versionCodes.isNullOrEmpty() }
+    ?.versionCodes
 
-fun Iterable<Patch<*>>.versionCodesFor(
+fun Iterable<Patch>.versionCodesFor(
     packageName: String?,
     versionName: String,
-): Map<SupportedAbi, Int>? =
-    firstNotNullOfOrNull { it.versionCodesFor(packageName, versionName) }
+): Map<SupportedAbi, Int>? = firstNotNullOfOrNull { it.versionCodesFor(packageName, versionName) }
 
-@Suppress("DEPRECATION")
-fun Patch<*>.versionsFor(
+fun Patch.versionsFor(
     packageName: String?,
     includeExperimental: Boolean,
-): List<String> {
-    val compat = compatibility
-
-    if (!compat.isNullOrEmpty()) {
-        val matchingEntries = compat.filter { entry ->
-            packageName == null || entry.packageName == null || entry.packageName == packageName
-        }
-        return matchingEntries.flatMap { entry ->
-            entry.targets
-                .filter { target -> includeExperimental || !target.isExperimental }
-                .mapNotNull { it.version }
-        }
+): List<String> = compatibility.orEmpty()
+    .filter { packageName == null || it.packageName == null || it.packageName == packageName }
+    .flatMap { entry ->
+        entry.targets.filter { includeExperimental || !it.isExperimental }
+            .mapNotNull { it.version }
     }
 
-    val legacyPackages = compatiblePackages ?: return emptyList()
-    val matchingPkgs = if (packageName == null) {
-        legacyPackages
-    } else {
-        legacyPackages.filter { (name, _) -> name == packageName }
-    }
-    return matchingPkgs.flatMap { (_, versions) -> versions?.toList() ?: emptyList() }
-}
-
-@Suppress("DEPRECATION")
-fun Patch<*>.isCompatibleWith(
+fun Patch.isCompatibleWith(
     packageName: String,
     includeExperimental: Boolean,
     includeUniversalPatches: Boolean,
 ): Boolean {
-    val compat = compatibility
-
-    if (!compat.isNullOrEmpty()) {
-        return compat.any { entry ->
-            when {
-                entry.packageName == null -> includeUniversalPatches
-                entry.packageName != packageName -> false
-                else -> {
-                    entry.targets.any { target ->
-                        includeExperimental || !target.isExperimental
-                    }
-                }
-            }
+    val entries = compatibility.orEmpty()
+    if (entries.isEmpty()) return includeUniversalPatches
+    return entries.any { entry ->
+        when {
+            entry.packageName == null -> includeUniversalPatches
+            entry.packageName != packageName -> false
+            else -> entry.targets.isEmpty() ||
+                entry.targets.any { includeExperimental || !it.isExperimental }
         }
     }
-
-    val legacyPackages = compatiblePackages
-        ?: return includeUniversalPatches
-
-    return legacyPackages.any { (name, _) -> name == packageName }
 }
 
-@Suppress("DEPRECATION")
-fun Patch<*>.supportedVersionsFor(packageName: String): List<String>? {
-    val compat = compatibility
-
-    if (!compat.isNullOrEmpty()) {
-        val matching = compat.filter { it.packageName == packageName }
-        if (matching.isEmpty()) {
-            val hasUniversalEntry = compat.any { it.packageName == null }
-            return if (hasUniversalEntry) null else emptyList()
-        }
-        val versions = matching.flatMap { entry -> entry.targets.mapNotNull { it.version } }
-        return versions.ifEmpty { null }
+/** Null means unrestricted or universal, empty means explicitly incompatible. */
+fun Patch.supportedVersionsFor(packageName: String): List<String>? {
+    val entries = compatibility.orEmpty()
+    val matching = entries.filter { it.packageName == packageName }
+    if (matching.isEmpty()) {
+        return if (entries.isEmpty() || entries.any { it.packageName == null }) null else emptyList()
     }
-
-    val legacyPackages = compatiblePackages ?: return null
-    val match = legacyPackages.singleOrNull { (name, _) -> name == packageName }
-        ?: return emptyList()
-    val legacyVersions = match.second
-    return if (legacyVersions.isNullOrEmpty()) null else legacyVersions.toList()
+    return matching.flatMap { entry -> entry.targets.mapNotNull { it.version } }
+        .takeUnless { it.isEmpty() }
 }
 
-@Suppress("DEPRECATION")
-fun Patch<*>.compatibleVersionsForDisplay(
+fun Patch.compatibleVersionsForDisplay(
     includeExperimental: Boolean,
-): List<Pair<String?, List<String>>> {
-    val compat = compatibility
-
-    if (!compat.isNullOrEmpty()) {
-        return compat.map { entry ->
-            val versions = entry.targets
-                .filter { includeExperimental || !it.isExperimental }
-                .mapNotNull { it.version }
-            entry.packageName to versions
-        }
-    }
-
-    val legacyPackages = compatiblePackages ?: return emptyList()
-    return legacyPackages.map { (name, versions) ->
-        name to (versions?.toList() ?: emptyList())
-    }
+): List<Pair<String?, List<String>>> = compatibility.orEmpty().map { entry ->
+    entry.packageName to entry.targets
+        .filter { includeExperimental || !it.isExperimental }
+        .mapNotNull { it.version }
 }
 
-@Suppress("DEPRECATION")
-fun Iterable<Patch<*>>.mostCommonCompatibleVersions(
+/** Keep the private source-count display logic, using only modern typed metadata. */
+fun Iterable<Patch>.mostCommonCompatibleVersions(
     packageNames: Set<String>?,
     countUnusedPatches: Boolean,
     includeExperimental: Boolean = false,
 ): CompatibleVersionsMap {
-    val allPackageNames: Set<String> = buildSet {
-        for (patch in this@mostCommonCompatibleVersions) {
-            val compat = patch.compatibility
-            if (!compat.isNullOrEmpty()) {
-                for ((packageName) in compat) {
-                    packageName?.let { add(it) }
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                patch.compatiblePackages?.forEach { (name, _) -> add(name) }
-            }
-        }
-    }
-
-    val targetPackages = if (packageNames != null) {
-        allPackageNames.intersect(packageNames)
-    } else {
-        allPackageNames
-    }
-
-    val result: MutableMap<String, VersionMap> = LinkedHashMap()
-
-    for (pkgName in targetPackages) {
-        val versionCount = VersionMap()
-
-        for (patch in this) {
+    val patches = toList()
+    val allPackages = patches.flatMap { it.compatibility.orEmpty() }
+        .mapNotNull { it.packageName }.toSet()
+    val targets = packageNames?.let { allPackages.intersect(it) } ?: allPackages
+    val counts = linkedMapOf<String, VersionMap>()
+    for (pkg in targets) {
+        val versions = VersionMap()
+        for (patch in patches) {
             if (!countUnusedPatches && !patch.default) continue
-
-            val compat = patch.compatibility
-
-            if (!compat.isNullOrEmpty()) {
-                val isUniversal = compat.all { it.packageName == null }
-                val matchingEntries = compat.filter { entry ->
-                    entry.packageName == null || entry.packageName == pkgName
-                }
-
-                if (matchingEntries.isEmpty()) continue
-
-                val versions = matchingEntries.flatMap { entry ->
-                    entry.targets
-                        .filter { includeExperimental || !it.isExperimental }
-                        .mapNotNull { it.version }
-                }
-
-                if (versions.isEmpty()) {
-                    versionCount[""] = (versionCount[""] ?: 0) + 1
-                } else {
-                    for (version in versions) {
-                        versionCount[version] = (versionCount[version] ?: 0) + 1
-                    }
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                val legacyPackages = patch.compatiblePackages
-                if (legacyPackages == null) {
-                    versionCount[""] = (versionCount[""] ?: 0) + 1
-                    continue
-                }
-                val matching = legacyPackages.filter { (name, _) -> name == pkgName }
-                if (matching.isEmpty()) continue
-                for ((_, versions) in matching) {
-                    if (versions.isNullOrEmpty()) {
-                        versionCount[""] = (versionCount[""] ?: 0) + 1
-                    } else {
-                        for (version in versions) {
-                            versionCount[version] = (versionCount[version] ?: 0) + 1
-                        }
-                    }
-                }
+            val entries = patch.compatibility.orEmpty()
+            val matching = entries.filter { it.packageName == null || it.packageName == pkg }
+            if (matching.isEmpty()) continue
+            val list = matching.flatMap { entry ->
+                entry.targets.filter { includeExperimental || !it.isExperimental }
+                    .mapNotNull { it.version }
             }
+            for (v in list) versions[v] = (versions[v] ?: 0) + 1
         }
-
-        if (versionCount.isNotEmpty()) {
-            val sorted = versionCount.entries
-                .sortedByDescending { it.value }
-                .associateTo(LinkedHashMap()) { it.key to it.value }
-            sorted.remove("")
-            result[pkgName] = sorted
+        if (versions.isNotEmpty()) {
+            counts[pkg] = versions.entries.sortedByDescending { it.value }
+                .associateTo(VersionMap()) { it.key to it.value }
         }
     }
-
-    return result.entries
-        .sortedBy { it.key }
-        .associateTo(LinkedHashMap()) { it.key to it.value }
+    return counts.entries.sortedBy { it.key }
+        .associateTo(linkedMapOf()) { it.key to it.value }
 }

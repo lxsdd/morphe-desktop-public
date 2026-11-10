@@ -5,8 +5,9 @@
 
 package app.morphe.gui.util
 
-import app.morphe.desktop.command.model.deserializeOptionValue
 import app.morphe.engine.PatchEngine
+import app.morphe.engine.PatchEvent
+import app.morphe.engine.patches.SupportedAppCatalog.toMetadata
 import app.morphe.engine.patches.PatchBundleLoader
 import app.morphe.gui.data.model.CompatiblePackage
 import app.morphe.gui.data.model.ExplicitOptionKind
@@ -64,7 +65,7 @@ class PatchService {
             val tempCopy = File.createTempFile("morphe-patches-", ".mpp")
             try {
                 patchFile.copyTo(tempCopy, overwrite = true)
-                val patches = loadPatchesFromJar(setOf(tempCopy))
+                val patches = PatchBundleLoader.loadFlat(listOf(patchFile))
 
                 // Convert library patches to GUI model
                 val guiPatches = patches.map { it.toGuiPatch() }
@@ -104,6 +105,7 @@ class PatchService {
         exclusiveMode: Boolean = false,
         keepArchitectures: Set<CpuArchitecture> = emptySet(),
         continueOnError: Boolean = false,
+        forceCompatibility: Boolean = true,
         keystorePath: String? = null,
         keystorePassword: String? = null,
         keystoreAlias: String? = null,
@@ -135,17 +137,16 @@ class PatchService {
             try {
                 val loadedPatches = PatchBundleLoader.loadFlat(tempCopies)
 
-                // Build a lookup: patchName -> (optionKey -> KType) for type-aware coercion.
+                // Preserve the patcher's native option types when converting the
+                // GUI's persisted string representation back into engine values.
                 val patchOptionTypes: Map<String, Map<String, KType>> = loadedPatches
                     .filter { it.name != null }
                     .associate { patch ->
-                        patch.name!! to patch.options.mapValues { (_, opt) -> opt.type }
+                        patch.name!! to patch.options.mapValues { (_, option) -> option.type }
                     }
 
                 // Convert GUI's flat "patchName.optionKey" -> value map
-                // to engine's Map<patchName, Map<optionKey, value>> format.
-                // String values are coerced to the option's native type (Boolean, Int, etc.)
-                // so the patcher receives the expected JVM type, not a raw String.
+                // to engine's Map<patchName, Map<optionKey, value>> format
                 val patchOptions = enabledPatches.associateWith { patchName ->
                     options.filterKeys { it.startsWith("$patchName.") }
                         .mapKeys { it.key.removePrefix("$patchName.") }
@@ -176,14 +177,23 @@ class PatchService {
                     enabledPatches = enabledPatches.toSet(),
                     disabledPatches = disabledPatches.toSet(),
                     exclusiveMode = exclusiveMode,
-                    forceCompatibility = true,
+                    forceCompatibility = forceCompatibility,
                     patchOptions = patchOptions,
                     architecturesToKeep = keepArchitectures,
                     failOnError = !continueOnError,
                     keystoreDetails = keystoreDetails,
                 )
 
-                val engineResult = PatchEngine.patch(config, onProgress)
+                val engineResult = PatchEngine.patch(config) { event ->
+                    when (event) {
+                        is PatchEvent.Log -> onProgress(event.message)
+                        is PatchEvent.StepStarted -> onProgress("Step: ${event.step.name}")
+                        is PatchEvent.PatchApplied -> onProgress("Applied: ${event.name}")
+                        is PatchEvent.TaskProgress -> onProgress(
+                            "${event.task}: ${event.done}/${event.total}"
+                        )
+                    }
+                }
 
                 val failureDetail: String? = if (engineResult.success) null else buildString {
                     if (engineResult.failedPatches.isNotEmpty()) {
@@ -204,7 +214,7 @@ class PatchService {
                 } else {
                     // Prefer a specific failed-patch error, else the last failed
                     // step's error (rebuild/sign), else a generic fallback.
-                    // First line only, since this is the short UI-banner summary. The
+                    // First line only — this is the short UI-banner summary; the
                     // full traces are already logged above.
                     engineResult.failedPatches.firstOrNull()?.let { fp ->
                         Triple("${fp.name}: ${fp.error.lineSequence().first()}", null, emptyList())
@@ -250,117 +260,41 @@ class PatchService {
      * Used by EnabledSourcesLoader / MultiSourceLoader paths so we don't have to
      * re-open the .mpp file just to convert.
      */
-    fun convertToGuiPatches(loaded: Set<LibraryPatch<*>>): List<Patch> =
+    fun convertToGuiPatches(loaded: Set<LibraryPatch>): List<Patch> =
         loaded.map { it.toGuiPatch() }
 
     /**
-     * Convert library Patch to GUI Patch model.
-     *
-     * Reads BOTH the new [compatibility] API and the deprecated [compatiblePackages]
-     * field. Some forks (e.g. hoo-dles) compiled their patches against the older
-     * patcher API and only declare compatibility via the legacy field. Without the
-     * fallback, those patches would convert to a GUI Patch with empty
-     * compatiblePackages, which means SupportedAppExtractor under-counts apps and
-     * the per-source attribution map misses entire sources.
+     * Convert 2.3's typed Patcher model into the legacy Quick UI model.
+     * The modern catalog owns compatibility and option interpretation, so
+     * legacy-only Patcher 1.x fields cannot leak into this path.
      */
-    @Suppress("DEPRECATION")
-    private fun LibraryPatch<*>.toGuiPatch(): Patch {
-        // Primary: new compatibility API (typed, with experimental flag, display name).
-        val fromNewApi: List<CompatiblePackage> = this.compatibility
-            ?.mapNotNull { compatibility ->
-                val packageName = compatibility.packageName ?: return@mapNotNull null
-                val (experimental, stable) = compatibility.targets.partition { it.isExperimental }
-                CompatiblePackage(
-                    name = packageName,
-                    displayName = compatibility.name,
-                    versions = stable.mapNotNull { it.version },
-                    experimentalVersions = experimental.mapNotNull { it.version },
-                    appIconColor = compatibility.appIconColor
-                        ?.let { "#%06X".format(it and 0xFFFFFF) },
-                    versionBuildCodes = compatibility.targets
-                        .mapNotNull { target ->
-                            val version = target.version ?: return@mapNotNull null
-                            version to target.versionCodes?.values?.toSet().orEmpty()
-                        }
-                        .groupBy({ it.first }, { it.second })
-                        .mapValues { (_, sets) ->
-                            if (sets.any { it.isEmpty() }) emptySet() else sets.flatten().toSet()
-                        },
-                )
-            }
-            ?: emptyList()
-
-        // Fallback: legacy compatiblePackages field (Set<Pair<packageName, versions?>>).
-        // No display name or experimental flag in the legacy schema, so those stay null or empty.
-        val fromLegacyApi: List<CompatiblePackage> = if (fromNewApi.isEmpty()) {
-            this.compatiblePackages
-                ?.map { (pkgName, versions) ->
-                    CompatiblePackage(
-                        name = pkgName,
-                        displayName = null,
-                        versions = versions?.toList() ?: emptyList(),
-                        experimentalVersions = emptyList(),
-                    )
-                }
-                ?: emptyList()
-        } else emptyList()
-
+    private fun LibraryPatch.toGuiPatch(): Patch {
+        val metadata = toMetadata()
         return Patch(
-            name = this.name ?: "Unknown",
-            description = this.description ?: "",
-            compatiblePackages = fromNewApi.ifEmpty { fromLegacyApi },
-            options = this.options.values.map { opt ->
-                val explicitKind = when (opt) {
-                    is FolderOption -> ExplicitOptionKind.Folder
-                    is FilePathOption -> ExplicitOptionKind.FilePath
-                    is FilesOption -> ExplicitOptionKind.Files
-                    is ImageOption -> ExplicitOptionKind.Image
-                    is ColorOption -> ExplicitOptionKind.Color
-                    is IntSliderOption -> ExplicitOptionKind.IntSlider
-                    is FloatSliderOption -> ExplicitOptionKind.FloatSlider
-                    is IntRangeOption -> ExplicitOptionKind.IntRange
-                    is FloatRangeOption -> ExplicitOptionKind.FloatRange
-                    else -> null
-                }
-                val allowedExtensions = when (opt) {
-                    is FilePathOption -> opt.allowedExtensions
-                    is FilesOption -> opt.allowedExtensions
-                    is ImageOption -> opt.allowedExtensions
-                    else -> null
-                }
-                val recommendedSize = when (opt) {
-                    is ImageOption -> opt.recommendedSize?.let { ImageSize(it.width, it.height) }
-                    else -> null
-                }
-                val sliderBounds = when (opt) {
-                    is IntSliderOption -> SliderBounds(opt.min.toFloat(), opt.max.toFloat(), opt.step.toFloat())
-                    is FloatSliderOption -> SliderBounds(opt.min, opt.max, opt.step)
-                    is IntRangeOption -> SliderBounds(opt.min.toFloat(), opt.max.toFloat(), opt.step.toFloat())
-                    is FloatRangeOption -> SliderBounds(opt.min, opt.max, opt.step)
-                    else -> null
-                }
-                PatchOption(
-                    key = opt.key,
-                    title = opt.title ?: opt.key,
-                    description = opt.description ?: "",
-                    type = mapKTypeToOptionType(opt.type, opt.key, opt.title ?: opt.key),
-                    default = when (val def = opt.default) {
-                        null -> null
-                        is List<*> -> def.joinToString(", ")
-                        else -> def.toString()
-                    },
-                    required = opt.required,
-                    valueType = opt.type,
-                    explicitKind = explicitKind,
-                    allowedExtensions = allowedExtensions,
-                    recommendedSize = recommendedSize,
-                    sliderBounds = sliderBounds,
-                    presets = opt.values,
-                    rawDefault = opt.default,
+            name = metadata.name,
+            description = metadata.description,
+            compatiblePackages = metadata.compatiblePackages.map { pkg ->
+                CompatiblePackage(
+                    name = pkg.name, displayName = pkg.displayName,
+                    versions = pkg.versions, experimentalVersions = pkg.experimentalVersions,
+                    appIconColor = pkg.appIconColor, versionBuildCodes = pkg.versionBuildCodes,
                 )
             },
-            isEnabled = this.use,
-            category = this.category?.takeIf { it.isNotBlank() }
+            options = metadata.options.map { opt ->
+                PatchOption(
+                    key = opt.key, title = opt.title, description = opt.description,
+                    type = PatchOptionType.valueOf(opt.type.name),
+                    default = opt.default, required = opt.required,
+                    valueType = opt.valueType,
+                    explicitKind = opt.explicitKind?.let { ExplicitOptionKind.valueOf(it.name) },
+                    allowedExtensions = opt.allowedExtensions,
+                    recommendedSize = opt.recommendedSize?.let { ImageSize(it.width, it.height) },
+                    sliderBounds = opt.sliderBounds?.let { SliderBounds(it.min, it.max, it.step) },
+                    presets = opt.presets, rawDefault = opt.rawDefault,
+                )
+            },
+            isEnabled = metadata.isEnabled,
+            category = metadata.category,
         )
     }
 
@@ -394,8 +328,8 @@ data class PatchResult(
     val appliedPatches: List<String>,
     val failedPatches: List<String>,
     // Human-readable reason for [success == false]. Populated from the first
-    // failed patch's error, or when patching succeeded but a later step
-    // (rebuild, sign) blew up, that step's error. Null on success.
+    // failed patch's error or — when patching succeeded but a later step
+    // (rebuild, sign) blew up — that step's error. Null on success.
     val failureReason: String? = null,
     // Full failure detail: complete stack traces (incl. nested "Caused by:"
     // causes) for every failed patch and step. The expandable "Details"
@@ -412,12 +346,3 @@ data class PatchResult(
         failureReasonRes?.let { getString(it, *failureReasonArgs.toTypedArray()) } ?: failureReason
 }
 
-open class PatchException(
-    message: String,
-    val stringRes: StringResource? = null,
-    val formatArgs: List<Any> = emptyList(),
-    cause: Throwable? = null,
-) : Exception(message, cause) {
-    suspend fun getUserMessage(): String =
-        stringRes?.let { getString(it, *formatArgs.toTypedArray()) } ?: (message ?: "")
-}

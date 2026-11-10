@@ -5,6 +5,8 @@
 
 package app.morphe.gui.ui.screens.home.components
 
+import app.morphe.gui.ui.screens.home.HomePrimaryAction
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.border
@@ -23,7 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,19 +38,26 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.morphe.engine.model.PatchedAppRecord
+import app.morphe.engine.model.SupportedApp
+import app.morphe.engine.util.isNewerVersion
 import app.morphe.gui.data.model.PatchSource
-import app.morphe.gui.data.model.SupportedApp
 import app.morphe.gui.ui.components.LocalCardFills
+import app.morphe.gui.ui.components.MorpheButton
+import app.morphe.gui.ui.components.MorpheButtonSize
+import app.morphe.gui.ui.components.MorpheButtonVariant
 import app.morphe.gui.ui.components.MorpheDialogSurface
-import app.morphe.gui.ui.components.morpheScrollbarStyle
+import app.morphe.gui.ui.components.MorpheDialogTitleBar
+import app.morphe.gui.ui.components.MorpheDropdown
+import app.morphe.gui.ui.components.MorpheDropdownItem
+import app.morphe.gui.ui.components.MorpheScrollbarStyle
+import app.morphe.gui.ui.components.SlimSearchField
 import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.screens.home.ActivePatchSource
 import app.morphe.gui.ui.screens.home.BundleChoice
@@ -58,9 +66,11 @@ import app.morphe.gui.ui.screens.home.BundleSupport
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.PatchedAppState
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
-import app.morphe.gui.ui.theme.LocalMorpheAccents
-import app.morphe.gui.ui.theme.LocalMorpheCorners
-import app.morphe.gui.ui.theme.LocalMorpheFont
+import app.morphe.gui.util.MorpheFilePicker
+import app.morphe.gui.ui.theme.MorpheTheme
+import app.morphe.gui.ui.theme.LocalThemeState
+import app.morphe.gui.ui.theme.ThemeStyle
+import app.morphe.gui.util.PatchSourceNaming
 import app.morphe.morphe_desktop.generated.resources.*
 import java.io.File
 import kotlinx.coroutines.launch
@@ -68,11 +78,30 @@ import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
+/** Detailed information dialog displaying metadata, status, and management actions for a patched app. */
+internal enum class PatchedAppDetailAction {
+    CHOOSE_APK,
+    PATCH_SELECTED_INPUTS,
+    REPATCH_CURRENT_INPUTS,
+}
+
+internal fun resolvePatchedAppDetailAction(
+    primaryAction: HomePrimaryAction,
+    inputsChanged: Boolean,
+): PatchedAppDetailAction = when {
+    inputsChanged -> PatchedAppDetailAction.PATCH_SELECTED_INPUTS
+    primaryAction == HomePrimaryAction.NEW_APK_REQUIRED ||
+        primaryAction == HomePrimaryAction.NEW_APK_AND_REPATCH_REQUIRED ->
+        PatchedAppDetailAction.CHOOSE_APK
+    else -> PatchedAppDetailAction.REPATCH_CURRENT_INPUTS
+}
+
 /**
  * Full recall breakdown for one patched app. Everything is already on the record
  * (date, versions, per-source snapshot, selection, options, integrity). This is a
  * read surface plus the Re-patch / Open folder / Forget actions.
  */
+
 @Composable
 fun PatchedAppDetailDialog(
     record: PatchedAppRecord,
@@ -80,7 +109,9 @@ fun PatchedAppDetailDialog(
     deviceInfo: DeviceAppInfo?,
     updateInfo: RecallUpdateInfo?,
     supportedApp: SupportedApp? = null,
+    resolvedDisplayName: String? = null,
     activeSources: List<ActivePatchSource> = emptyList(),
+    compatibleSources: List<ActivePatchSource> = emptyList(),
     allSources: List<PatchSource> = emptyList(),
     bundleVersionsBySource: Map<String, List<BundleRelease>> = emptyMap(),
     onSetSourceEnabled: (String, Boolean) -> Unit = { _, _ -> },
@@ -95,59 +126,131 @@ fun PatchedAppDetailDialog(
     patchPrepProgress: Pair<String, Float>? = null,
     preparingPatch: Boolean = false,
     onDismiss: () -> Unit,
-    onRepatch: () -> Unit,
-    onPatchWith: (apkPath: String, overrides: Map<String, BundleChoice>) -> Unit = { _, _ -> },
+    onPatchWith: (apkPath: String, overrides: Map<String, BundleChoice>, chosenSource: String?) -> Unit = { _, _, _ -> },
     onForget: () -> Unit,
     onOpenFolder: () -> Unit,
+    onRelinkApk: (String) -> Unit = {},
     onInstall: () -> Unit = {},
     onUninstall: () -> Unit = {},
     installing: Boolean = false,
     uninstalling: Boolean = false,
+    isSimple: Boolean = false,
 ) {
-    val font = LocalMorpheFont.current
-    val accents = LocalMorpheAccents.current
-    val corners = LocalMorpheCorners.current
+    val canDismissDetails = !preparingPatch && !installing && !uninstalling
+    val accents = MorpheTheme.colors
+    val detailDisplayName = resolvedDisplayName?.trim()?.takeIf {
+        it.isNotEmpty() && it != record.installedPackageName && it != record.packageName
+    } ?: record.displayName
     val cardFills = LocalCardFills.current
+    val uriHandler = LocalUriHandler.current
     val patchCount = record.patchSelectionByBundle.values.sumOf { it.size }
-    val hasUpdate = updateInfo != null && (updateInfo.appOutdated || updateInfo.patchesChanged)
+    val appTarget = updateInfo?.appSuggestedVersion?.takeIf { hasConfirmedAppUpdate(updateInfo) }
+    val hasPatchChanges = hasConfirmedPatchUpdate(updateInfo, state)
+    val hasNewAppTarget = hasConfirmedAppUpdate(updateInfo)
     val installPending = deviceInfo?.installPending == true
+    val sameVersionInstalled = deviceInfo?.let {
+        it.installed && it.installedVersion?.removePrefix("v") == record.apkVersion.removePrefix("v")
+    } == true
+    val canInstallExistingApk = shouldOfferPatchedAppInstall(state, installPending, sameVersionInstalled)
 
     Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        onDismissRequest = { if (canDismissDetails) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
     ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                // Tap outside the card to dismiss (the card swallows its own taps below).
-                .pointerInput(Unit) { detectTapGestures { onDismiss() } },
+                // Outside clicks must never silently discard selected patch inputs.
+                .pointerInput(Unit) { detectTapGestures { } },
             contentAlignment = Alignment.Center,
         ) {
-        // Grow with content, but cap at ~90% of the window height so the dialog
-        // can use a tall screen like Settings does, instead of the old fixed
-        // 560dp cap, while still wrapping shorter content.
+        // Constrain dialog height to viewport bounds.
         val maxDialogHeight = maxHeight * 0.9f
         val maxDialogWidth = (maxWidth * 0.7f).coerceIn(480.dp, 860.dp)
 
         var selectedApkPath by remember(record.packageName) {
             mutableStateOf(record.inputApkPath)
         }
+        // Re-selecting a replaced APK at the same path must re-read its manifest.
+        var apkSelectionRevision by remember(record.packageName) { mutableStateOf(0) }
         var bundleChoices by remember(record.packageName) {
             mutableStateOf(emptyMap<String, BundleChoice>())
         }
-        var apkExpanded by remember(record.packageName) { mutableStateOf(false) }
+        var apkExpanded by remember(record.packageName) { mutableStateOf(hasNewAppTarget) }
         var patchExpanded by remember(record.packageName) { mutableStateOf(false) }
 
         var selectedApkVersion by remember(record.packageName) {
             mutableStateOf<String?>(record.apkVersion)
         }
-        LaunchedEffect(selectedApkPath) {
-            selectedApkVersion =
-                if (selectedApkPath == record.inputApkPath) record.apkVersion
-                else onResolveApkVersion(selectedApkPath)
+        LaunchedEffect(selectedApkPath, apkSelectionRevision) {
+            // Never show or use the previously patched version while inspecting
+            // a newly chosen APK. The patch command revalidates its manifest.
+            selectedApkVersion = null
+            // Even the previously recorded path may now contain a newer APK.
+            // The selected file's manifest always wins over historical metadata.
+            selectedApkVersion = onResolveApkVersion(selectedApkPath)
         }
 
-        val bundleParts = activeSources.map { src ->
+        val primarySnapshot = record.sourcesSnapshot.firstOrNull()
+        val rawRecordedPrimaryName = remember(record) {
+            primarySnapshot?.sourceName?.let { PatchSourceNaming.sanitize(it) }
+                ?: record.patchSelectionByBundle.keys.firstOrNull()?.let { PatchSourceNaming.sanitize(it) }
+        }
+
+        fun canonicalSourceName(recordedId: String?, recordedName: String?): String? {
+            if (recordedId == null && recordedName.isNullOrBlank()) return null
+            val matched = allSources.firstOrNull { src ->
+                (recordedId != null && src.id == recordedId) ||
+                (recordedName != null && (
+                    src.name.equals(recordedName, ignoreCase = true) ||
+                    PatchSourceNaming.suggestNameFromUrl(src.url).equals(recordedName, ignoreCase = true) ||
+                    src.url?.contains(recordedName, ignoreCase = true) == true ||
+                    PatchSourceNaming.sanitize(src.name).equals(recordedName, ignoreCase = true)
+                ))
+            }
+            return matched?.name ?: PatchSourceNaming.sanitize(recordedName)
+        }
+
+        val recordedPrimaryName = remember(record, allSources) {
+            canonicalSourceName(primarySnapshot?.sourceId, rawRecordedPrimaryName)
+        }
+        val recordedPrimaryVersion = remember(record, rawRecordedPrimaryName, recordedPrimaryName, allSources) {
+            record.sourcesSnapshot.firstOrNull { snapshot ->
+                val sn = PatchSourceNaming.sanitize(snapshot.sourceName)
+                (primarySnapshot != null && snapshot.sourceId == primarySnapshot.sourceId) ||
+                sn.equals(rawRecordedPrimaryName, ignoreCase = true) ||
+                sn.equals(recordedPrimaryName, ignoreCase = true) ||
+                canonicalSourceName(snapshot.sourceId, sn).equals(recordedPrimaryName, ignoreCase = true)
+            }?.version
+        }
+        val isRecordedSourceActive = remember(recordedPrimaryName, activeSources) {
+            recordedPrimaryName != null && activeSources.any {
+                (primarySnapshot != null && it.id == primarySnapshot.sourceId) ||
+                it.name.equals(recordedPrimaryName, ignoreCase = true)
+            }
+        }
+
+        var selectedSourceName by remember(record.packageName) {
+            mutableStateOf(if (isRecordedSourceActive) recordedPrimaryName else null)
+        }
+
+        val effectiveActiveSource = remember(selectedSourceName, compatibleSources) {
+            compatibleSources.firstOrNull { it.name.equals(selectedSourceName, ignoreCase = true) }
+        }
+
+        val canRepatch = if (isSimple) {
+            effectiveActiveSource != null
+        } else {
+            activeSources.isNotEmpty()
+        }
+
+        val relevantSources = if (isSimple) {
+            listOfNotNull(effectiveActiveSource)
+        } else {
+            activeSources
+        }
+
+        val bundleParts = relevantSources.map { src ->
             val label = when (val c = bundleChoices[src.name]) {
                 is BundleChoice.Version -> "v${c.tag.removePrefix("v")}"
                 is BundleChoice.LocalFile -> File(c.path).name
@@ -156,7 +259,7 @@ fun PatchedAppDetailDialog(
             src.name to label
         }
 
-        val bundleTags = activeSources.mapNotNull { src ->
+        val bundleTags = relevantSources.mapNotNull { src ->
             when (val c = bundleChoices[src.name]) {
                 is BundleChoice.Version -> src.name to c.tag
                 is BundleChoice.LocalFile -> null
@@ -171,18 +274,19 @@ fun PatchedAppDetailDialog(
         }
 
         val scope = rememberCoroutineScope()
+        val relinkPickerTitle = stringResource(Res.string.home_detail_select_apk_title)
         var bundleSupport by remember(record.packageName) { mutableStateOf<BundleSupport?>(null) }
         var supportEpoch by remember(record.packageName) { mutableStateOf(0) }
         var bundleDownload by remember(record.packageName) { mutableStateOf<Float?>(null) }
         var supportLoading by remember(record.packageName) { mutableStateOf(false) }
         var bundleDownloadError by remember(record.packageName) { mutableStateOf<String?>(null) }
-        LaunchedEffect(bundleChoices, activeSources, supportEpoch) {
+        LaunchedEffect(bundleChoices, relevantSources, supportEpoch) {
             supportLoading = true
             bundleSupport = onSupportedAppFor(record.packageName, bundleChoices)
             supportLoading = false
         }
 
-        val loadedLabel = activeSources.joinToString(", ") { src ->
+        val loadedLabel = relevantSources.joinToString(", ") { src ->
             "${src.name} ${src.resolvedVersion?.let { "v${it.removePrefix("v")}" } ?: "latest"}"
         }.ifBlank { stringResource(Res.string.home_detail_the_loaded_bundle) }
         val chosenLabel = bundleChoices.entries
@@ -207,7 +311,11 @@ fun PatchedAppDetailDialog(
             .takeIf { stagedVersion != null && it.removePrefix("v") != stagedVersion.removePrefix("v") }
             ?.let { "v${it.removePrefix("v")}" }
         val bundlePrevious = bundleParts.singleOrNull()?.let { (name, current) ->
-            record.sourcesSnapshot.firstOrNull { it.sourceName == name }
+            record.sourcesSnapshot.firstOrNull { snapshot ->
+                val sn = PatchSourceNaming.sanitize(snapshot.sourceName)
+                sn.equals(name, ignoreCase = true) ||
+                canonicalSourceName(snapshot.sourceId, sn).equals(name, ignoreCase = true)
+            }
                 ?.version
                 ?.let { "v${it.removePrefix("v")}" }
                 ?.takeIf { it != current }
@@ -226,7 +334,51 @@ fun PatchedAppDetailDialog(
             contentPadding = PaddingValues(0.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-                IdentityBand(record, state, deviceInfo, updateInfo, font)
+                MorpheDialogTitleBar(
+                    onDismiss = { if (canDismissDetails) onDismiss() },
+                    dismissEnabled = canDismissDetails,
+                    title = { Text(detailDisplayName, style = MorpheTheme.typography.titleMedium) },
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
+                )
+                IdentityBand(record, state, deviceInfo, updateInfo, detailDisplayName)
+                if (deviceInfo?.installed == true) {
+                    val owner = when {
+                        !deviceInfo.updateOwnerChecked ->
+                            stringResource(Res.string.device_play_owner_unknown)
+                        deviceInfo.updateOwnerPackage.isNullOrBlank() ->
+                            stringResource(Res.string.device_play_owner_none)
+                        else -> deviceInfo.updateOwnerPackage
+                    }
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            stringResource(Res.string.device_play_owner_label, owner),
+                            style = MorpheTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        deviceInfo.androidVersionCode?.let { code ->
+                            Text(
+                                stringResource(Res.string.device_android_version_code, code.toString()),
+                                style = MorpheTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            if (hasPlayUpdateSuppressingVersionCode(code)) {
+                                Text(
+                                    stringResource(Res.string.device_version_code_update_warning),
+                                    style = MorpheTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                        Text(
+                            stringResource(Res.string.device_play_owner_is_not_play_detachment),
+                            style = MorpheTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 BandDivider()
 
                 Column(
@@ -236,22 +388,21 @@ fun PatchedAppDetailDialog(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(corners.small))
+                            .clip(MorpheTheme.shapes.small)
                             .border(
                                 1.dp,
                                 MaterialTheme.colorScheme.outline.copy(alpha = 0.22f),
-                                RoundedCornerShape(corners.small),
+                                MorpheTheme.shapes.small,
                             ),
                     ) {
                         AssemblyRow(
                             label = stringResource(Res.string.home_detail_source_apk_label),
-                            primary = record.displayName,
+                            primary = detailDisplayName,
                             version = selectedApkVersion?.let { "v${it.removePrefix("v")}" },
                             previousVersion = apkPrevious,
                             sub = File(selectedApkPath).name,
                             expanded = apkExpanded,
                             accent = accents.primary,
-                            font = font,
                             warning = apkNeedsAttention,
                             onToggle = { apkExpanded = !apkExpanded },
                         ) {
@@ -287,68 +438,135 @@ fun PatchedAppDetailDialog(
                                     }
                                 },
                                 downloadError = bundleDownloadError,
-                                font = font,
-                                corner = corners.small,
-                                onApkSelected = { selectedApkPath = it },
+                                onApkSelected = {
+                                    selectedApkVersion = null
+                                    selectedApkPath = it
+                                    apkSelectionRevision++
+                                },
                             )
                         }
                         RowDivider()
+                        val assemblyPrimary = when {
+                            isSimple && effectiveActiveSource != null -> effectiveActiveSource.name
+                            isSimple && effectiveActiveSource == null ->
+                                "${recordedPrimaryName ?: stringResource(Res.string.home_detail_source_removed)} (${stringResource(Res.string.home_detail_source_disabled)})"
+                            bundleParts.isEmpty() -> stringResource(Res.string.home_detail_no_sources_enabled)
+                            bundleParts.size == 1 -> bundleParts[0].first
+                            else -> pluralStringResource(Res.plurals.count_sources, bundleParts.size, bundleParts.size)
+                        }
+                        val assemblyVersion = when {
+                            isSimple && effectiveActiveSource != null ->
+                                bundleParts.singleOrNull()?.second ?: effectiveActiveSource.resolvedVersion?.let { "v${it.removePrefix("v")}" }
+                            isSimple && effectiveActiveSource == null ->
+                                recordedPrimaryVersion?.let { "v${it.removePrefix("v")}" }
+                            else -> bundleParts.singleOrNull()?.second
+                        }
+                        val assemblyWarning = isSimple && effectiveActiveSource == null
+                        val assemblySub = when {
+                            isSimple && effectiveActiveSource != null -> null
+                            isSimple && effectiveActiveSource == null ->
+                                if (compatibleSources.isNotEmpty()) stringResource(Res.string.home_detail_source_disabled_alternatives_sub)
+                                else stringResource(Res.string.home_detail_source_disabled_sub)
+                            bundleParts.isEmpty() -> stringResource(Res.string.home_detail_enable_or_add_source)
+                            bundleParts.size == 1 -> null
+                            else -> bundleParts.joinToString("  ·  ") { "${it.first} ${it.second}" }
+                        }
+
                         AssemblyRow(
                             label = stringResource(Res.string.home_detail_patch_bundle_label),
-                            primary = when (bundleParts.size) {
-                                0 -> stringResource(Res.string.home_detail_no_sources_enabled)
-                                1 -> bundleParts[0].first
-                                else -> pluralStringResource(Res.plurals.count_sources, bundleParts.size, bundleParts.size)
-                            },
-                            version = bundleParts.singleOrNull()?.second,
+                            primary = assemblyPrimary,
+                            version = assemblyVersion,
                             previousVersion = bundlePrevious,
-                            sub = when (bundleParts.size) {
-                                0 -> stringResource(Res.string.home_detail_enable_or_add_source)
-                                1 -> null
-                                else -> bundleParts.joinToString("  ·  ") { "${it.first} ${it.second}" }
-                            },
-                            expanded = patchExpanded,
+                            sub = assemblySub,
+                            expanded = !isSimple && patchExpanded,
+                            expandable = !isSimple,
                             accent = accents.primary,
-                            font = font,
-                            onToggle = { patchExpanded = !patchExpanded },
+                            warning = assemblyWarning,
+                            onToggle = if (isSimple) ({}) else ({ patchExpanded = !patchExpanded }),
                         ) {
-                            allSources.forEach { src ->
-                                val active = activeSources.firstOrNull { it.name == src.name }
-                                PatchSourceSection(
-                                    sourceName = src.name,
-                                    enabled = src.enabled,
-                                    resolvedVersion = active?.resolvedVersion,
-                                    sourceUrl = allSources.firstOrNull { it.name == src.name }?.url,
-                                    availableVersions = bundleVersionsBySource[src.name],
-                                    choice = bundleChoices[src.name],
-                                    font = font,
-                                    corner = corners.small,
-                                    onChoose = { c ->
-                                        bundleChoices = if (c == null) bundleChoices - src.name
-                                        else bundleChoices + (src.name to c)
-                                    },
-                                    onSetEnabled = { onSetSourceEnabled(src.id, it) },
+                            if (!isSimple) {
+                                allSources.forEach { src ->
+                                    val active = activeSources.firstOrNull { it.name == src.name }
+                                    PatchSourceSection(
+                                        sourceName = src.name,
+                                        enabled = src.enabled,
+                                        resolvedVersion = active?.resolvedVersion,
+                                        sourceUrl = allSources.firstOrNull { it.name == src.name }?.url,
+                                        availableVersions = bundleVersionsBySource[src.name],
+                                        choice = bundleChoices[src.name],
+                                        onChoose = { c ->
+                                            bundleChoices = if (c == null) bundleChoices - src.name
+                                            else bundleChoices + (src.name to c)
+                                        },
+                                        onSetEnabled = { onSetSourceEnabled(src.id, it) },
+                                    )
+                                }
+                                AddSourceControl(
+                                    onAddSource = onAddSource,
+                                    onAddLocalBundle = onAddLocalBundle,
                                 )
                             }
-                            AddSourceControl(
-                                font = font,
-                                corner = corners.small,
-                                onAddSource = onAddSource,
-                                onAddLocalBundle = onAddLocalBundle,
-                            )
+                        }
+
+                        val showSimpleSourceChoice = isSimple && (compatibleSources.size > 1 || (compatibleSources.isNotEmpty() && !isRecordedSourceActive))
+                        if (showSimpleSourceChoice) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.home_detail_choose_source),
+                                    style = MorpheTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                val currentDropdownLabel = when {
+                                    effectiveActiveSource != null -> "${effectiveActiveSource.name} ${effectiveActiveSource.resolvedVersion?.let { "v${it.removePrefix("v")}" } ?: ""}".trim()
+                                    recordedPrimaryName != null -> "$recordedPrimaryName (${stringResource(Res.string.home_detail_source_disabled)})"
+                                    else -> stringResource(Res.string.home_detail_choose_source)
+                                }
+                                val dropdownItems = buildList {
+                                    if (!isRecordedSourceActive && recordedPrimaryName != null) {
+                                        add(
+                                            MorpheDropdownItem("$recordedPrimaryName (${stringResource(Res.string.home_detail_source_disabled)})") {
+                                                selectedSourceName = null
+                                            }
+                                        )
+                                    }
+                                    compatibleSources.forEach { src ->
+                                        val itemLabel = "${src.name} ${src.resolvedVersion?.let { "v${it.removePrefix("v")}" } ?: ""}".trim()
+                                        add(
+                                            MorpheDropdownItem(itemLabel) {
+                                                selectedSourceName = src.name
+                                            }
+                                        )
+                                    }
+                                }
+                                MorpheDropdown(
+                                    label = currentDropdownLabel,
+                                    items = dropdownItems,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                     }
 
-                    if (installPending) {
+                    if (canInstallExistingApk) {
                         ActionBar(
-                            label = if (installing) stringResource(Res.string.home_action_installing) else stringResource(Res.string.home_action_install_to_device),
+                            label = when {
+                                installing -> stringResource(Res.string.home_action_installing)
+                                sameVersionInstalled -> stringResource(Res.string.home_action_reinstall_to_device)
+                                else -> stringResource(Res.string.home_action_install_to_device)
+                            },
                             icon = MorpheIcons.Download,
                             color = accents.primary,
-                            font = font,
-                            corner = corners.small,
                             filled = true,
                             sublabels = listOf(
-                                if (deviceInfo.installed)
+                                if (sameVersionInstalled)
+                                    stringResource(Res.string.home_detail_reinstall_same_version, record.apkVersion.removePrefix("v"))
+                                else if (deviceInfo?.installed == true)
                                     stringResource(
                                         Res.string.home_detail_ready_device_version,
                                         record.apkVersion.removePrefix("v"),
@@ -359,44 +577,86 @@ fun PatchedAppDetailDialog(
                                     record.apkVersion.removePrefix("v"),
                                 )
                             ),
-                            onClick = if (installing) ({}) else ({ onInstall() }),
+                            onClick = if (installing || uninstalling) ({}) else ({ onInstall() }),
                         )
                     }
 
                     val downloads = pendingDownloads
                     val patchSubs = when {
-                        patchPrepProgress != null -> listOf(stringResource(Res.string.home_detail_downloading_patch, patchPrepProgress.first))
+                        !canRepatch -> listOf(stringResource(Res.string.home_detail_no_compatible_source))
+                        patchPrepProgress != null -> listOf(stringResource(Res.string.home_detail_downloading_patch, PatchSourceNaming.sanitize(patchPrepProgress.first)))
                         preparingPatch -> listOf(stringResource(Res.string.home_detail_resolving_patch_files))
                         downloads.isNullOrEmpty() -> emptyList()
                         else -> downloads.map { "↓  $it" }
                     }
-                    val inputsChanged = selectedApkPath != record.inputApkPath ||
-                        bundleChoices.isNotEmpty()
+                    // A newer supported *app* version needs a new APK input. Changing
+                    // patches on the same old APK must never pretend to upgrade it.
+                    val newAppApkRequired = hasNewAppTarget && appTarget != null &&
+                        (stagedVersion == null ||
+                            (stagedVersion.removePrefix("v") != appTarget.removePrefix("v") &&
+                                !isNewerVersion(stagedVersion, appTarget)))
+                    if (newAppApkRequired) {
+                        InfoNote(stringResource(
+                            Res.string.home_detail_app_update_requires_input,
+                            "v" + updateInfo!!.appSuggestedVersion!!.removePrefix("v")
+                        ))
+                    }
+                    // An app-version upgrade ALWAYS needs new input bytes, even if patches
+                    // also changed. Never offer to re-patch the old APK as an app upgrade.
+                    val chooseNewApk = newAppApkRequired
+                    if (chooseNewApk && appTarget != null) {
+                        val versionSearchUrl = remember(record.packageName, appTarget) {
+                            SupportedApp.getDownloadUrl(record.packageName, appTarget)
+                        }
+                        if (!versionSearchUrl.isNullOrBlank()) {
+                            MorpheButton(
+                                label = stringResource(
+                                    Res.string.home_guided_find_app_version, appTarget.removePrefix("v")),
+                                icon = MorpheIcons.OpenInNew,
+                                variant = MorpheButtonVariant.OUTLINED,
+                                size = MorpheButtonSize.DEFAULT,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { uriHandler.openUri(versionSearchUrl) },
+                            )
+                        }
+                    }
                     ActionBar(
                         label = when {
                             patchPrepProgress != null ->
                                 stringResource(Res.string.home_detail_downloading_percent, (patchPrepProgress.second * 100).toInt())
                             preparingPatch -> stringResource(Res.string.home_action_preparing)
-                            hasUpdate || inputsChanged -> stringResource(Res.string.home_action_update)
+                            chooseNewApk -> stringResource(Res.string.home_action_choose_new_app_apk)
+                            selectedApkPath != record.inputApkPath ->
+                                stringResource(Res.string.home_action_patch_selected_apk)
+                            hasPatchChanges || bundleChoices.isNotEmpty() ->
+                                stringResource(Res.string.home_action_apply_patch_update)
                             else -> stringResource(Res.string.home_action_repatch)
                         },
                         icon = null,
                         color = accents.primary,
-                        font = font,
-                        corner = corners.small,
-                        filled = !installPending,
+                        filled = !canInstallExistingApk,
                         sublabels = patchSubs,
                         progress = if (preparingPatch) (patchPrepProgress?.second ?: 0f) else null,
-                        onClick = if (preparingPatch) ({}) else ({ onPatchWith(selectedApkPath, bundleChoices) }),
+                        onClick = if (preparingPatch) ({}) else if (chooseNewApk) ({
+                            scope.launch {
+                                val picked = MorpheFilePicker.pickFile(
+                                    title = relinkPickerTitle,
+                                    extensions = listOf("apk", "apkm", "xapk", "apks"),
+                                )
+                                if (picked?.isFile == true) {
+                                    selectedApkVersion = null
+                                    selectedApkPath = picked.absolutePath
+                                    apkSelectionRevision++
+                                }
+                            }
+                        }) else ({ onPatchWith(selectedApkPath, bundleChoices, if (isSimple) selectedSourceName else null) }),
                     )
 
                     if (deviceInfo?.installed == true) {
                         ActionBar(
                             label = if (uninstalling) stringResource(Res.string.home_action_uninstalling) else stringResource(Res.string.home_dialog_uninstall_button),
                             icon = MorpheIcons.Delete,
-                            color = Color(0xFFE0504D),
-                            font = font,
-                            corner = corners.small,
+                            color = MorpheTheme.colors.error,
                             filled = false,
                             onClick = if (uninstalling) ({}) else ({ onDismiss(); onUninstall() }),
                         )
@@ -414,8 +674,6 @@ fun PatchedAppDetailDialog(
                 DisclosureHeader(
                     label = stringResource(Res.string.home_detail_details_title),
                     color = accents.primary,
-                    font = font,
-                    corner = corners.small,
                     expanded = detailsExpanded,
                     onToggle = { detailsExpanded = !detailsExpanded },
                 )
@@ -425,113 +683,145 @@ fun PatchedAppDetailDialog(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StatCell(stringResource(Res.string.home_your_apps_status_patched), fullDate(record.patchedAt), font)
+                    StatCell(stringResource(Res.string.home_your_apps_patched_date_label), fullDate(record.patchedAt))
                     StatCell(
                         stringResource(Res.string.home_detail_app_version_label),
                         buildString {
                             append("v${record.apkVersion.removePrefix("v")}")
                             record.apkVersionCode?.let { append(" ($it)") }
                         },
-                        font,
                     )
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StatCell(stringResource(Res.string.app_name), record.patchedWithMorpheVersion, font)
-                    StatCell(stringResource(Res.string.home_detail_output_size_label), humanSize(record.outputApkSize), font)
-                }
-                record.outputApkSha256?.let { CopyableStat(stringResource(Res.string.home_detail_sha256_label), it, font, corners.small) }
-                CopyableStat(stringResource(Res.string.home_detail_output_path_label), record.outputApkPath, font, corners.small)
-                }
-                }
-                DisclosureHeader(
-                    label = stringResource(Res.string.home_detail_section_patches_applied),
-                    color = accents.primary,
-                    font = font,
-                    corner = corners.small,
-                    expanded = patchesExpanded,
-                    trailing = "$patchCount",
-                    onToggle = { patchesExpanded = !patchesExpanded },
-                )
-                AnimatedVisibility(visible = patchesExpanded, enter = DisclosureEnter, exit = DisclosureExit) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    if (patchCount > 5) {
-                        PatchSearchField(patchSearch, { patchSearch = it }, font, corners.small, accents.primary)
+                    if (!isSimple) {
+                        StatCell(stringResource(Res.string.app_name), record.patchedWithMorpheVersion)
                     }
-                    record.patchSelectionByBundle.forEach { (bundle, patches) ->
-                        val shown = patches
-                            .map { patchDisplayName(it) }
-                            .filter { patchSearch.isBlank() || it.contains(patchSearch, ignoreCase = true) }
-                            .sorted()
-                        if (shown.isNotEmpty()) {
-                            Text(
-                                text = bundle,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                fontFamily = font,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
+                    StatCell(stringResource(Res.string.home_detail_output_size_label), humanSize(record.outputApkSize))
+                }
+                if (!isSimple) {
+                    record.outputApkSha256?.let { CopyableStat(stringResource(Res.string.home_detail_sha256_label), it) }
+                }
+                CopyableStat(stringResource(Res.string.home_detail_output_path_label), record.outputApkPath)
+                if (record.outputApkSha256 != null) {
+                    MorpheButton(
+                        label = stringResource(Res.string.home_detail_relink_verified_output),
+                        icon = MorpheIcons.FolderOpen,
+                        variant = MorpheButtonVariant.OUTLINED,
+                        size = MorpheButtonSize.DEFAULT,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            scope.launch {
+                                val chosen = MorpheFilePicker.pickFile(
+                                    title = relinkPickerTitle,
+                                    extensions = listOf("apk"),
+                                )
+                                if (chosen?.isFile == true) onRelinkApk(chosen.absolutePath)
+                            }
+                        },
+                    )
+                }
+                }
+                }
+                if (!isSimple) {
+                    DisclosureHeader(
+                        label = stringResource(Res.string.home_detail_section_patches_applied),
+                        color = accents.primary,
+                        expanded = patchesExpanded,
+                        trailing = "$patchCount",
+                        onToggle = { patchesExpanded = !patchesExpanded },
+                    )
+                    AnimatedVisibility(visible = patchesExpanded, enter = DisclosureEnter, exit = DisclosureExit) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        if (patchCount > 5) {
+                            SlimSearchField(
+                                value = patchSearch,
+                                onValueChange = { patchSearch = it },
+                                placeholder = stringResource(Res.string.patches_search_hint),
                             )
-                            shown.forEach { name ->
+                        }
+                        record.patchSelectionByBundle.forEach { (bundle, patches) ->
+                            val shown = patches
+                                .map { patchDisplayName(it) }
+                                .filter { patchSearch.isBlank() || it.contains(patchSearch, ignoreCase = true) }
+                                .sorted()
+                            if (shown.isNotEmpty()) {
                                 Text(
-                                    text = "• $name",
-                                    fontSize = 10.sp,
-                                    fontFamily = font,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                    text = PatchSourceNaming.sanitize(bundle),
+                                    style = MorpheTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
+                                )
+                                shown.forEach { name ->
+                                    Text(
+                                        text = "• $name",
+                                        style = MorpheTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                        modifier = Modifier.padding(start = 8.dp, top = 1.dp),
+                                    )
+                                }
+                            }
+                        }
+                        if (record.patchOptionValues.isNotEmpty() && patchSearch.isBlank()) {
+                            Text(
+                                text = stringResource(Res.string.home_detail_section_options),
+                                style = MorpheTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                            )
+                            record.patchOptionValues.forEach { (k, v) ->
+                                Text(
+                                    text = "• $k = $v",
+                                    style = MorpheTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.padding(start = 8.dp, top = 1.dp),
                                 )
                             }
                         }
                     }
-                    if (record.patchOptionValues.isNotEmpty() && patchSearch.isBlank()) {
-                        Text(
-                            text = stringResource(Res.string.home_detail_section_options),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = font,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
-                        )
-                        record.patchOptionValues.forEach { (k, v) ->
-                            Text(
-                                text = "• $k = $v",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Normal,
-                                fontFamily = font,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(start = 8.dp, top = 1.dp),
-                            )
-                        }
                     }
                 }
-                }
 
+                val isMonochrome = LocalThemeState.current.style == ThemeStyle.MONOCHROME
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                         .padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 12.dp),
                 ) {
-                    DetailActionPill(
-                        stringResource(Res.string.folder), MorpheIcons.OpenInNew, accents.primary, font, corners.small,
-                        modifier = Modifier.weight(1f), onClick = onOpenFolder,
-                    )
-                    DetailActionPill(
-                        stringResource(Res.string.customize), MorpheIcons.Palette, accents.primary, font, corners.small,
+                    MorpheButton(
+                        label = stringResource(Res.string.folder),
+                        icon = MorpheIcons.OpenInNew,
+                        variant = MorpheButtonVariant.OUTLINED,
+                        size = MorpheButtonSize.DEFAULT,
                         modifier = Modifier.weight(1f),
-                    ) {
-                        cardFills.requestEdit(
-                            record.packageName,
-                            record.displayName,
-                            supportedApp?.appIconColor,
+                        onClick = onOpenFolder,
+                    )
+                    if (!isMonochrome) {
+                        MorpheButton(
+                            label = stringResource(Res.string.customize),
+                            icon = MorpheIcons.Palette,
+                            variant = MorpheButtonVariant.OUTLINED,
+                            size = MorpheButtonSize.DEFAULT,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                cardFills.requestEdit(
+                                    record.packageName,
+                                    record.displayName,
+                                    supportedApp?.appIconColor,
+                                )
+                            },
                         )
                     }
-                    DetailActionPill(
-                        stringResource(Res.string.home_dialog_forget_button), MorpheIcons.Delete,
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), font, corners.small,
+                    MorpheButton(
+                        label = stringResource(Res.string.home_dialog_forget_button),
+                        icon = MorpheIcons.Delete,
+                        variant = MorpheButtonVariant.OUTLINED,
+                        size = MorpheButtonSize.DEFAULT,
                         modifier = Modifier.weight(1f),
-                    ) { onDismiss(); onForget() }
+                        onClick = { onDismiss(); onForget() },
+                    )
                 }
                 }
         }
@@ -542,10 +832,19 @@ fun PatchedAppDetailDialog(
                     .align(Alignment.CenterEnd)
                     .fillMaxHeight()
                     .padding(vertical = 6.dp, horizontal = 3.dp),
-                style = morpheScrollbarStyle(),
+                style = MorpheScrollbarStyle(),
             )
         }
         }
         }
     }
 }
+
+/** Reinstall is explicit and safe to offer only for a known, reusable output APK. */
+internal fun shouldOfferPatchedAppInstall(
+    state: PatchedAppState,
+    installPending: Boolean,
+    sameVersionInstalled: Boolean,
+): Boolean = state != PatchedAppState.APK_MISSING &&
+    state != PatchedAppState.MODIFIED_EXTERNALLY &&
+    (installPending || sameVersionInstalled)

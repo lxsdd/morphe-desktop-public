@@ -21,7 +21,8 @@ import app.morphe.gui.data.model.PatchSource
 import app.morphe.gui.data.model.SupportedApp
 import app.morphe.gui.data.repository.ActiveMode
 import app.morphe.gui.data.repository.ConfigRepository
-import app.morphe.gui.data.repository.PatchRepository
+import app.morphe.engine.patches.PatchRepository
+import app.morphe.engine.patches.PatchResolver
 import app.morphe.gui.data.repository.PatchSourceManager
 import app.morphe.gui.data.repository.SeenPatchesRepository
 import app.morphe.gui.data.repository.UpdateCheckRepository
@@ -118,7 +119,7 @@ class QuickPatchViewModel(
         // back to Quick after being in Expert" case.
         viewModelScope.launch {
             patchSourceManager.activeMode.collect { mode ->
-                if (mode == ActiveMode.QUICK) {
+                if (mode == ActiveMode.SIMPLE) {
                     loadPatchesAndSupportedApps()
                 }
             }
@@ -133,7 +134,7 @@ class QuickPatchViewModel(
                 // halves the parallel HTTP traffic and removes the duplicate
                 // request for the active source that BOTH VMs would otherwise
                 // fire simultaneously.
-                if (patchSourceManager.activeMode.value != ActiveMode.QUICK) return@collect
+                if (patchSourceManager.activeMode.value != ActiveMode.SIMPLE) return@collect
                 Logger.info("QuickVM: Source changed, reloading patches...")
                 patchRepository = patchSourceManager.getActiveRepositorySync()
                 localPatchFilePath = patchSourceManager.getLocalFilePath()
@@ -215,7 +216,7 @@ class QuickPatchViewModel(
 
                 val result = EnabledSourcesLoader.loadAll(
                     listOf(pair),
-                    patchService,
+                    prefsBySource = configRepository.getSourceVersionPrefs(),
                     excludedMppPatterns = configRepository.loadConfig().excludedMppPatterns,
                 )
 
@@ -247,27 +248,29 @@ class QuickPatchViewModel(
                     return@launch
                 }
 
-                val supportedApps = SupportedAppExtractor.extractSupportedApps(result.unionGuiPatches)
-                cachedPatches = result.unionGuiPatches
+                val guiPatches = patchService.convertToGuiPatches(result.loaded.allPatches)
+                val supportedApps = SupportedAppExtractor.extractSupportedApps(guiPatches)
+                cachedPatches = guiPatches
                 cachedSupportedApps = supportedApps
-                val firstResolved = result.resolved.firstOrNull { it.patchFile != null }
+                val readySources = result.usableResolvedSources
+                val firstResolved = readySources.firstOrNull()
                 cachedPatchesFile = firstResolved?.patchFile
-                cachedAllPatchFiles = result.resolved.mapNotNull { it.patchFile }
+                cachedAllPatchFiles = readySources.mapNotNull { it.patchFile }
                 cachedSourcesResult = result
 
                 Logger.info(
                     "Quick mode: Loaded ${supportedApps.size} supported apps from " +
-                            "${result.resolved.count { it.patchFile != null }} source(s)"
+                            "${readySources.size} source(s)"
                 )
 
                 // Multi-source: only flag offline when EVERY resolved source is offline.
-                val resolvedSources = result.resolved.filter { it.patchFile != null }
+                val resolvedSources = readySources
                 val isOffline = resolvedSources.isNotEmpty() && resolvedSources.all { it.isOffline }
                 val displayVersion = firstResolved?.resolvedVersion
                 val sourceName = if (result.resolved.size == 1) {
                     firstResolved?.source?.name ?: patchSourceManager.getActiveSourceName()
                 } else {
-                    getPluralString(Res.plurals.count_sources, result.resolved.count { it.patchFile != null }, result.resolved.count { it.patchFile != null })
+                    getPluralString(Res.plurals.count_sources, readySources.size, readySources.size)
                 }
 
                 _uiState.update { it.copy(
@@ -874,7 +877,7 @@ data class QuickPatchUiState(
     val isLoadingPatches: Boolean = true,
     val supportedApps: List<SupportedApp> = emptyList(),
     val patchesVersion: String? = null,
-    val patchesChannel: EnabledSourcesLoader.Channel? = null,
+    val patchesChannel: PatchResolver.Channel? = null,
     val patchSourceName: String? = null,
     val patchLoadError: String? = null,
     val isOffline: Boolean = false,

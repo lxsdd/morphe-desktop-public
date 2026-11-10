@@ -25,11 +25,10 @@ import app.morphe.gui.ui.components.MorpheBanners
 import app.morphe.gui.ui.components.MorpheErrorBar
 import app.morphe.gui.ui.components.OfflineBanner
 import app.morphe.gui.ui.components.SourceManagementSheet
-import app.morphe.gui.ui.components.SourceSheetMode
 import app.morphe.gui.ui.components.TopBarRow
 import app.morphe.gui.ui.components.UpdateBanner
 import app.morphe.gui.ui.screens.home.components.FullScreenDropZone
-import app.morphe.gui.ui.screens.patching.LogFileViewerDialog
+import app.morphe.gui.ui.screens.patching.components.LogFileViewerDialog
 import app.morphe.gui.ui.screens.patching.LogLevel
 import app.morphe.gui.ui.screens.quick.components.BrandingLogo
 import app.morphe.gui.ui.screens.quick.components.CompletedContent
@@ -140,18 +139,15 @@ fun QuickPatchContent(viewModel: QuickPatchViewModel) {
             sourceChannels = snapshot.sourceChannelMap(),
             sourceErrors = snapshot.sourceErrorMap(),
             isLoading = uiState.isLoadingPatches,
-            mode = SourceSheetMode.SINGLE_SELECT,
-            activeSourceId = activeSourceId,
-            onSelectSingle = { id ->
-                showSourcePicker = false
-                pickerScope.launch { patchSourceManager.switchSource(id) }
-            },
             onToggleEnabled = { _, _ -> /* no-op in SINGLE_SELECT mode */ },
             onAdd = { src -> pickerScope.launch { patchSourceManager.addSource(src) } },
             onEdit = { src -> pickerScope.launch { patchSourceManager.updateSource(src) } },
             onRemove = { id -> pickerScope.launch { patchSourceManager.removeSource(id) } },
             onReorder = { orderedIds -> pickerScope.launch { patchSourceManager.reorderSources(orderedIds) } },
-            onOpenPatches = { /* unused in SINGLE_SELECT mode */ },
+            onOpenPatches = { id ->
+                showSourcePicker = false
+                pickerScope.launch { patchSourceManager.switchSource(id) }
+            },
             onDismiss = { showSourcePicker = false },
             onRefresh = { viewModel.retryLoadPatches() },
             enabled = uiState.phase != QuickPatchPhase.DOWNLOADING &&
@@ -163,15 +159,12 @@ fun QuickPatchContent(viewModel: QuickPatchViewModel) {
         val logFile = File(MorpheData.root, "logs/morphe-gui.log")
         LogFileViewerDialog(
             file = logFile,
-            corners = corners,
-            font = font,
             borderColor = borderColor,
             onDismiss = { showLogViewer = false }
         )
     }
 
     FullScreenDropZone(
-        isDragHovering = uiState.isDragHovering,
         onDragHoverChange = { viewModel.setDragHover(it) },
         onFilesDropped = { viewModel.onFilesDropped(it) },
         enabled = uiState.phase != QuickPatchPhase.ANALYZING

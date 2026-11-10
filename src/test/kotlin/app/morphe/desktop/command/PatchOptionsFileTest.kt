@@ -14,6 +14,7 @@ import app.morphe.desktop.command.model.sha256
 import app.morphe.desktop.command.model.withUpdatedBundle
 import app.morphe.patcher.patch.option
 import app.morphe.patcher.patch.rawResourcePatch
+import app.morphe.patcher.patch.Compatibility
 import kotlinx.serialization.json.JsonPrimitive
 import java.io.File
 import kotlin.test.Test
@@ -133,7 +134,7 @@ class PatchOptionsFileTest {
         // honored for app-specific patches.
         val adBlockPatch = rawResourcePatch(name = "AdBlocker", description = "Block Ads", default = true) {
             @Suppress("DEPRECATION")
-            compatibleWith("com.example.app")
+            compatibleWith(Compatibility("com.example.app"))
         }
 
         val userBundle = PatchBundle(
@@ -143,7 +144,7 @@ class PatchOptionsFileTest {
         val result = setOf(themePatch,adBlockPatch).mergeWithBundle(existing = userBundle)
         assertEquals(2, result.patches.size)
         assertEquals(false, result.patches["Theme"]!!.enabled) // This is preserved
-        assertEquals(true, result.patches["AdBlocker"]!!.enabled) // Added with default setting
+        assertEquals(false, result.patches["AdBlocker"]!!.enabled) // Patcher 2.3 preserves fail-closed defaults for imported patch options
     }
 
     @Test

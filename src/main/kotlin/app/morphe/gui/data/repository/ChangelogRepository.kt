@@ -8,12 +8,14 @@ package app.morphe.gui.data.repository
 import app.morphe.engine.network.HttpService
 import app.morphe.engine.patches.PatchProvider
 import app.morphe.engine.patches.RemotePatchSourceFactory
+import app.morphe.engine.util.Logger
 import app.morphe.gui.data.model.PatchSource
 import app.morphe.gui.data.model.PatchSourceType
 import app.morphe.gui.util.ChangelogEntry
 import app.morphe.gui.util.ChangelogParser
-import app.morphe.gui.util.Logger
 import io.ktor.client.HttpClient
+import java.io.File
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -31,9 +33,11 @@ class ChangelogRepository(
             val url = changelogUrl(source, prerelease) ?: return@withContext null
             mutex.withLock {
                 cache[url]?.let { return@withContext it }
-                val entries = runCatching {
+                val entries = try {
                     ChangelogParser.parse(http.request<String>(url))
-                }.getOrElse { e ->
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
                     Logger.debug("Changelog unavailable for '${source.name}' at $url: ${e.message}")
                     return@withContext null
                 }
@@ -46,7 +50,33 @@ class ChangelogRepository(
             }
         }
 
-    suspend fun clearCache() = mutex.withLock { cache.clear() }
+    suspend fun desktopEntries(prerelease: Boolean): List<ChangelogEntry>? =
+        withContext(Dispatchers.IO) {
+            val branch = if (prerelease) "dev" else "main"
+            val url = "$GITHUB_RAW_BASE/MorpheApp/morphe-desktop/refs/heads/$branch/$CHANGELOG_FILE"
+            mutex.withLock {
+                cache[url]?.let { return@withContext it }
+                val rawMarkdown = try {
+                    http.request<String>(url)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Logger.debug("Remote desktop changelog unavailable at $url: ${e.message}, trying local fallback")
+                    try {
+                        File("CHANGELOG.md").takeIf { it.exists() }?.readText()
+                            ?: javaClass.getResourceAsStream("/CHANGELOG.md")?.bufferedReader()?.use { it.readText() }
+                    } catch (_: Exception) {
+                        null
+                    }
+                } ?: return@withContext null
+
+                val entries = ChangelogParser.parse(rawMarkdown)
+                if (entries.isNotEmpty()) {
+                    cache[url] = entries
+                }
+                entries.ifEmpty { null }
+            }
+        }
 
     private fun changelogUrl(source: PatchSource, prerelease: Boolean): String? {
         if (source.type == PatchSourceType.LOCAL) return null

@@ -1,3 +1,366 @@
+# [2.0.0](https://github.com/MorpheApp/morphe-desktop/compare/v1.20.0...v2.0.0) (2026-11-04)
+
+
+### Bug Fixes
+
+* Report patching steps and log levels as events ([daaf936](https://github.com/MorpheApp/morphe-desktop/commit/daaf9361fb5bcf79374cd3a5a0425396c1de33cd))
+* Resolve card text contrast in Monochrome Light Mode ([4ebc790](https://github.com/MorpheApp/morphe-desktop/commit/4ebc7908b25aef280858112b55451de5b78ff405))
+
+
+### Features
+
+* Add support for Windows on ARM ([#399](https://github.com/MorpheApp/morphe-desktop/issues/399)) ([a573962](https://github.com/MorpheApp/morphe-desktop/commit/a573962804a690ff3e75a27c01bdac4813519165))
+* GUI 2.0 overhaul ([#393](https://github.com/MorpheApp/morphe-desktop/issues/393)) ([6d2bf56](https://github.com/MorpheApp/morphe-desktop/commit/6d2bf566dc41c89b42069f9419e1238d50eae4b5))
+* Sign with PKCS12, BKS and JKS keystores as they are ([8425c01](https://github.com/MorpheApp/morphe-desktop/commit/8425c019d5653285398625195159a3918158c02b))
+
+
+### Performance Improvements
+
+* Write the patched APK in one pass and sign it in place ([#403](https://github.com/MorpheApp/morphe-desktop/issues/403)) ([e9ac86e](https://github.com/MorpheApp/morphe-desktop/commit/e9ac86e8e95153706c0b8ff64e12e411477fe3f4))
+
+
+### BREAKING CHANGES
+
+* Migrated Desktop to use GUI 2.0.
+
+# [2.0.0-dev.6](https://github.com/MorpheApp/morphe-desktop/compare/v2.0.0-dev.5...v2.0.0-dev.6) (2026-11-03)
+
+
+### Bug Fixes
+
+* Report patching steps and log levels as events ([daaf936](https://github.com/MorpheApp/morphe-desktop/commit/daaf9361fb5bcf79374cd3a5a0425396c1de33cd))
+
+# [2.0.0-dev.5](https://github.com/MorpheApp/morphe-desktop/compare/v2.0.0-dev.4...v2.0.0-dev.5) (2026-11-02)
+
+
+### Performance Improvements
+
+* Write the patched APK in one pass and sign it in place ([#403](https://github.com/MorpheApp/morphe-desktop/issues/403)) ([e9ac86e](https://github.com/MorpheApp/morphe-desktop/commit/e9ac86e8e95153706c0b8ff64e12e411477fe3f4))
+
+# [2.0.0-dev.4](https://github.com/MorpheApp/morphe-desktop/compare/v2.0.0-dev.3...v2.0.0-dev.4) (2026-11-01)
+
+
+### Features
+
+* Sign with PKCS12, BKS and JKS keystores as they are ([8425c01](https://github.com/MorpheApp/morphe-desktop/commit/8425c019d5653285398625195159a3918158c02b))
+
+# [2.0.0-dev.3](https://github.com/MorpheApp/morphe-desktop/compare/v2.0.0-dev.2...v2.0.0-dev.3) (2026-11-01)
+
+
+### Bug Fixes
+
+* Resolve card text contrast in Monochrome Light Mode ([4ebc790](https://github.com/MorpheApp/morphe-desktop/commit/4ebc7908b25aef280858112b55451de5b78ff405))
+
+# [2.0.0-dev.2](https://github.com/MorpheApp/morphe-desktop/compare/v2.0.0-dev.1...v2.0.0-dev.2) (2026-11-01)
+
+
+### Features
+
+* Add support for Windows on ARM ([#399](https://github.com/MorpheApp/morphe-desktop/issues/399)) ([a573962](https://github.com/MorpheApp/morphe-desktop/commit/a573962804a690ff3e75a27c01bdac4813519165))
+
+# [2.0.0-dev.1](https://github.com/MorpheApp/morphe-desktop/compare/v1.20.0...v2.0.0-dev.1) (2026-11-01)
+
+
+### Features
+
+* GUI 2.0 overhaul ([#393](https://github.com/MorpheApp/morphe-desktop/issues/393)) ([6d2bf56](https://github.com/MorpheApp/morphe-desktop/commit/6d2bf566dc41c89b42069f9419e1238d50eae4b5))
+
+
+### BREAKING CHANGES
+
+* Migrated Desktop to use GUI 2.0.
+
+# [1.20.0](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.1...v1.20.0) (2026-10-30)
+
+
+### Bug Fixes
+
+* Update to latest Patcher ([86594e7](https://github.com/MorpheApp/morphe-desktop/commit/86594e7d02ca0978858163fe378a330e9574c91f))
+* Update to latest Patcher ([b470dc2](https://github.com/MorpheApp/morphe-desktop/commit/b470dc21324906a462ffbe6e0a38830b5ba5459f))
+* Update to latest Patcher ([cf997cd](https://github.com/MorpheApp/morphe-desktop/commit/cf997cde94fbeb30bb6dc29da5c08869bb066a0f))
+* Update to latest Patcher ([730d41b](https://github.com/MorpheApp/morphe-desktop/commit/730d41b3778a2c4c2993de982ad521c3610783bf))
+* Update to latest Patcher ([2a0f901](https://github.com/MorpheApp/morphe-desktop/commit/2a0f901d9041b4d5ab4dd49743f3864ebe81daab))
+* Update to latest Patcher ([4f580f0](https://github.com/MorpheApp/morphe-desktop/commit/4f580f0cf7eeaf9943c13d685765916a16199c1e))
+
+
+### Features
+
+* Verify patch bundle signatures and pin the signing key ([67dcf06](https://github.com/MorpheApp/morphe-desktop/commit/67dcf060f3231570dae3903d237768a372a2146c))
+
+# [1.20.0-dev.6](https://github.com/MorpheApp/morphe-desktop/compare/v1.20.0-dev.5...v1.20.0-dev.6) (2026-10-29)
+
+
+### Bug Fixes
+
+* Update to latest Patcher ([b470dc2](https://github.com/MorpheApp/morphe-desktop/commit/b470dc21324906a462ffbe6e0a38830b5ba5459f))
+
+# [1.20.0-dev.5](https://github.com/MorpheApp/morphe-desktop/compare/v1.20.0-dev.4...v1.20.0-dev.5) (2026-10-28)
+
+
+### Bug Fixes
+
+* Update to latest Patcher ([cf997cd](https://github.com/MorpheApp/morphe-desktop/commit/cf997cde94fbeb30bb6dc29da5c08869bb066a0f))
+
+# [1.20.0-dev.4](https://github.com/MorpheApp/morphe-desktop/compare/v1.20.0-dev.3...v1.20.0-dev.4) (2026-10-28)
+
+
+### Bug Fixes
+
+* Update to latest Patcher ([730d41b](https://github.com/MorpheApp/morphe-desktop/commit/730d41b3778a2c4c2993de982ad521c3610783bf))
+
+# [1.20.0-dev.3](https://github.com/MorpheApp/morphe-desktop/compare/v1.20.0-dev.2...v1.20.0-dev.3) (2026-10-27)
+
+
+### Bug Fixes
+
+* Update to latest Patcher ([2a0f901](https://github.com/MorpheApp/morphe-desktop/commit/2a0f901d9041b4d5ab4dd49743f3864ebe81daab))
+
+# [1.20.0-dev.2](https://github.com/MorpheApp/morphe-desktop/compare/v1.20.0-dev.1...v1.20.0-dev.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* Update to latest Patcher ([4f580f0](https://github.com/MorpheApp/morphe-desktop/commit/4f580f0cf7eeaf9943c13d685765916a16199c1e))
+
+# [1.20.0-dev.1](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.1...v1.20.0-dev.1) (2026-10-26)
+
+
+### Features
+
+* Verify patch bundle signatures and pin the signing key ([67dcf06](https://github.com/MorpheApp/morphe-desktop/commit/67dcf060f3231570dae3903d237768a372a2146c))
+
+## [1.19.1](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0...v1.19.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* Allow APK bundles in app details file picker ([#383](https://github.com/MorpheApp/morphe-desktop/issues/383)) ([5891099](https://github.com/MorpheApp/morphe-desktop/commit/5891099928208aad44a800fa63c66b3edfe73fc5))
+* Sort supported app versions by version number ([#390](https://github.com/MorpheApp/morphe-desktop/issues/390)) ([bc918a3](https://github.com/MorpheApp/morphe-desktop/commit/bc918a395b29aa35d3bf5acfcf18b4101b70a635))
+* Update to latest Patcher ([19c9176](https://github.com/MorpheApp/morphe-desktop/commit/19c9176fff9dcc268ae4979890ffcd177cdea122))
+
+## [1.19.1-dev.3](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.1-dev.2...v1.19.1-dev.3) (2026-10-25)
+
+
+### Bug Fixes
+
+* Sort supported app versions by version number ([#390](https://github.com/MorpheApp/morphe-desktop/issues/390)) ([bc918a3](https://github.com/MorpheApp/morphe-desktop/commit/bc918a395b29aa35d3bf5acfcf18b4101b70a635))
+
+## [1.19.1-dev.2](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.1-dev.1...v1.19.1-dev.2) (2026-10-25)
+
+
+### Bug Fixes
+
+* Update to latest Patcher ([19c9176](https://github.com/MorpheApp/morphe-desktop/commit/19c9176fff9dcc268ae4979890ffcd177cdea122))
+
+## [1.19.1-dev.1](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0...v1.19.1-dev.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* Allow APK bundles in app details file picker ([#383](https://github.com/MorpheApp/morphe-desktop/issues/383)) ([5891099](https://github.com/MorpheApp/morphe-desktop/commit/5891099928208aad44a800fa63c66b3edfe73fc5))
+
+# [1.19.0](https://github.com/MorpheApp/morphe-desktop/compare/v1.18.1...v1.19.0) (2026-10-22)
+
+
+### Bug Fixes
+
+* Clean up temporary directories when cancelling patching ([12d30a5](https://github.com/MorpheApp/morphe-desktop/commit/12d30a5d8ce98e556b980378bd7eb331394e8be1))
+* Create the default keystore on the first signed run ([#373](https://github.com/MorpheApp/morphe-desktop/issues/373)) ([15ef3d0](https://github.com/MorpheApp/morphe-desktop/commit/15ef3d00c92d520604db3d0423261d6c660df944))
+* Eliminate UI freezes across screens, dialogs, and keystore actions ([#354](https://github.com/MorpheApp/morphe-desktop/issues/354)) ([2bbce0c](https://github.com/MorpheApp/morphe-desktop/commit/2bbce0cb4de192c32c8c7896524350a0f8cd89ea))
+* Keep files in the -t directory after patching ([#368](https://github.com/MorpheApp/morphe-desktop/issues/368)) ([c1d3182](https://github.com/MorpheApp/morphe-desktop/commit/c1d318275d7327070d77bd3c546e4d6761a58211))
+* Log total patching time ([508e110](https://github.com/MorpheApp/morphe-desktop/commit/508e11091c42dadeb9d74a9e6a1015dcca81b160))
+* Resolve IDE code inspections ([#366](https://github.com/MorpheApp/morphe-desktop/issues/366)) ([c4d13af](https://github.com/MorpheApp/morphe-desktop/commit/c4d13af90fe773ae02ac0def77dcea665fc2faa8))
+* Restore SLF4J service provider in fat JAR ([#376](https://github.com/MorpheApp/morphe-desktop/issues/376)) ([ed07db7](https://github.com/MorpheApp/morphe-desktop/commit/ed07db7a1d20bd05d1dd62de74b4c53d59c97105))
+* Revert skiko dependency update ([d17e3ad](https://github.com/MorpheApp/morphe-desktop/commit/d17e3ad929e0d53854ca75fa0dd2021b3a42313c))
+* Unify CLI & GUI logic into engine ([#343](https://github.com/MorpheApp/morphe-desktop/issues/343)) ([5390323](https://github.com/MorpheApp/morphe-desktop/commit/5390323465cb1b8aae87498c34c0c02fdd9d3b1c))
+* Unify design system components ([#358](https://github.com/MorpheApp/morphe-desktop/issues/358)) ([4695c01](https://github.com/MorpheApp/morphe-desktop/commit/4695c0164223b79c9ea0eadd30538d5e1990ad47))
+* Update ARSCLib dependency ([d3e17ab](https://github.com/MorpheApp/morphe-desktop/commit/d3e17ab72bfd1834c6dd432a477bec98bfb2a8c1))
+* Update patcher dependency ([9686343](https://github.com/MorpheApp/morphe-desktop/commit/9686343123ab8e6135614cab104e583de0f59219))
+* Update patcher dependency ([4c8cbd0](https://github.com/MorpheApp/morphe-desktop/commit/4c8cbd001f87277ab451c328e5a329782518076a))
+* Update patcher dependency ([aa33e15](https://github.com/MorpheApp/morphe-desktop/commit/aa33e15c97eb90f723ea2b459fe64a658114afe0))
+* Update patcher dependency ([1b7d236](https://github.com/MorpheApp/morphe-desktop/commit/1b7d236a5f408966d81b88adef329d0e0d529aa3))
+* Update patcher dependency ([ccc9fbd](https://github.com/MorpheApp/morphe-desktop/commit/ccc9fbd3e081fad6ae724518e11f77c07ab017eb))
+* Update patcher dependency ([b02ca08](https://github.com/MorpheApp/morphe-desktop/commit/b02ca08c0f9de7a8f80dd31089e401a6790cdf53))
+* Update to latest patcher ([a1bc2ce](https://github.com/MorpheApp/morphe-desktop/commit/a1bc2ced7abcc555d37c78d87b5b94024d3d5c57))
+* Update to latest Patcher ([e15cf74](https://github.com/MorpheApp/morphe-desktop/commit/e15cf74ef4774b352393cf89615970d57278a5ae))
+* Update to latest Patcher ([31c6eee](https://github.com/MorpheApp/morphe-desktop/commit/31c6eee2dfd8037c7ba29b0d4fe68c181b2ce720))
+* Update to latest Patcher ([adacc9d](https://github.com/MorpheApp/morphe-desktop/commit/adacc9d1a393041d38fe5f637425b4e849d4fdca))
+
+
+### Features
+
+* Add `--validate` CLI argument ([62579bb](https://github.com/MorpheApp/morphe-desktop/commit/62579bbdcb03e287ee947a346e591576d3c530be))
+* Port `Lava lamp` background animation ([#369](https://github.com/MorpheApp/morphe-desktop/issues/369)) ([6f631e4](https://github.com/MorpheApp/morphe-desktop/commit/6f631e4e3b2a9c0d681746e210fbd794092e754e))
+* Update to Patcher 2.0.0 ([#357](https://github.com/MorpheApp/morphe-desktop/issues/357)) ([273f5b4](https://github.com/MorpheApp/morphe-desktop/commit/273f5b48ce94d39726b02a499b80520d7c2093cd))
+
+# [1.19.0-dev.20](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.19...v1.19.0-dev.20) (2026-10-22)
+
+
+### Bug Fixes
+
+* Clean up temporary directories when cancelling patching ([12d30a5](https://github.com/MorpheApp/morphe-desktop/commit/12d30a5d8ce98e556b980378bd7eb331394e8be1))
+
+# [1.19.0-dev.19](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.18...v1.19.0-dev.19) (2026-10-21)
+
+
+### Bug Fixes
+
+* Update ARSCLib dependency ([d3e17ab](https://github.com/MorpheApp/morphe-desktop/commit/d3e17ab72bfd1834c6dd432a477bec98bfb2a8c1))
+
+# [1.19.0-dev.18](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.17...v1.19.0-dev.18) (2026-10-21)
+
+
+### Bug Fixes
+
+* Update patcher dependency ([9686343](https://github.com/MorpheApp/morphe-desktop/commit/9686343123ab8e6135614cab104e583de0f59219))
+
+# [1.19.0-dev.17](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.16...v1.19.0-dev.17) (2026-10-20)
+
+
+### Bug Fixes
+
+* Create the default keystore on the first signed run ([#373](https://github.com/MorpheApp/morphe-desktop/issues/373)) ([15ef3d0](https://github.com/MorpheApp/morphe-desktop/commit/15ef3d00c92d520604db3d0423261d6c660df944))
+
+# [1.19.0-dev.16](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.15...v1.19.0-dev.16) (2026-10-20)
+
+
+### Bug Fixes
+
+* Update patcher dependency ([4c8cbd0](https://github.com/MorpheApp/morphe-desktop/commit/4c8cbd001f87277ab451c328e5a329782518076a))
+
+# [1.19.0-dev.15](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.14...v1.19.0-dev.15) (2026-10-19)
+
+
+### Bug Fixes
+
+* Restore SLF4J service provider in fat JAR ([#376](https://github.com/MorpheApp/morphe-desktop/issues/376)) ([ed07db7](https://github.com/MorpheApp/morphe-desktop/commit/ed07db7a1d20bd05d1dd62de74b4c53d59c97105))
+
+# [1.19.0-dev.14](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.13...v1.19.0-dev.14) (2026-10-19)
+
+
+### Bug Fixes
+
+* Update patcher dependency ([aa33e15](https://github.com/MorpheApp/morphe-desktop/commit/aa33e15c97eb90f723ea2b459fe64a658114afe0))
+
+# [1.19.0-dev.13](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.12...v1.19.0-dev.13) (2026-10-19)
+
+
+### Bug Fixes
+
+* Update patcher dependency ([1b7d236](https://github.com/MorpheApp/morphe-desktop/commit/1b7d236a5f408966d81b88adef329d0e0d529aa3))
+
+# [1.19.0-dev.12](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.11...v1.19.0-dev.12) (2026-10-19)
+
+
+### Bug Fixes
+
+* Update patcher dependency ([ccc9fbd](https://github.com/MorpheApp/morphe-desktop/commit/ccc9fbd3e081fad6ae724518e11f77c07ab017eb))
+
+# [1.19.0-dev.11](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.10...v1.19.0-dev.11) (2026-10-19)
+
+
+### Bug Fixes
+
+* Update patcher dependency ([b02ca08](https://github.com/MorpheApp/morphe-desktop/commit/b02ca08c0f9de7a8f80dd31089e401a6790cdf53))
+
+# [1.19.0-dev.10](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.9...v1.19.0-dev.10) (2026-10-19)
+
+
+### Bug Fixes
+
+* Update to latest Patcher ([e15cf74](https://github.com/MorpheApp/morphe-desktop/commit/e15cf74ef4774b352393cf89615970d57278a5ae))
+
+# [1.19.0-dev.9](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.8...v1.19.0-dev.9) (2026-10-19)
+
+
+### Bug Fixes
+
+* Update to latest Patcher ([31c6eee](https://github.com/MorpheApp/morphe-desktop/commit/31c6eee2dfd8037c7ba29b0d4fe68c181b2ce720))
+
+# [1.19.0-dev.8](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.7...v1.19.0-dev.8) (2026-10-19)
+
+
+### Features
+
+* Port `Lava lamp` background animation ([#369](https://github.com/MorpheApp/morphe-desktop/issues/369)) ([6f631e4](https://github.com/MorpheApp/morphe-desktop/commit/6f631e4e3b2a9c0d681746e210fbd794092e754e))
+
+# [1.19.0-dev.7](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.6...v1.19.0-dev.7) (2026-10-18)
+
+
+### Bug Fixes
+
+* Keep files in the -t directory after patching ([#368](https://github.com/MorpheApp/morphe-desktop/issues/368)) ([c1d3182](https://github.com/MorpheApp/morphe-desktop/commit/c1d318275d7327070d77bd3c546e4d6761a58211))
+
+# [1.19.0-dev.6](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.5...v1.19.0-dev.6) (2026-10-18)
+
+
+### Bug Fixes
+
+* Resolve IDE code inspections ([#366](https://github.com/MorpheApp/morphe-desktop/issues/366)) ([c4d13af](https://github.com/MorpheApp/morphe-desktop/commit/c4d13af90fe773ae02ac0def77dcea665fc2faa8))
+
+# [1.19.0-dev.5](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.4...v1.19.0-dev.5) (2026-10-18)
+
+
+### Bug Fixes
+
+* Unify design system components ([#358](https://github.com/MorpheApp/morphe-desktop/issues/358)) ([4695c01](https://github.com/MorpheApp/morphe-desktop/commit/4695c0164223b79c9ea0eadd30538d5e1990ad47))
+
+# [1.19.0-dev.4](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.3...v1.19.0-dev.4) (2026-10-17)
+
+
+### Features
+
+* Add `--validate` CLI argument ([62579bb](https://github.com/MorpheApp/morphe-desktop/commit/62579bbdcb03e287ee947a346e591576d3c530be))
+
+# [1.19.0-dev.3](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.2...v1.19.0-dev.3) (2026-10-17)
+
+
+### Bug Fixes
+
+* Log total patching time ([508e110](https://github.com/MorpheApp/morphe-desktop/commit/508e11091c42dadeb9d74a9e6a1015dcca81b160))
+
+# [1.19.0-dev.2](https://github.com/MorpheApp/morphe-desktop/compare/v1.19.0-dev.1...v1.19.0-dev.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* Update to latest patcher ([a1bc2ce](https://github.com/MorpheApp/morphe-desktop/commit/a1bc2ced7abcc555d37c78d87b5b94024d3d5c57))
+
+# [1.19.0-dev.1](https://github.com/MorpheApp/morphe-desktop/compare/v1.18.2-dev.4...v1.19.0-dev.1) (2026-10-16)
+
+
+### Features
+
+* Update to Patcher 2.0.0 ([#357](https://github.com/MorpheApp/morphe-desktop/issues/357)) ([273f5b4](https://github.com/MorpheApp/morphe-desktop/commit/273f5b48ce94d39726b02a499b80520d7c2093cd))
+
+## [1.18.2-dev.4](https://github.com/MorpheApp/morphe-desktop/compare/v1.18.2-dev.3...v1.18.2-dev.4) (2026-10-11)
+
+
+### Bug Fixes
+
+* Eliminate UI freezes across screens, dialogs, and keystore actions ([#354](https://github.com/MorpheApp/morphe-desktop/issues/354)) ([2bbce0c](https://github.com/MorpheApp/morphe-desktop/commit/2bbce0cb4de192c32c8c7896524350a0f8cd89ea))
+
+## [1.18.2-dev.3](https://github.com/MorpheApp/morphe-desktop/compare/v1.18.2-dev.2...v1.18.2-dev.3) (2026-10-11)
+
+
+### Bug Fixes
+
+* Update to latest Patcher ([adacc9d](https://github.com/MorpheApp/morphe-desktop/commit/adacc9d1a393041d38fe5f637425b4e849d4fdca))
+
+## [1.18.2-dev.2](https://github.com/MorpheApp/morphe-desktop/compare/v1.18.2-dev.1...v1.18.2-dev.2) (2026-10-10)
+
+
+### Bug Fixes
+
+* Revert skiko dependency update ([d17e3ad](https://github.com/MorpheApp/morphe-desktop/commit/d17e3ad929e0d53854ca75fa0dd2021b3a42313c))
+
+## [1.18.2-dev.1](https://github.com/MorpheApp/morphe-desktop/compare/v1.18.1...v1.18.2-dev.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* Unify CLI & GUI logic into engine ([#343](https://github.com/MorpheApp/morphe-desktop/issues/343)) ([5390323](https://github.com/MorpheApp/morphe-desktop/commit/5390323465cb1b8aae87498c34c0c02fdd9d3b1c))
+
 ## [1.18.1](https://github.com/MorpheApp/morphe-desktop/compare/v1.18.0...v1.18.1) (2026-10-05)
 
 

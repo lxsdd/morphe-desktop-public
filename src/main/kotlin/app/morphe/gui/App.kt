@@ -5,11 +5,6 @@
 
 package app.morphe.gui
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.window.WindowDraggableArea
@@ -23,14 +18,16 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
-import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import app.morphe.engine.PatchEngine
+import app.morphe.engine.config.EngineConfigRepository
+import app.morphe.engine.util.Logger
 import app.morphe.gui.data.model.MorpheFill
-import app.morphe.gui.data.model.PatchConfig
+import app.morphe.gui.data.model.effectiveSimpleMode
 import app.morphe.gui.data.repository.ActiveMode
 import app.morphe.gui.data.repository.ConfigRepository
 import app.morphe.gui.data.repository.PatchSourceManager
@@ -43,22 +40,23 @@ import app.morphe.gui.ui.screens.home.HomeScreen
 import app.morphe.gui.ui.screens.patches.PatchSelectionScreen
 import app.morphe.gui.ui.screens.patches.PatchesScreen
 import app.morphe.gui.ui.screens.patching.PatchingScreen
-import app.morphe.gui.ui.screens.quick.QuickPatchScreen
 import app.morphe.gui.ui.screens.result.ResultScreen
 import app.morphe.gui.ui.theme.Animations
 import app.morphe.gui.ui.theme.LocalThemeState
 import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.gui.ui.theme.ThemePreference
 import app.morphe.gui.ui.theme.ThemeState
+import app.morphe.gui.ui.theme.ThemeStyle
 import app.morphe.gui.ui.theme.backgrounds.AnimatedBackground
 import app.morphe.gui.ui.theme.backgrounds.BackgroundType
 import app.morphe.gui.ui.theme.backgrounds.LocalParallaxState
 import app.morphe.gui.ui.theme.backgrounds.rememberParallaxState
 import app.morphe.gui.util.DeviceMonitor
-import app.morphe.gui.util.Logger
 import app.morphe.gui.util.applyTitleBarTint
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import org.koin.compose.KoinApplication
 import org.koin.compose.koinInject
@@ -71,11 +69,7 @@ import org.koin.dsl.koinConfiguration
 data object HomeScreenRoute
 
 @Serializable
-data object QuickPatchScreenRoute
-
-@Serializable
 data class PatchesScreenRoute(
-    val apkPath: String,
     val apkName: String,
 )
 
@@ -101,9 +95,17 @@ data class PatchSelectionParams(
     val apkArchitectures: List<String> = emptyList(),
     val patchesFilePaths: List<String> = emptyList(),
     val patchSourceNames: List<String> = emptyList(),
+    /** Persistent source provenance survives navigation; absent values stay unknown. */
+    val patchSourceIds: List<String> = emptyList(),
+    val patchSourceHashes: List<String> = emptyList(),
     val initialSelectionByBundle: Map<String, Set<String>> = emptyMap(),
     val initialPatchOptions: Map<String, String> = emptyMap(),
     val apkVersion: String = "",
+    /** Private device-import provenance. Never silently change the source device. */
+    val temporaryInputRoot: String? = null,
+    val sourceDeviceSerial: String? = null,
+    val deviceSpecificInput: Boolean = false,
+    val validatedDeviceImport: Boolean = false,
 )
 
 val LocalNavController = compositionLocalOf<NavHostController> {
@@ -129,11 +131,9 @@ private fun applyLocale(language: String) {
     )
 }
 
-/**
- * Mode state for switching between simplified and full mode.
- */
+/** Mode state for switching between simple and expert mode. */
 data class ModeState(
-    val isSimplified: Boolean,
+    val isSimple: Boolean,
     val onChange: (Boolean) -> Unit
 )
 
@@ -157,8 +157,8 @@ val LocalSettingsDialogVisible = compositionLocalOf<MutableState<Boolean>> {
 val LocalIsPatching = compositionLocalOf<MutableState<Boolean>> {
     error("No LocalIsPatching provided")
 }
-val LocalOnSettingsDismiss = compositionLocalOf<() -> Unit> { {} }
-val LocalOnUpdateChannelChanged = compositionLocalOf<() -> Unit> { {} }
+val LocalOnSettingsDismiss = compositionLocalOf { {} }
+val LocalOnUpdateChannelChanged = compositionLocalOf { {} }
 
 val LocalBackgroundType = compositionLocalOf<MutableState<BackgroundType>> { 
     error("No background type provided") 
@@ -179,16 +179,7 @@ val LocalSharpCorners = compositionLocalOf<MutableState<Boolean>> {
     error("No LocalSharpCorners provided")
 }
 
-val LocalGroupPatchesByCategory = compositionLocalOf<MutableState<Boolean>> {
-    error("No LocalGroupPatchesByCategory provided")
-}
-
-/**
- * Auto-start ADB preference. Exposed as a composition local so the
- * SettingsDialog (writer) and DeviceIndicator + install buttons (readers)
- * can react without prop-drilling through Voyager screens. App-level
- * lifecycle (start/stop the daemon when this flips) is handled in [App.kt].
- */
+/** Auto-start ADB preference state. */
 data class AdbPreferenceState(
     val enabled: Boolean,
     val onChange: (Boolean) -> Unit,
@@ -202,10 +193,6 @@ val LocalAdbPreference = staticCompositionLocalOf<AdbPreferenceState> {
 fun app(
     initialSimplifiedMode: Boolean = true
 ) {
-    LaunchedEffect(Unit) {
-        Logger.init()
-    }
-
     KoinApplication(koinConfiguration {
         logger(KoinLoggerAdapter)
         modules(appModule)
@@ -232,6 +219,7 @@ private fun appContent(
     initialSimplifiedMode: Boolean
 ) {
     val configRepository: ConfigRepository = koinInject()
+    val engineConfigRepository: EngineConfigRepository = koinInject()
     val patchSourceManager: PatchSourceManager = koinInject()
     val scope = rememberCoroutineScope()
     val enableParallaxState = remember { mutableStateOf(true) }
@@ -241,7 +229,8 @@ private fun appContent(
     )
 
     var themePreference by remember { mutableStateOf(ThemePreference.SYSTEM) }
-    var isSimplifiedMode by remember { mutableStateOf(initialSimplifiedMode) }
+    var themeStyle by remember { mutableStateOf(ThemeStyle.MORPHE) }
+    var isSimpleMode by remember { mutableStateOf(initialSimplifiedMode) }
     var appLanguage by remember { mutableStateOf("system") }
     var autoStartAdb by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
@@ -249,20 +238,18 @@ private fun appContent(
     var cardFills by remember { mutableStateOf(emptyMap<String, MorpheFill>()) }
     var globalCardFill by remember { mutableStateOf<MorpheFill?>(null) }
     val sharpCornersState = remember { mutableStateOf(false) }
-    val groupPatchesByCategoryState = remember { mutableStateOf(true) }
     val backgroundSpeedState = remember { mutableFloatStateOf(1f) }
     val patchingCompletedState = remember { mutableStateOf(false) }
 
-    // Initialize PatchSourceManager and load config on startup
     LaunchedEffect(Unit) {
         patchSourceManager.initialize()
         val config = configRepository.loadConfig()
         themePreference = config.getThemePreference()
-        isSimplifiedMode = config.useSimplifiedMode
-        groupPatchesByCategoryState.value = config.groupPatchesByCategory
+        themeStyle = config.getThemeStyle()
+        isSimpleMode = config.effectiveSimpleMode()
         backgroundTypeState.value = try {
             BackgroundType.valueOf(config.backgroundType)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             BackgroundType.CIRCLES
         }
         enableParallaxState.value = config.enableParallax
@@ -273,11 +260,10 @@ private fun appContent(
         appLanguage = config.language
         applyLocale(config.language)
 
-        autoStartAdb = config.autoStartAdb
-        // Publish the initial active mode BEFORE the VMs subscribe so their
-        // activeMode listener fires with the correct value on first emit.
+        autoStartAdb = engineConfigRepository.loadConfig().autoStartAdb
+        // Publish initial active mode before view models subscribe.
         patchSourceManager.setActiveMode(
-            if (isSimplifiedMode) ActiveMode.QUICK else ActiveMode.EXPERT
+            if (isSimpleMode) ActiveMode.SIMPLE else ActiveMode.EXPERT
         )
         isLoading = false
     }
@@ -288,7 +274,6 @@ private fun appContent(
         customAccentColorState.value = config.customAccentColorArgb
     }
 
-    // Callback for changing theme
     val onThemeChange: (ThemePreference) -> Unit = { newTheme ->
         themePreference = newTheme
         scope.launch {
@@ -297,30 +282,31 @@ private fun appContent(
         }
     }
 
-    // Callback for changing mode
-    val onModeChange: (Boolean) -> Unit = { simplified ->
-        isSimplifiedMode = simplified
-        // Update the manager immediately so the now-visible mode's VM
-        // starts reacting to source changes and the now-hidden one stops.
-        // That prevents duplicate parallel loads and the cancellation cascade
-        // that comes with them.
-        patchSourceManager.setActiveMode(
-            if (simplified) ActiveMode.QUICK else ActiveMode.EXPERT
-        )
+    val onThemeStyleChange: (ThemeStyle) -> Unit = { newStyle ->
+        themeStyle = newStyle
         scope.launch {
-            configRepository.setUseSimplifiedMode(simplified)
-            Logger.info("Mode changed to: ${if (simplified) "Simplified" else "Full"}")
+            configRepository.setThemeStyle(newStyle)
+            Logger.info("Theme style changed to: ${newStyle.name}")
         }
     }
 
-    // Callback for the auto-start ADB toggle. Persists the preference AND
-    // applies the change immediately: ON spins up DeviceMonitor (which
-    // explicitly start-server's adb and records ownership). OFF cancels
-    // polling and kill-server's the daemon if Morphe owns it.
+    val onModeChange: (Boolean) -> Unit = { simple ->
+        isSimpleMode = simple
+        // Update active mode to prevent duplicate loads between view models.
+        patchSourceManager.setActiveMode(
+            if (simple) ActiveMode.SIMPLE else ActiveMode.EXPERT
+        )
+        scope.launch {
+            configRepository.setUseSimpleMode(simple)
+            Logger.info("Mode changed to: ${if (simple) "Simple" else "Expert"}")
+        }
+    }
+
+    // Persist auto-start ADB preference and start/stop device monitoring.
     val onAutoStartAdbChange: (Boolean) -> Unit = { enabled ->
         autoStartAdb = enabled
         scope.launch {
-            configRepository.setAutoStartAdb(enabled)
+            withContext(Dispatchers.IO) { engineConfigRepository.setAutoStartAdb(enabled) }
             if (enabled) {
                 DeviceMonitor.startMonitoring()
             } else {
@@ -337,11 +323,13 @@ private fun appContent(
 
     val themeState = ThemeState(
         current = themePreference,
-        onChange = onThemeChange
+        onChange = onThemeChange,
+        style = themeStyle,
+        onStyleChange = onThemeStyleChange,
     )
 
     val modeState = ModeState(
-        isSimplified = isSimplifiedMode,
+        isSimple = isSimpleMode,
         onChange = onModeChange
     )
 
@@ -355,18 +343,13 @@ private fun appContent(
         onChange = onAutoStartAdbChange
     )
 
-    // Initial DeviceMonitor start. Gated on autoStartAdb so users who left
-    // the toggle OFF don't spawn an unwanted adb daemon at launch. Runs once
-    // after config finishes loading. Subsequent live toggles go through
-    // [onAutoStartAdbChange], not this effect.
+    // Start DeviceMonitor once config loads if auto-start ADB is enabled.
     LaunchedEffect(isLoading, autoStartAdb) {
         if (!isLoading && autoStartAdb) {
             DeviceMonitor.startMonitoring()
         }
     }
-    // On Compose teardown (window close → exitApplication), cancel polling.
-    // The kill-if-owned half runs from the JVM shutdown hook in [GuiMain.kt]
-    // so it works even when the user quits via Cmd+Q without disposing.
+    // Cancel device monitoring on disposal.
     DisposableEffect(Unit) {
         onDispose {
             DeviceMonitor.stopMonitoring()
@@ -381,6 +364,7 @@ private fun appContent(
     CompositionLocalProvider(LocalLayoutDirection provides targetDirection) {
         MorpheTheme(
             themePreference = themePreference,
+            themeStyle = themeStyle,
             customAccentColorArgb = customAccentColorState.value,
             useSharpCorners = sharpCornersState.value
         ) {
@@ -396,7 +380,6 @@ private fun appContent(
                 LocalParallaxState provides parallaxState,
                 LocalCustomAccentColor provides customAccentColorState,
                 LocalSharpCorners provides sharpCornersState,
-                LocalGroupPatchesByCategory provides groupPatchesByCategoryState,
                 LocalBackgroundSpeed provides backgroundSpeedState,
                 LocalPatchingCompleted provides patchingCompletedState
             ) {
@@ -418,18 +401,14 @@ private fun appContent(
                         scope.launch { configRepository.clearCardFills() }
                     },
                 ) {
-                    // Tint the OS title bar (Windows DWM caption color, macOS traffic
-                    // light contrast) to match the active theme's surface color.
+                    // Tint native OS title bar to match surface color.
                     val titleBarColor = MaterialTheme.colorScheme.surface
                     val frameScope = LocalFrameWindowScope.current
                     LaunchedEffect(titleBarColor, frameScope) {
                         frameScope?.window?.let { applyTitleBarTint(it, titleBarColor) }
                     }
 
-                    // macOS only: render a 28dp colored band at the very top of the
-                    // window, sitting underneath the (now-transparent) OS title bar.
-                    // The traffic lights overlay this band at their default position.
-                    // Wrapped in WindowDraggableArea so the band acts as a drag region.
+                    // macOS draggable title bar band.
                     val isMac = remember {
                         System.getProperty("os.name")?.lowercase()?.contains("mac") == true
                     }
@@ -467,7 +446,7 @@ private fun appContent(
                                     if (!isLoading) {
                                         NavHost(
                                             navController = navController,
-                                            startDestination = if (isSimplifiedMode) QuickPatchScreenRoute else HomeScreenRoute,
+                                            startDestination = HomeScreenRoute,
                                             enterTransition = { Animations.screenEnter },
                                             exitTransition = { Animations.screenExit },
                                             popEnterTransition = { Animations.screenEnter },
@@ -476,12 +455,9 @@ private fun appContent(
                                             composable<HomeScreenRoute> {
                                                 HomeScreen()
                                             }
-                                            composable<QuickPatchScreenRoute> {
-                                                QuickPatchScreen()
-                                            }
                                             composable<PatchesScreenRoute> { backStackEntry ->
                                                 val route = backStackEntry.toRoute<PatchesScreenRoute>()
-                                                PatchesScreen(apkPath = route.apkPath, apkName = route.apkName)
+                                                PatchesScreen(apkName = route.apkName)
                                             }
                                             composable<PatchSelectionScreenRoute> { backStackEntry ->
                                                 val params = backStackEntry.getComplexArg<PatchSelectionParams>()
@@ -489,43 +465,13 @@ private fun appContent(
                                                     PatchSelectionScreen(params = params)
                                                 }
                                             }
-                                            composable<PatchingScreenRoute>(
-                                                exitTransition = {
-                                                    if (targetState.destination.hasRoute<ResultScreenRoute>()) {
-                                                        fadeOut(tween(800))
-                                                    } else {
-                                                        Animations.screenExit
-                                                    }
-                                                },
-                                                popEnterTransition = {
-                                                    if (initialState.destination.hasRoute<ResultScreenRoute>()) {
-                                                        fadeIn(tween(800))
-                                                    } else {
-                                                        Animations.screenEnter
-                                                    }
-                                                }
-                                            ) { backStackEntry ->
-                                                val config = backStackEntry.getComplexArg<PatchConfig>()
+                                            composable<PatchingScreenRoute> { backStackEntry ->
+                                                val config = backStackEntry.getComplexArg<PatchEngine.Config>()
                                                 if (config != null) {
                                                     PatchingScreen(config = config)
                                                 }
                                             }
-                                            composable<ResultScreenRoute>(
-                                                enterTransition = {
-                                                    if (initialState.destination.hasRoute<PatchingScreenRoute>()) {
-                                                        fadeIn(tween(800))
-                                                    } else {
-                                                        Animations.screenEnter
-                                                    }
-                                                },
-                                                popExitTransition = {
-                                                    if (targetState.destination.hasRoute<PatchingScreenRoute>()) {
-                                                        fadeOut(tween(800))
-                                                    } else {
-                                                        Animations.screenExit
-                                                    }
-                                                }
-                                            ) { backStackEntry ->
+                                            composable<ResultScreenRoute> { backStackEntry ->
                                                 val route = backStackEntry.toRoute<ResultScreenRoute>()
                                                 ResultScreen(outputPath = route.outputPath)
                                             }
@@ -535,21 +481,6 @@ private fun appContent(
                                                 popEnterTransition = { Animations.pushEnter },
                                                 popExitTransition = { Animations.pushExit }
                                             ) {
-                                                // Available for push settings route
-                                            }
-                                        }
-
-                                        LaunchedEffect(isSimplifiedMode) {
-                                            val currentRoute = navController.currentBackStackEntry?.destination?.route
-                                            val isQuick = currentRoute?.endsWith("QuickPatchScreenRoute") == true
-                                            if (isSimplifiedMode && !isQuick) {
-                                                navController.navigate(QuickPatchScreenRoute) {
-                                                    popUpTo(0) { inclusive = true }
-                                                }
-                                            } else if (!isSimplifiedMode && isQuick) {
-                                                navController.navigate(HomeScreenRoute) {
-                                                    popUpTo(0) { inclusive = true }
-                                                }
                                             }
                                         }
                                     }

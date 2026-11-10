@@ -30,10 +30,10 @@ data class SerializablePatch(
 )
 
 @ExperimentalSerializationApi
-fun Patch<*>.toSerializablePatch(): SerializablePatch {
+fun Patch.toSerializablePatch(): SerializablePatch {
     return SerializablePatch(
         name = this.name,
-        options = this.options.mapValues { PatchSerializer.serializeValue(it.value.value) }
+        options = this.options.mapValues { PatchSerializer.serializeValue(it.value.default) }
     )
 }
 

@@ -5,8 +5,12 @@
 
 package app.morphe.gui.ui.screens.home.components
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import app.morphe.gui.ui.components.MorpheBanners
 import app.morphe.gui.ui.components.UpdateBanner
 import app.morphe.gui.ui.screens.home.HomeUiState
@@ -20,31 +24,37 @@ internal fun HomeBanners(
     onManageSources: () -> Unit,
     onDismissSourcesFailed: () -> Unit,
     modifier: Modifier = Modifier,
+    onShowChangelog: (() -> Unit)? = null,
 ) {
     if (uiState.showUpdateBanner ||
         uiState.showMultiSourceHint ||
         uiState.showSourcesFailedBanner
     ) {
-        MorpheBanners(modifier = modifier) {
-            if (uiState.showUpdateBanner) {
-                UpdateBanner(
-                    info = uiState.updateInfo!!,
-                    onDismissForSession = onDismissUpdateSession,
-                    onDismissForVersion = onDismissUpdateVersion,
-                )
+        Column(modifier = modifier) {
+            MorpheBanners {
+                if (uiState.showUpdateBanner) {
+                    UpdateBanner(
+                        info = uiState.updateInfo!!,
+                        onDismissForSession = onDismissUpdateSession,
+                        onDismissForVersion = onDismissUpdateVersion,
+                        onShowChangelog = onShowChangelog,
+                    )
+                }
+                if (uiState.showMultiSourceHint) {
+                    MultiSourceHintBanner(
+                        onDismiss = onDismissMultiSourceHint,
+                    )
+                }
+                if (uiState.showSourcesFailedBanner) {
+                    SourcesFailedBanner(
+                        count = uiState.failedSourcesCount,
+                        onlyLegacySourcesFailed = uiState.onlyLegacySourcesFailed,
+                        onManageSources = onManageSources,
+                        onDismiss = onDismissSourcesFailed,
+                    )
+                }
             }
-            if (uiState.showMultiSourceHint) {
-                MultiSourceHintBanner(
-                    onDismiss = onDismissMultiSourceHint,
-                )
-            }
-            if (uiState.showSourcesFailedBanner) {
-                SourcesFailedBanner(
-                    count = uiState.failedSourcesCount,
-                    onManageSources = onManageSources,
-                    onDismiss = onDismissSourcesFailed,
-                )
-            }
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }

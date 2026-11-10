@@ -6,7 +6,9 @@
 package app.morphe.gui.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +18,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -33,30 +36,43 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import app.morphe.gui.ui.theme.LocalMorpheAccents
-import app.morphe.gui.ui.theme.LocalMorpheCorners
+import app.morphe.gui.ui.theme.MorpheMotion
+import app.morphe.gui.ui.theme.MorpheTheme
 
 @Composable
 fun MorpheChoiceChip(
     text: String,
-    active: Boolean,
-    font: FontFamily,
+    active: Boolean = false,
     modifier: Modifier = Modifier,
     dense: Boolean = false,
     icon: ImageVector? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
+    trailingContent: (@Composable () -> Unit)? = null,
     enabled: Boolean = true,
     accent: Color? = null,
     progress: Float? = null,
     onClick: () -> Unit,
 ) {
-    val corners = LocalMorpheCorners.current
-    val tint = accent ?: LocalMorpheAccents.current.primary
-    val shape = RoundedCornerShape(corners.small)
+    val colors = MorpheTheme.colors
+    val typography = MorpheTheme.typography
+    val tint = accent ?: colors.primary
+    val isSharp = MorpheTheme.corners.isSharp
+    val targetRadius = if (isSharp) {
+        MorpheTheme.corners.small
+    } else if (active) {
+        MorpheTheme.corners.small
+    } else {
+        if (dense) 13.dp else 16.dp
+    }
+    val cornerRadius by animateDpAsState(
+        targetValue = targetRadius,
+        animationSpec = if (isSharp) snap() else spring(dampingRatio = 0.7f, stiffness = 400f),
+        label = "chipCornerRadius",
+    )
+    val shape = RoundedCornerShape(cornerRadius)
     val hover = remember { MutableInteractionSource() }
     val isHovered by hover.collectIsHoveredAsState()
 
@@ -67,7 +83,7 @@ fun MorpheChoiceChip(
             isHovered -> tint.copy(alpha = if (accent != null) 0.7f else 0.4f)
             else -> tint.copy(alpha = if (accent != null) 0.45f else 0.2f)
         },
-        animationSpec = tween(150),
+        animationSpec = MorpheMotion.fastTween(),
     )
     val background by animateColorAsState(
         when {
@@ -76,7 +92,7 @@ fun MorpheChoiceChip(
             isHovered -> tint.copy(alpha = 0.08f)
             else -> Color.Transparent
         },
-        animationSpec = tween(150),
+        animationSpec = MorpheMotion.fastTween(),
     )
     val ink = when {
         !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -87,6 +103,7 @@ fun MorpheChoiceChip(
 
     Box(
         modifier = modifier
+            .defaultMinSize(minHeight = if (dense) 26.dp else MorpheTheme.dimens.chipHeight)
             .clip(shape)
             .background(background)
             .border(width = 1.dp, color = borderColor, shape = shape)
@@ -109,7 +126,9 @@ fun MorpheChoiceChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            if (icon != null) {
+            if (leadingContent != null) {
+                leadingContent()
+            } else if (icon != null) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
@@ -119,13 +138,16 @@ fun MorpheChoiceChip(
             }
             Text(
                 text = text,
-                fontFamily = font,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Normal,
+                style = typography.labelMedium.copy(
+                    fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
+                ),
                 color = ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (trailingContent != null) {
+                trailingContent()
+            }
         }
     }
 }

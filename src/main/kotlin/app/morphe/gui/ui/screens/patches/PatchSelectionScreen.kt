@@ -20,7 +20,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.listSaver
@@ -30,29 +29,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import app.morphe.gui.LocalGroupPatchesByCategory
+import app.morphe.engine.config.EngineConfig
+import app.morphe.engine.config.EngineConfigRepository
+import app.morphe.engine.model.PatchMetadata
 import app.morphe.gui.LocalNavController
 import app.morphe.gui.PatchSelectionParams
 import app.morphe.gui.PatchingScreenRoute
-import app.morphe.gui.data.model.Patch
-import app.morphe.gui.data.repository.ConfigRepository
 import app.morphe.gui.navigateComplex
-import app.morphe.gui.ui.components.ErrorDialog
-import app.morphe.gui.ui.components.MorpheBadge
-import app.morphe.gui.ui.components.MorpheBadgeTone
-import app.morphe.gui.ui.components.getErrorType
-import app.morphe.gui.ui.components.getFriendlyErrorMessage
-import app.morphe.gui.ui.components.handCursor
-import app.morphe.gui.ui.components.morpheScrollbarStyle
+import app.morphe.gui.ui.components.MorpheScrollbarStyle
+import app.morphe.gui.ui.components.ScreenErrorDialog
 import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.screens.patches.components.selection.*
-import app.morphe.gui.ui.screens.patching.PatchingScreen
-import app.morphe.gui.ui.theme.LocalMorpheAccents
-import app.morphe.gui.ui.theme.LocalMorpheCorners
-import app.morphe.gui.ui.theme.LocalMorpheFont
+import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.gui.ui.theme.screenScrim
 import app.morphe.morphe_desktop.generated.resources.*
 import java.awt.Toolkit
@@ -78,70 +67,78 @@ fun PatchSelectionScreen(
     PatchSelectionScreenContent(viewModel = viewModel)
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
-    val corners = LocalMorpheCorners.current
-    val font = LocalMorpheFont.current
-    val accents = LocalMorpheAccents.current
+    val primaryColor = MorpheTheme.colors.primary
     val navController = LocalNavController.current
-    val configRepository: ConfigRepository = koinInject()
+    val engineConfigRepository: EngineConfigRepository = koinInject()
     val uiState by viewModel.uiState.collectAsState()
     val targetPackage = viewModel.targetPackage()
-
-    // Load keystore config for CLI preview
-    var keystorePath by remember { mutableStateOf<String?>(null) }
-    var keystorePassword by remember { mutableStateOf<String?>(null) }
-    var keystoreAlias by remember { mutableStateOf<String?>(null) }
-    var keystoreEntryPassword by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
-        val config = configRepository.loadConfig()
-        keystorePath = config.resolvedKeystorePath()?.absolutePath
-        keystorePassword = config.keystorePassword
-        keystoreAlias = config.keystoreAlias
-        keystoreEntryPassword = config.keystoreEntryPassword
+    // Exact patch metadata is resolved from the loaded source; no extra
+    // network fetch and no unconsented selection/patch/device operation.
+    val playStorePatch = remember(uiState.bundles) {
+        findPlayStoreSuppressionPatch(uiState.bundles)
+    }
+    val playStorePatchSelected = playStorePatch?.let { patch ->
+        patch.patchId in uiState.selectedByBundle[patch.bundleId].orEmpty()
+    } == true
+    val versionCodeUpdateSuppressionSelected = remember(
+        uiState.bundles, uiState.selectedByBundle
+    ) {
+        selectedVersionCodeUpdateSuppressionPatches(
+            uiState.bundles, uiState.selectedByBundle
+        ).isNotEmpty()
     }
 
-    var showErrorDialog by remember { mutableStateOf(false) }
-    var currentError by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let { error ->
-            currentError = error
-            showErrorDialog = true
-        }
+    val engineConfig by produceState<EngineConfig?>(initialValue = null) {
+        value = engineConfigRepository.loadConfig()
     }
 
-    if (showErrorDialog && currentError != null) {
-        ErrorDialog(
-            title = stringResource(Res.string.patch_selection_error_title),
-            message = getFriendlyErrorMessage(currentError!!),
-            errorType = getErrorType(currentError!!),
-            onDismiss = {
-                showErrorDialog = false
-                viewModel.clearError()
+    ScreenErrorDialog(
+        error = uiState.error,
+        title = stringResource(Res.string.patch_selection_error_title),
+        onDismiss = { viewModel.clearError() },
+        onRetry = { viewModel.loadPatches() }
+    )
+
+    var cleanMode by rememberSaveable { mutableStateOf(false) }
+    var showCommandPreview by rememberSaveable { mutableStateOf(false) }
+    var continueOnError by rememberSaveable { mutableStateOf(false) }
+    var showVersionCodeWarning by rememberSaveable { mutableStateOf(false) }
+    val proceedWithPatching: () -> Unit = {
+        val config = viewModel.createPatchConfig(continueOnError)
+        navController.navigateComplex(PatchingScreenRoute, config)
+    }
+
+    if (showVersionCodeWarning) {
+        AlertDialog(
+            onDismissRequest = { showVersionCodeWarning = false },
+            title = { Text(stringResource(Res.string.patch_version_code_warning_title)) },
+            text = { Text(stringResource(Res.string.patch_version_code_warning_details)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showVersionCodeWarning = false
+                    proceedWithPatching()
+                }) {
+                    Text(stringResource(Res.string.patch_version_code_warning_proceed))
+                }
             },
-            onRetry = {
-                showErrorDialog = false
-                viewModel.clearError()
-                viewModel.loadPatches()
-            }
+            dismissButton = {
+                TextButton(onClick = { showVersionCodeWarning = false }) {
+                    Text(stringResource(Res.string.patch_version_code_warning_back))
+                }
+            },
         )
     }
 
-    var cleanMode by remember { mutableStateOf(false) }
-    var showCommandPreview by remember { mutableStateOf(false) }
-    var continueOnError by remember { mutableStateOf(false) }
     var showRunInfo by remember { mutableStateOf(false) }
-
     if (showRunInfo) {
         val info = remember(uiState.bundles) { viewModel.runInfo() }
         RunInfoDialog(info = info, onDismiss = { showRunInfo = false })
     }
 
-    val dividerColor = MaterialTheme.colorScheme.outlineVariant
-
     Column(modifier = Modifier.fillMaxSize().background(screenScrim)) {
-        // ── Header bar ──
         PatchSelectionHeader(
             uiState = uiState,
             showCommandPreview = showCommandPreview,
@@ -155,8 +152,22 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
         )
 
         if (!uiState.isLoading && uiState.bundles.isNotEmpty()) {
-            val commandPreview = remember(uiState.selectedByBundle, uiState.patchOptionValues, uiState.stripLibsStatus, cleanMode, continueOnError, keystorePath) {
-                viewModel.getCommandPreview(cleanMode, continueOnError, keystorePath, keystorePassword, keystoreAlias, keystoreEntryPassword)
+            val commandPreview = remember(
+                uiState.selectedByBundle,
+                uiState.patchOptionValues,
+                uiState.stripLibsStatus,
+                cleanMode,
+                continueOnError,
+                engineConfig
+            ) {
+                viewModel.getCommandPreview(
+                    cleanMode = cleanMode,
+                    continueOnError = continueOnError,
+                    keystorePath = engineConfig?.resolvedKeystorePath()?.absolutePath,
+                    keystorePassword = engineConfig?.keystorePassword,
+                    keystoreAlias = engineConfig?.keystoreAlias,
+                    keystoreEntryPassword = engineConfig?.keystoreEntryPassword
+                )
             }
             AnimatedVisibility(
                 visible = showCommandPreview,
@@ -176,7 +187,6 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
             }
         }
 
-        // Search bar
         PatchSearchBar(
             query = uiState.searchQuery,
             onQueryChange = { viewModel.setSearchQuery(it) },
@@ -184,6 +194,115 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
             onShowOnlySelectedChange = { viewModel.setShowOnlySelected(it) },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
         )
+
+        // A version-code patch can come from any enabled patch source, including
+        // older bundles where it is named "Change version code". Warn whenever
+        // one is selected, regardless of how that selection was restored.
+        if (!uiState.isLoading && versionCodeUpdateSuppressionSelected) {
+            Surface(
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 5.dp),
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = MorpheTheme.shapes.medium,
+            ) {
+                Column(modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        stringResource(Res.string.patch_version_code_warning_title),
+                        style = MorpheTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    Text(
+                        stringResource(Res.string.patch_version_code_warning_details),
+                        style = MorpheTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
+            }
+        }
+
+        // Optional last-resort versionCode workaround. The user's older Amazon
+        // build worked without this patch, so it must not be treated as the
+        // demonstrated cause or automatically enabled.
+        if (!uiState.isLoading && playStorePatch != null && targetPackage.isNotBlank()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 5.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shape = MorpheTheme.shapes.medium,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                    if (maxWidth < 620.dp) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(stringResource(Res.string.patch_play_store_title),
+                                style = MorpheTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(Res.string.patch_play_store_details),
+                                style = MorpheTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            OutlinedButton(onClick = {
+                                viewModel.togglePatch(playStorePatch.bundleId, playStorePatch.patchId)
+                            }) {
+                                Text(stringResource(if (playStorePatchSelected)
+                                    Res.string.patch_play_store_disable
+                                    else Res.string.patch_play_store_enable))
+                            }
+                        }
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Column(modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(stringResource(Res.string.patch_play_store_title),
+                                    style = MorpheTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(Res.string.patch_play_store_details),
+                                    style = MorpheTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            OutlinedButton(onClick = {
+                                viewModel.togglePatch(playStorePatch.bundleId, playStorePatch.patchId)
+                            }) {
+                                Text(stringResource(if (playStorePatchSelected)
+                                    Res.string.patch_play_store_disable
+                                    else Res.string.patch_play_store_enable))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Amazon-specific guidance is only shown when the optional official
+        // universal patch is absent. When present, the single card above owns
+        // its selection state and warning; never render duplicate controls.
+        if (!uiState.isLoading &&
+            targetPackage == "com.amazon.mShop.android.shopping" &&
+            playStorePatch == null) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                shape = MorpheTheme.shapes.small,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                    Text(
+                        stringResource(Res.string.patch_play_amazon_title),
+                        style = MorpheTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        stringResource(Res.string.patch_play_source_missing),
+                        style = MorpheTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
 
         when {
             uiState.isLoading -> {
@@ -193,28 +312,22 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        CircularProgressIndicator(
-                            color = accents.primary,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(24.dp)
+                        LoadingIndicator(
+                            modifier = Modifier.size(48.dp),
+                            color = primaryColor,
                         )
                         Text(
                             text = stringResource(Res.string.patching_step_loading_patches),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Normal,
-                            fontFamily = font,
+                            style = MorpheTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
 
-            // Global empty state. When EVERY loaded bundle has zero patches
-            // compatible with this APK. None of the enabled sources contribute
-            // anything for this app's package. Rendering empty bundle boxes
-            // would be pure noise.
+            // No loaded bundles have patches compatible with this app.
             !uiState.isLoading && uiState.bundles.all { it.patches.isEmpty() } -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -223,19 +336,14 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                     Text(
                         text = if (uiState.bundles.isEmpty()) stringResource(Res.string.patch_selection_no_patches_found)
                                else stringResource(Res.string.patch_selection_no_source_patches_for_app),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Normal,
-                        fontFamily = font,
+                        style = MorpheTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
                 }
             }
 
-            // Global "no matches for search" empty state. Only fires when
-            // EVERY bundle that HAS patches has been filtered to empty by
-            // the active search. Bundles with 0 patches for this app are
-            // hidden separately above, so we only consider non-empty sources.
+            // All non-empty bundles filtered out by search query.
             uiState.searchQuery.isNotBlank() && run {
                 val nonEmptySourceIds = uiState.bundles
                     .filter { it.patches.isNotEmpty() }
@@ -250,9 +358,7 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                 ) {
                     Text(
                         text = stringResource(Res.string.patch_selection_no_search_matches),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal,
-                        fontFamily = font,
+                        style = MorpheTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -266,7 +372,6 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                     uiState.filteredBundles.associateBy { it.bundleId }
                 }
                 val hasMultipleBundles = eligibleBundles.size > 1
-                val groupByCategory = LocalGroupPatchesByCategory.current.value
                 val sectionState = rememberPatchSectionState()
                 val coroutineScope = rememberCoroutineScope()
                 val pagerState = rememberPagerState { eligibleBundles.size }
@@ -316,17 +421,17 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                         .fillMaxWidth()
                         .weight(1f)
                 ) {
-                    // 1. Tab row (when multiple bundles are present)
                     if (hasMultipleBundles) {
                         val tabScrollState = rememberScrollState()
 
                         SecondaryScrollableTabRow(
                             selectedTabIndex = pagerState.currentPage.coerceIn(0, (eligibleBundles.size - 1).coerceAtLeast(0)),
                             scrollState = tabScrollState,
-                            edgePadding = 0.dp,
+                            edgePadding = 16.dp,
+                            indicator = {},
                             divider = {},
                             containerColor = Color.Transparent,
-                            contentColor = MaterialTheme.colorScheme.primary
+                            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
                         ) {
                             eligibleBundles.forEachIndexed { index, bundle ->
                                 val bundleFiltered = filteredBundlesById[bundle.bundleId]?.patches.orEmpty()
@@ -335,37 +440,15 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                                 val totalCount = bundle.patches.size
                                 val isSelected = pagerState.currentPage == index
 
-                                Tab(
-                                    selected = isSelected,
+                                PatchBundlePill(
+                                    bundle = bundle,
+                                    selectedCount = enabledCount,
+                                    totalCount = totalCount,
+                                    isSelected = isSelected,
+                                    hasResults = hasResults,
                                     onClick = { coroutineScope.launch { pagerState.animateScrollToPage(index) } },
-                                    modifier = Modifier.handCursor(),
-                                    selectedContentColor = MaterialTheme.colorScheme.primary,
-                                    unselectedContentColor = if (hasResults)
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    else
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                                ) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                                    ) {
-                                        Text(
-                                            text = bundle.bundleName,
-                                            fontSize = 13.sp,
-                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                            fontFamily = font,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-
-                                        Spacer(modifier = Modifier.height(2.dp))
-
-                                        MorpheBadge(
-                                            text = "$enabledCount/$totalCount",
-                                            tone = if (isSelected && hasResults) MorpheBadgeTone.Primary else MorpheBadgeTone.Neutral
-                                        )
-                                    }
-                                }
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
                             }
                         }
 
@@ -376,15 +459,10 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 16.dp),
-                                style = morpheScrollbarStyle()
+                                style = MorpheScrollbarStyle()
                             )
                             Spacer(Modifier.height(4.dp))
                         }
-
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                            thickness = 0.5.dp
-                        )
                     } else {
                         val singleBundle = eligibleBundles.firstOrNull()
                         if (singleBundle != null) {
@@ -395,22 +473,19 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                                 Icon(
                                     imageVector = MorpheIcons.Source,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint = primaryColor,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
                                     text = singleBundle.bundleName,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontFamily = font
+                                    style = MorpheTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = primaryColor,
                                 )
                             }
                         }
                     }
 
-                    // 2. Controls fixed below the tab row
                     val currentIndex = pagerState.currentPage
                     val currentBundle = eligibleBundles.getOrNull(currentIndex)
                     if (currentBundle != null) {
@@ -425,7 +500,6 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                         )
                     }
 
-                    // 3. Pager for the patch list
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -448,8 +522,7 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                                 ) {
                                     Text(
                                         text = stringResource(Res.string.patch_selection_no_matches_in_bundle),
-                                        fontSize = 13.sp,
-                                        fontFamily = font,
+                                        style = MorpheTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
@@ -459,10 +532,9 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                                 }
                                 val universalTitle = stringResource(Res.string.patch_selection_group_universal)
                                 val ungroupedTitle = stringResource(Res.string.patch_selection_group_ungrouped)
-                                val groups = remember(sortedPatches, groupByCategory, selectedInBundle, universalTitle, ungroupedTitle) {
+                                val groups = remember(sortedPatches, selectedInBundle, universalTitle, ungroupedTitle) {
                                     buildPatchGroups(
                                         patches = sortedPatches,
-                                        groupByCategory = groupByCategory,
                                         universalTitle = universalTitle,
                                         ungroupedTitle = ungroupedTitle,
                                         categoryOf = { it.category },
@@ -479,11 +551,12 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     groups.forEach { group ->
-                                        if (group.title != null) {
-                                            val isExpanded = isSearching || sectionState.isExpanded(bundle.bundleId, group)
+                                        val headerTitle = group.title
+                                        val isExpanded = headerTitle == null || isSearching || sectionState.isExpanded(bundle.bundleId, group)
+                                        if (headerTitle != null) {
                                             item(key = "group_${bundle.bundleId}_${group.key}") {
                                                 PatchGroupHeader(
-                                                    title = group.title,
+                                                    title = headerTitle,
                                                     count = group.items.size,
                                                     isExpanded = isExpanded,
                                                     onToggle = if (isSearching) null else ({ sectionState.toggle(bundle.bundleId, group) }),
@@ -491,29 +564,8 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                                                     selectedCount = group.selectedCount
                                                 )
                                             }
-                                            if (isExpanded) {
-                                                items(
-                                                    items = group.items,
-                                                    key = { it.uniqueId }
-                                                ) { patch ->
-                                                    PatchListItem(
-                                                        patch = patch,
-                                                        isSelected = selectedInBundle.contains(patch.uniqueId),
-                                                        isNew = patch.uniqueId in newInBundle,
-                                                        onToggle = { viewModel.togglePatch(bundle.bundleId, patch.uniqueId) },
-                                                        sourceName = null,
-                                                        packageName = targetPackage,
-                                                        patchOptionValues = uiState.patchOptionValues,
-                                                        getOptionValue = { optionKey, default ->
-                                                            viewModel.getOptionValue(patch.name, optionKey, default)
-                                                        },
-                                                        onOptionValueChange = { optionKey, value ->
-                                                            viewModel.setOptionValue(patch.name, optionKey, value)
-                                                        }
-                                                    )
-                                                }
-                                            }
-                                        } else {
+                                        }
+                                        if (isExpanded) {
                                             items(
                                                 items = group.items,
                                                 key = { it.uniqueId }
@@ -547,18 +599,20 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
                             VerticalScrollbar(
                                 modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
                                 adapter = rememberScrollbarAdapter(currentPageList),
-                                style = morpheScrollbarStyle()
+                                style = MorpheScrollbarStyle()
                             )
                         }
                     }
                 }
 
-                // ── Bottom action bar ──
                 PatchSelectionBottomBar(
                     selectedCount = uiState.selectedCount,
                     onPatchClick = {
-                        val config = viewModel.createPatchConfig(continueOnError)
-                        navController.navigateComplex(PatchingScreenRoute, config)
+                        if (versionCodeUpdateSuppressionSelected) {
+                            showVersionCodeWarning = true
+                        } else {
+                            proceedWithPatching()
+                        }
                     },
                 )
             }
@@ -568,5 +622,5 @@ fun PatchSelectionScreenContent(viewModel: PatchSelectionViewModel) {
 
 
 /** New patches float to the top, the rest keep the bundle's own order. */
-private fun List<Patch>.newestFirst(newIds: Set<String>): List<Patch> =
+private fun List<PatchMetadata>.newestFirst(newIds: Set<String>): List<PatchMetadata> =
     if (newIds.isEmpty()) this else sortedByDescending { it.uniqueId in newIds }

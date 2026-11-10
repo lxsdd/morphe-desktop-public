@@ -4,6 +4,10 @@
         <item quantity="one">%1$d Patch-Quelle konnte nicht geladen werden. Die erfolgreich geladenen Quellen werden verwendet</item>
         <item quantity="other">%1$d Patch-Quellen konnten nicht geladen werden. Die erfolgreich geladenen Quellen werden verwendet</item>
     </plurals>
+    <plurals name="home_header_sources_legacy">
+        <item quantity="one">%1$d alte Patch-Quelle benötigt eine kompatible neue Version. Die geladenen Quellen funktionieren weiter; Morphe selbst ist nicht veraltet</item>
+        <item quantity="other">%1$d alte Patch-Quellen benötigen kompatible neue Versionen. Die geladenen Quellen funktionieren weiter; Morphe selbst ist nicht veraltet</item>
+    </plurals>
     <plurals name="home_banner_update_available">
         <item quantity="one">Für %1$d gepatchte App ist ein Update verfügbar</item>
         <item quantity="other">Für %1$d gepatchte Apps sind Updates verfügbar</item>
@@ -15,22 +19,6 @@
     <plurals name="count_sources">
         <item quantity="one">%1$d Quelle</item>
         <item quantity="other">%1$d Quellen</item>
-    </plurals>
-    <plurals name="quick_patch_ready_patches_applied_summary">
-        <item quantity="one">%1$d Patch wird angewendet</item>
-        <item quantity="other">%1$d Patches werden angewendet</item>
-    </plurals>
-    <plurals name="quick_patch_ready_patches_excluded">
-        <item quantity="one">%1$d ausgeschlossen</item>
-        <item quantity="other">%1$d ausgeschlossen</item>
-    </plurals>
-    <plurals name="quick_patch_ready_patches_enabled">
-        <item quantity="one">%1$d aktiviert</item>
-        <item quantity="other">%1$d aktiviert</item>
-    </plurals>
-    <plurals name="quick_patch_ready_patches_disabled">
-        <item quantity="one">%1$d deaktiviert</item>
-        <item quantity="other">%1$d deaktiviert</item>
     </plurals>
     <plurals name="licenses_dialog_footer_count">
         <item quantity="one">%1$d Bibliothek</item>
@@ -55,5 +43,25 @@
     <plurals name="patching_graph_cpu_cores_detail">
         <item quantity="one">%1$d Kern</item>
         <item quantity="other">%1$d Kerne</item>
+    </plurals>
+    <plurals name="changelog_change_count">
+        <item quantity="one">%1$d Änderung</item>
+        <item quantity="other">%1$d Änderungen</item>
+    </plurals>
+    <plurals name="changelog_days_ago">
+        <item quantity="one">vor %1$d Tag</item>
+        <item quantity="other">vor %1$d Tagen</item>
+    </plurals>
+    <plurals name="changelog_feature_count">
+        <item quantity="one">%1$d Funktion</item>
+        <item quantity="other">%1$d Funktionen</item>
+    </plurals>
+    <plurals name="changelog_fix_count">
+        <item quantity="one">%1$d Fehlerbehebung</item>
+        <item quantity="other">%1$d Fehlerbehebungen</item>
+    </plurals>
+    <plurals name="changelog_performance_count">
+        <item quantity="one">%1$d Optimierung</item>
+        <item quantity="other">%1$d Optimierungen</item>
     </plurals>
 </resources>

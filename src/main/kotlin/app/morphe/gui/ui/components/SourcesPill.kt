@@ -24,6 +24,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,7 +36,7 @@ import app.morphe.gui.ui.theme.LocalMorpheCorners
 import app.morphe.gui.ui.theme.LocalMorpheDimens
 import app.morphe.gui.ui.theme.LocalMorpheFont
 import app.morphe.gui.ui.theme.channelColor
-import app.morphe.gui.util.EnabledSourcesLoader
+import app.morphe.engine.patches.PatchResolver
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -45,7 +47,7 @@ enum class SourceLedState { DISABLED, STABLE_LATEST, STABLE_OLDER, DEV_LATEST, D
 /**
  * Header pill showing source count + per-source channel LEDs + trailing "+".
  * Used in expert mode (clickable, opens [SourceManagementSheet]) and in Quick
- * Patch mode (purely informational, pass `onClick = null`).
+ * Patch mode (purely informational — pass `onClick = null`).
  */
 @Composable
 fun SourcesCountPill(
@@ -82,7 +84,7 @@ fun SourcesCountPill(
             .then(
                 if (interactive) Modifier
                     .hoverable(hoverInteraction)
-                    .handCursor()
+                    .pointerHoverIcon(PointerIcon.Hand)
                     .clickable(onClick = onClick)
                 else Modifier
             )
@@ -120,11 +122,11 @@ fun SourcesCountPill(
 private fun SourceLed(state: SourceLedState) {
     val color = when (state) {
         SourceLedState.DISABLED -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-        SourceLedState.STABLE_LATEST -> channelColor(EnabledSourcesLoader.Channel.STABLE_LATEST)
-        SourceLedState.STABLE_OLDER -> channelColor(EnabledSourcesLoader.Channel.STABLE_OLDER)
-        SourceLedState.DEV_LATEST -> channelColor(EnabledSourcesLoader.Channel.DEV_LATEST)
-        SourceLedState.DEV_OLDER -> channelColor(EnabledSourcesLoader.Channel.DEV_OLDER)
-        SourceLedState.LOCAL -> channelColor(EnabledSourcesLoader.Channel.LOCAL)
+        SourceLedState.STABLE_LATEST -> channelColor(PatchResolver.Channel.STABLE)
+        SourceLedState.STABLE_OLDER -> channelColor(PatchResolver.Channel.STABLE)
+        SourceLedState.DEV_LATEST -> channelColor(PatchResolver.Channel.PRERELEASE)
+        SourceLedState.DEV_OLDER -> channelColor(PatchResolver.Channel.PRERELEASE)
+        SourceLedState.LOCAL -> channelColor(PatchResolver.Channel.LOCAL)
         SourceLedState.ERROR -> MaterialTheme.colorScheme.error
     }
     Box(
@@ -137,7 +139,7 @@ private fun SourceLed(state: SourceLedState) {
 /** Map a [PatchSource] + its resolved channel to a UI LED state. */
 fun sourceLedState(
     source: PatchSource,
-    channel: EnabledSourcesLoader.Channel?,
+    channel: PatchResolver.Channel?,
     hasError: Boolean = false,
 ): SourceLedState {
     if (!source.enabled) return SourceLedState.DISABLED
@@ -145,11 +147,10 @@ fun sourceLedState(
     // LOCAL) but failed to load should read red, not its channel color.
     if (hasError) return SourceLedState.ERROR
     return when (channel) {
-        EnabledSourcesLoader.Channel.STABLE_LATEST -> SourceLedState.STABLE_LATEST
-        EnabledSourcesLoader.Channel.STABLE_OLDER -> SourceLedState.STABLE_OLDER
-        EnabledSourcesLoader.Channel.DEV_LATEST -> SourceLedState.DEV_LATEST
-        EnabledSourcesLoader.Channel.DEV_OLDER -> SourceLedState.DEV_OLDER
-        EnabledSourcesLoader.Channel.LOCAL -> SourceLedState.LOCAL
-        null, EnabledSourcesLoader.Channel.UNKNOWN -> SourceLedState.STABLE_LATEST
+        PatchResolver.Channel.STABLE -> SourceLedState.STABLE_LATEST
+        PatchResolver.Channel.PRERELEASE -> SourceLedState.DEV_LATEST
+        PatchResolver.Channel.LOCAL -> SourceLedState.LOCAL
+        // No load yet — assume latest until we know otherwise.
+        null, PatchResolver.Channel.UNKNOWN -> SourceLedState.STABLE_LATEST
     }
 }

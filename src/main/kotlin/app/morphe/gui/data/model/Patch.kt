@@ -46,8 +46,9 @@ data class Patch(
         return compatiblePackages.any { pkg ->
             pkg.name == packageName && (
                 versionName == null ||
-                pkg.versions.isEmpty() ||
-                pkg.versions.contains(versionName)
+                (pkg.versions.isEmpty() && pkg.experimentalVersions.isEmpty()) ||
+                pkg.versions.contains(versionName) ||
+                pkg.experimentalVersions.contains(versionName)
             )
         }
     }
@@ -124,6 +125,8 @@ data class PatchConfig(
     val useExclusiveMode: Boolean = false,
     val keepArchitectures: Set<CpuArchitecture> = emptySet(),
     val continueOnError: Boolean = false,
+    /** Existing flows preserve force mode; validated device imports explicitly disable it. */
+    val forceCompatibility: Boolean = true,
 
     // ── Recall metadata ──
     // Carried from the selection screen down to the patching screen so the
@@ -138,4 +141,10 @@ data class PatchConfig(
     val appVersion: String? = null,
     val patchesSourceName: String? = null,
     val patchesVersion: String? = null,
+    /** Device-import-owned temporary root, cleaned after output has been made durable. */
+    val temporaryInputRoot: String? = null,
+    /** Provenance of a device-derived input; never reused as a later install target. */
+    val sourceDeviceSerial: String? = null,
+    /** Split-derived inputs require an explicit same-device/compatibility preflight. */
+    val deviceSpecificInput: Boolean = false,
 )
