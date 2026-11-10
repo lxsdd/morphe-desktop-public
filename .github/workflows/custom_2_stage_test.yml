@@ -11,7 +11,9 @@ concurrency:
   cancel-in-progress: true
 jobs:
   source-tests:
-    if: github.repository == 'lxsdd/morphe-desktop-public' && github.event.head_commit.message != 'ci(morphe-public): remove obsolete 2.1.1 preview artifact 13761868505'
+    if: >-
+      github.repository == 'lxsdd/morphe-desktop-public' &&
+      github.event.head_commit.message != 'ci(morphe-public): remove obsolete 2.1.1 preview artifact 13761868505'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
