@@ -3,6 +3,7 @@ name: Public source CI (no distribution)
 on:
   workflow_dispatch:
   pull_request:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
     branches:
       - main
 
