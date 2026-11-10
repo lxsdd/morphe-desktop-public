@@ -86,3 +86,76 @@ jobs:
           finally { $archive.Dispose() }
           $hash = (Get-FileHash -LiteralPath $jars[0].FullName -Algorithm SHA256).Hash
           Write-Host "CUSTOM_2_WINDOWS_JAR=PASS SHA256=$hash NO_BINARY_UPLOAD=YES"
+
+      - name: Package explicitly requested public Windows desktop review ZIP
+        if: >-
+          matrix.os == 'windows-latest' &&
+          github.repository == 'lxsdd/morphe-desktop-public' &&
+          github.ref == 'refs/heads/integration/custom-2-0-upstream-20261104' &&
+          github.event.head_commit.message == 'ci(public-preview): package 2.1.1 public-source Windows build'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $jars = @(Get-ChildItem -LiteralPath 'build/libs' -Filter '*-all.jar' -File)
+          if ($jars.Count -ne 1) { throw "Expected one runnable desktop JAR; found $($jars.Count)" }
+          $stage = Join-Path $env:RUNNER_TEMP 'morphe-public-preview'
+          $dist = Join-Path (Get-Location) 'build/public-preview'
+          New-Item -ItemType Directory -Force -Path $stage, $dist | Out-Null
+          $outputJar = Join-Path $stage $jars[0].Name
+          Copy-Item -LiteralPath $jars[0].FullName -Destination $outputJar
+          Copy-Item -LiteralPath 'LICENSE' -Destination (Join-Path $stage 'LICENSE.txt')
+          @'
+          @echo off
+          setlocal
+          where java >nul 2>&1
+          if errorlevel 1 (
+            echo Java 21 is required. Install a Java 21 runtime and retry.
+            exit /b 1
+          )
+          for %%J in ("%~dp0morphe-desktop-*-all.jar") do set "MORPHE_JAR=%%~fJ"
+          if not defined MORPHE_JAR (
+            echo Morphe Desktop JAR missing from this folder.
+            exit /b 1
+          )
+          java -jar "%MORPHE_JAR%" %*
+          exit /b %ERRORLEVEL%
+          '@ | Set-Content -LiteralPath (Join-Path $stage 'Start-Morphe-Windows.cmd') -Encoding ascii
+          @"
+          Morphe Desktop Custom 2.1.1 - PUBLIC SOURCE REVIEW BUILD
+          Source: https://github.com/lxsdd/morphe-desktop-public/tree/$env:GITHUB_SHA
+          License: GPL-3.0 (see LICENSE.txt)
+          Run Start-Morphe-Windows.cmd on Windows with Java 21 installed.
+          This archive contains only publicly available source-built components.
+          It is NOT the private downstream build, a release candidate, a signed
+          Android APK, or a verified Windows/Android runtime acceptance.
+          "@ | Set-Content -LiteralPath (Join-Path $stage 'README.txt') -Encoding utf8
+          $jarHash = (Get-FileHash -LiteralPath $outputJar -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($jarHash -ne (Get-FileHash -LiteralPath $jars[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()) {
+            throw 'JAR SHA-256 changed during packaging'
+          }
+          "$jarHash  $($jars[0].Name)" | Set-Content -LiteralPath (Join-Path $stage 'SHA256SUMS.txt') -Encoding ascii
+          $zip = Join-Path $dist "Morphe-Desktop-Custom-2.1.1-PUBLIC-$env:GITHUB_SHA.zip"
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
+          Add-Type -AssemblyName System.IO.Compression
+          $opened = [System.IO.Compression.ZipFile]::OpenRead($zip)
+          try {
+            $entries = @($opened.Entries | ForEach-Object { $_.FullName })
+            foreach ($required in @($jars[0].Name, 'LICENSE.txt', 'README.txt', 'Start-Morphe-Windows.cmd', 'SHA256SUMS.txt')) {
+              if ($entries -notcontains $required) { throw "Missing public ZIP entry: $required" }
+            }
+          } finally { $opened.Dispose() }
+          $zipHash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          Write-Host "MORPHE_PUBLIC_PREVIEW=PASS SOURCE_SHA=$env:GITHUB_SHA JAR_SHA256=$jarHash ZIP_SHA256=$zipHash"
+      - name: Upload one explicitly requested public preview (not a release)
+        if: >-
+          matrix.os == 'windows-latest' &&
+          github.repository == 'lxsdd/morphe-desktop-public' &&
+          github.ref == 'refs/heads/integration/custom-2-0-upstream-20261104' &&
+          github.event.head_commit.message == 'ci(public-preview): package 2.1.1 public-source Windows build'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Morphe-Desktop-Custom-2.1.1-PUBLIC-${{ github.sha }}
+          path: build/public-preview/Morphe-Desktop-Custom-2.1.1-PUBLIC-${{ github.sha }}.zip
+          if-no-files-found: error
+          archive: false
+          retention-days: 2
