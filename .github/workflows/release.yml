@@ -1,0 +1,179 @@
+name: Owner-approved Morphe Desktop Custom 2.1.1 public beta
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-beta-211-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  qualify-other-os:
+    if: >-
+      github.repository == 'lxsdd/morphe-desktop-public' &&
+      startsWith(github.event.head_commit.message, 'release(beta): Morphe Desktop Custom 2.1.1-beta.1')
+    name: Exact-release regression (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+          cache: gradle
+      - name: Verify exact audited product source, build config, NOTICE and license
+        shell: bash
+        run: python tools/verify_public_beta_source_manifest.py
+      - name: Localized Compose resource verification
+        shell: bash
+        run: |
+          python tools/verify_compose_resource_keys.py
+          python -m unittest discover -s tools -p 'test_verify_compose_resource_keys.py'
+      - name: Run full application build and regression tests
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew build --no-daemon --console=plain
+
+  windows-candidate-and-publish:
+    name: Windows SHA-bound candidate then release SAME bytes
+    needs: qualify-other-os
+    if: >-
+      github.repository == 'lxsdd/morphe-desktop-public' &&
+      startsWith(github.event.head_commit.message, 'release(beta): Morphe Desktop Custom 2.1.1-beta.1') &&
+      needs.qualify-other-os.result == 'success'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+          cache: gradle
+      - name: Verify exact public beta source and license contract
+        shell: pwsh
+        run: |
+          python tools/verify_public_beta_source_manifest.py
+          if ($LASTEXITCODE -ne 0) { throw 'Source parity rejected' }
+          foreach ($path in @('LICENSE', 'NOTICE', 'docs/PUBLIC_BETA_2_1_1.md')) {
+            if (-not (Test-Path -LiteralPath $path)) { throw "Missing required public license/origin file: $path" }
+          }
+      - name: Build ONCE and run Windows regression suite
+        shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew build --no-daemon --console=plain
+      - name: Fingerprint, package, release candidate bytes, read back and verify
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = 'custom-v2.1.1-beta.1'
+          $existing = & gh release view $tag --json tagName 2>$null
+          if ($LASTEXITCODE -eq 0) { throw "Refusing to overwrite existing public beta: $tag" }
+          $jars = @(Get-ChildItem -LiteralPath 'build/libs' -Filter 'morphe-desktop-*-all.jar' -File)
+          if ($jars.Count -ne 1) { throw "Expected exactly one executable desktop JAR, got $($jars.Count)" }
+          $sourceJar = $jars[0].FullName
+          Add-Type -AssemblyName System.IO.Compression
+          $checkJar = [System.IO.Compression.ZipFile]::OpenRead($sourceJar)
+          try {
+            if ($checkJar.Entries.FullName -notcontains 'app/morphe/MorpheLauncherKt.class') {
+              throw 'Executable desktop launcher absent'
+            }
+          } finally { $checkJar.Dispose() }
+          $stage = Join-Path $env:RUNNER_TEMP 'morphe-beta-stage'
+          $dist = Join-Path $env:RUNNER_TEMP 'morphe-beta-dist'
+          New-Item -ItemType Directory -Force -Path $stage,$dist | Out-Null
+          $targetJar = Join-Path $stage $jars[0].Name
+          Copy-Item -LiteralPath $sourceJar -Destination $targetJar
+          Copy-Item 'LICENSE' (Join-Path $stage 'LICENSE.txt')
+          Copy-Item 'NOTICE' (Join-Path $stage 'NOTICE.txt')
+          Copy-Item 'docs/PUBLIC_BETA_2_1_1.md' (Join-Path $stage 'README.txt')
+          $launcher = @(
+            '@echo off', 'setlocal',
+            'where java >nul 2>&1', 'if errorlevel 1 (',
+            '  echo Java 21 or later is required.', '  exit /b 1', ')',
+            'set "MORPHE_JAR="',
+            'for %%J in ("%~dp0morphe-desktop-*-all.jar") do set "MORPHE_JAR=%%~fJ"',
+            'if not defined MORPHE_JAR (',
+            '  echo Missing Morphe Desktop executable JAR.', '  exit /b 1', ')',
+            'java -jar "%MORPHE_JAR%" %*', 'exit /b %ERRORLEVEL%'
+          )
+          $launcher | Set-Content -LiteralPath (Join-Path $stage 'Start-Morphe-Windows.cmd') -Encoding ascii
+          $jarHash = (Get-FileHash -LiteralPath $targetJar -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($jarHash -ne (Get-FileHash -LiteralPath $sourceJar -Algorithm SHA256).Hash.ToLowerInvariant()) {
+            throw 'JAR changed during packaging'
+          }
+          "$jarHash  $($jars[0].Name)" | Set-Content -LiteralPath (Join-Path $stage 'SHA256SUMS.txt') -Encoding ascii
+          $provenance = @(
+            'Morphe Desktop Custom 2.1.1-beta.1 (unofficial fork)',
+            "SOURCE_GIT_SHA=$env:GITHUB_SHA",
+            "JAR_SHA256=$jarHash",
+            "PUBLIC_REPOSITORY=$env:GITHUB_REPOSITORY",
+            'Source: https://github.com/lxsdd/morphe-desktop-public',
+            'License: GPLv3 and NOTICE supplementary conditions',
+            'Not associated with or endorsed by the official Morphe maintainers.',
+            'No Android APK or third-party patch bundle is included.'
+          )
+          $provenance | Set-Content -LiteralPath (Join-Path $stage 'SOURCE_PROVENANCE.txt') -Encoding utf8
+          $zipName = "Morphe-Desktop-Custom-2.1.1-BETA-$($env:GITHUB_SHA.Substring(0,12)).zip"
+          $zip = Join-Path $dist $zipName
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
+          $checkZip = [System.IO.Compression.ZipFile]::OpenRead($zip)
+          try {
+            $entries = @($checkZip.Entries | ForEach-Object { $_.FullName })
+            foreach ($required in @($jars[0].Name,'LICENSE.txt','NOTICE.txt','README.txt',
+                'Start-Morphe-Windows.cmd','SHA256SUMS.txt','SOURCE_PROVENANCE.txt')) {
+              if ($entries -notcontains $required) { throw "Missing required ZIP file: $required" }
+            }
+          } finally { $checkZip.Dispose() }
+          $zipHash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $sums = Join-Path $dist 'SHA256SUMS.txt'
+          @("$zipHash  $zipName","$jarHash  $($jars[0].Name)") |
+            Set-Content -LiteralPath $sums -Encoding ascii
+          $notes = Join-Path $dist 'RELEASE_NOTES.txt'
+          @(
+            'Unofficial Morphe Desktop Custom 2.1.1 beta; not endorsed by the original project.',
+            'All application/build/resource source blobs are pinned in tools/public_beta_source_manifest.tsv.',
+            'Linux, macOS and Windows regression tests passed at this exact public Git commit.',
+            'Windows user interface was accepted by the owner on source-equivalent private review bytes.',
+            'This public ZIP is separately built and SHA-256 checked; Android installation remains user-authorized.',
+            "SOURCE_SHA=$env:GITHUB_SHA",
+            "JAR_SHA256=$jarHash",
+            "ZIP_SHA256=$zipHash",
+            'GPLv3 LICENSE and supplementary NOTICE are included. No private secrets or APKs.'
+          ) | Set-Content -LiteralPath $notes -Encoding utf8
+          & gh release create $tag $zip $sums --target $env:GITHUB_SHA --title 'Morphe Desktop Custom 2.1.1-beta.1 (unofficial)' --notes-file $notes --prerelease
+          if ($LASTEXITCODE -ne 0) { throw 'Public release creation failed; do not claim delivery' }
+          $readback = Join-Path $dist 'verified-download'
+          New-Item -ItemType Directory -Force -Path $readback | Out-Null
+          & gh release download $tag --pattern $zipName --dir $readback
+          if ($LASTEXITCODE -ne 0) { throw 'Public release asset readback failed' }
+          $actualHash = (Get-FileHash -LiteralPath (Join-Path $readback $zipName) -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $zipHash) { throw 'Public asset SHA256 readback mismatch' }
+          Write-Host "PUBLIC_BETA_RELEASE=PASS SOURCE_SHA=$env:GITHUB_SHA ZIP_SHA256=$zipHash JAR_SHA256=$jarHash READBACK=PASS"

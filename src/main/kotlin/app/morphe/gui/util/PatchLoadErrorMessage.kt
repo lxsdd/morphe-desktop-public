@@ -10,7 +10,8 @@ import app.morphe.engine.GitHubPatMissingException
 import app.morphe.engine.PatchBundleIncompatibleException
 import app.morphe.engine.PatchSourceLoadException
 import app.morphe.engine.PatcherCompatibility
-import app.morphe.engine.UpdateChecker
+import app.morphe.engine.PatcherRequirementDirection
+import app.morphe.engine.patcherRequirementDirection
 import app.morphe.engine.patches.PatchBundleSignerChangedException
 import app.morphe.engine.readableMessage
 import app.morphe.morphe_desktop.generated.resources.*
@@ -23,17 +24,34 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 
-private fun formatIncompatiblePatcherArgs(e: PatchBundleIncompatibleException): Array<out Any> {
-    val req = e.requiredPatcherVersion ?: "?"
-    val app = e.appVersion ?: UpdateChecker.currentVersion() ?: "?"
-    val cur = e.currentPatcherVersion ?: PatcherCompatibility.currentPatcherVersion ?: "?"
-    return arrayOf(req, app, cur)
+private fun incompatibleBundleDisplay(e: PatchBundleIncompatibleException): Pair<StringResource, Array<out Any>> {
+    val required = e.requiredPatcherVersion ?: "?"
+    val current = e.currentPatcherVersion ?: PatcherCompatibility.currentPatcherVersion ?: "?"
+    return when (patcherRequirementDirection(required, current)) {
+        PatcherRequirementDirection.LEGACY_MAJOR ->
+            Res.string.source_error_patcher_legacy_major to arrayOf(required, current)
+        PatcherRequirementDirection.NEWER_REQUIRED ->
+            Res.string.source_error_patcher_requires_newer to arrayOf(required, current)
+        PatcherRequirementDirection.UNKNOWN ->
+            Res.string.source_error_patcher_unknown to arrayOf(current)
+    }
 }
 
-private fun formatLinkageErrorArgs(): Array<out Any> {
-    val app = UpdateChecker.currentVersion() ?: "?"
-    val cur = PatcherCompatibility.currentPatcherVersion ?: "?"
-    return arrayOf("?", app, cur)
+/** True only when every failed source has a verified older-major Patcher bundle.
+ *  Resolution, signer or network failures never get mislabeled as legacy. */
+internal fun onlyLegacyPatcherFailures(
+    failedSourceIds: Set<String>,
+    loadErrorsBySource: Map<String, Throwable?>,
+): Boolean = failedSourceIds.isNotEmpty() && failedSourceIds.all { sourceId ->
+    val exception = when (val error = loadErrorsBySource[sourceId]) {
+        is PatchBundleIncompatibleException -> error
+        is PatchSourceLoadException -> error.cause as? PatchBundleIncompatibleException
+        else -> null
+    }
+    exception != null && patcherRequirementDirection(
+        exception.requiredPatcherVersion,
+        exception.currentPatcherVersion,
+    ) == PatcherRequirementDirection.LEGACY_MAJOR
 }
 
 /** Maps load failure exceptions to localized or human-readable strings. */
@@ -65,18 +83,22 @@ private inline fun <T> mapPatchLoadError(
     is PatchBundleSignerChangedException ->
         onResource(Res.string.sources_management_signing_key_changed_hint, emptyArray())
 
-    is PatchBundleIncompatibleException ->
-        onResource(Res.string.source_error_patcher_incompatible, formatIncompatiblePatcherArgs(e))
+    is PatchBundleIncompatibleException -> {
+        val (resource, args) = incompatibleBundleDisplay(e)
+        onResource(resource, args)
+    }
 
     is PatchSourceLoadException -> {
         val cause = e.cause
         when {
             cause is PatchBundleSignerChangedException ->
                 onResource(Res.string.sources_management_signing_key_changed_hint, emptyArray())
-            cause is PatchBundleIncompatibleException ->
-                onResource(Res.string.source_error_patcher_incompatible, formatIncompatiblePatcherArgs(cause))
+            cause is PatchBundleIncompatibleException -> {
+                val (resource, args) = incompatibleBundleDisplay(cause)
+                onResource(resource, args)
+            }
             cause is LinkageError ->
-                onResource(Res.string.source_error_patcher_incompatible, formatLinkageErrorArgs())
+                onResource(Res.string.source_error_patcher_unknown, arrayOf(PatcherCompatibility.currentPatcherVersion ?: "?"))
             e.message?.contains("A GitHub PAT is required", ignoreCase = true) == true ->
                 onResource(Res.string.source_error_github_pat_required, emptyArray())
             e.message?.contains("No artifacts found", ignoreCase = true) == true ||
@@ -87,7 +109,7 @@ private inline fun <T> mapPatchLoadError(
     }
 
     is LinkageError ->
-        onResource(Res.string.source_error_patcher_incompatible, formatLinkageErrorArgs())
+        onResource(Res.string.source_error_patcher_unknown, arrayOf(PatcherCompatibility.currentPatcherVersion ?: "?"))
 
     else -> when {
         e.message?.contains("A GitHub PAT is required", ignoreCase = true) == true ->

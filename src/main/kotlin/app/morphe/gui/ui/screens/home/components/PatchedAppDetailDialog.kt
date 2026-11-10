@@ -5,6 +5,8 @@
 
 package app.morphe.gui.ui.screens.home.components
 
+import app.morphe.gui.ui.screens.home.HomePrimaryAction
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.border
@@ -51,6 +53,7 @@ import app.morphe.gui.ui.components.MorpheButton
 import app.morphe.gui.ui.components.MorpheButtonSize
 import app.morphe.gui.ui.components.MorpheButtonVariant
 import app.morphe.gui.ui.components.MorpheDialogSurface
+import app.morphe.gui.ui.components.MorpheDialogTitleBar
 import app.morphe.gui.ui.components.MorpheDropdown
 import app.morphe.gui.ui.components.MorpheDropdownItem
 import app.morphe.gui.ui.components.MorpheScrollbarStyle
@@ -76,6 +79,29 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** Detailed information dialog displaying metadata, status, and management actions for a patched app. */
+internal enum class PatchedAppDetailAction {
+    CHOOSE_APK,
+    PATCH_SELECTED_INPUTS,
+    REPATCH_CURRENT_INPUTS,
+}
+
+internal fun resolvePatchedAppDetailAction(
+    primaryAction: HomePrimaryAction,
+    inputsChanged: Boolean,
+): PatchedAppDetailAction = when {
+    inputsChanged -> PatchedAppDetailAction.PATCH_SELECTED_INPUTS
+    primaryAction == HomePrimaryAction.NEW_APK_REQUIRED ||
+        primaryAction == HomePrimaryAction.NEW_APK_AND_REPATCH_REQUIRED ->
+        PatchedAppDetailAction.CHOOSE_APK
+    else -> PatchedAppDetailAction.REPATCH_CURRENT_INPUTS
+}
+
+/**
+ * Full recall breakdown for one patched app. Everything is already on the record
+ * (date, versions, per-source snapshot, selection, options, integrity). This is a
+ * read surface plus the Re-patch / Open folder / Forget actions.
+ */
+
 @Composable
 fun PatchedAppDetailDialog(
     record: PatchedAppRecord,
@@ -83,6 +109,7 @@ fun PatchedAppDetailDialog(
     deviceInfo: DeviceAppInfo?,
     updateInfo: RecallUpdateInfo?,
     supportedApp: SupportedApp? = null,
+    resolvedDisplayName: String? = null,
     activeSources: List<ActivePatchSource> = emptyList(),
     compatibleSources: List<ActivePatchSource> = emptyList(),
     allSources: List<PatchSource> = emptyList(),
@@ -109,7 +136,11 @@ fun PatchedAppDetailDialog(
     uninstalling: Boolean = false,
     isSimple: Boolean = false,
 ) {
+    val canDismissDetails = !preparingPatch && !installing && !uninstalling
     val accents = MorpheTheme.colors
+    val detailDisplayName = resolvedDisplayName?.trim()?.takeIf {
+        it.isNotEmpty() && it != record.installedPackageName && it != record.packageName
+    } ?: record.displayName
     val cardFills = LocalCardFills.current
     val uriHandler = LocalUriHandler.current
     val patchCount = record.patchSelectionByBundle.values.sumOf { it.size }
@@ -123,14 +154,14 @@ fun PatchedAppDetailDialog(
     val canInstallExistingApk = shouldOfferPatchedAppInstall(state, installPending, sameVersionInstalled)
 
     Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        onDismissRequest = { if (canDismissDetails) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
     ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                // Dismiss on outside tap.
-                .pointerInput(Unit) { detectTapGestures { onDismiss() } },
+                // Outside clicks must never silently discard selected patch inputs.
+                .pointerInput(Unit) { detectTapGestures { } },
             contentAlignment = Alignment.Center,
         ) {
         // Constrain dialog height to viewport bounds.
@@ -303,7 +334,13 @@ fun PatchedAppDetailDialog(
             contentPadding = PaddingValues(0.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-                IdentityBand(record, state, deviceInfo, updateInfo)
+                MorpheDialogTitleBar(
+                    onDismiss = { if (canDismissDetails) onDismiss() },
+                    dismissEnabled = canDismissDetails,
+                    title = { Text(detailDisplayName, style = MorpheTheme.typography.titleMedium) },
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
+                )
+                IdentityBand(record, state, deviceInfo, updateInfo, detailDisplayName)
                 if (deviceInfo?.installed == true) {
                     val owner = when {
                         !deviceInfo.updateOwnerChecked ->
@@ -360,7 +397,7 @@ fun PatchedAppDetailDialog(
                     ) {
                         AssemblyRow(
                             label = stringResource(Res.string.home_detail_source_apk_label),
-                            primary = record.displayName,
+                            primary = detailDisplayName,
                             version = selectedApkVersion?.let { "v${it.removePrefix("v")}" },
                             previousVersion = apkPrevious,
                             sub = File(selectedApkPath).name,

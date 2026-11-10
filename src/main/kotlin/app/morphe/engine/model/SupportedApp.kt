@@ -38,14 +38,18 @@ data class SupportedApp(
             return providedName?.takeIf { it.isNotBlank() } ?: getDisplayName(packageName)
         }
 
+        private val knownNames = mapOf(
+            "com.google.android.youtube" to "YouTube",
+            "com.google.android.apps.youtube.music" to "YouTube Music",
+            "com.reddit.frontpage" to "Reddit",
+        )
+
+        /** Explicitly known product names only; unlike [getDisplayName], never guesses from package syntax. */
+        fun getKnownDisplayName(packageName: String): String? = knownNames[packageName]
+
         /** Formats a package name into a readable display name when no override exists. */
         fun getDisplayName(packageName: String): String {
-            val knownNames = mapOf(
-                "com.google.android.youtube" to "YouTube",
-                "com.google.android.apps.youtube.music" to "YouTube Music",
-                "com.reddit.frontpage" to "Reddit",
-            )
-            knownNames[packageName]?.let { return it }
+            getKnownDisplayName(packageName)?.let { return it }
 
             // Smart fallback: use the most meaningful part of the package name
             val parts = packageName.split(".")

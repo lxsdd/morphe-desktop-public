@@ -24,6 +24,7 @@ import androidx.compose.ui.window.Dialog
 import app.morphe.gui.ui.components.MorpheButton
 import app.morphe.gui.ui.components.MorpheButtonVariant
 import app.morphe.gui.ui.components.MorpheDialogSurface
+import app.morphe.gui.ui.components.MorpheDialogTitleBar
 import app.morphe.gui.ui.screens.patches.RunInfo
 import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.morphe_desktop.generated.resources.*
@@ -39,11 +40,11 @@ internal fun RunInfoDialog(info: RunInfo, onDismiss: () -> Unit) {
             modifier = Modifier.widthIn(max = 520.dp),
             horizontalAlignment = Alignment.Start,
         ) {
-            Text(
-                text = stringResource(Res.string.patch_selection_run_info_title),
-                style = MorpheTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            MorpheDialogTitleBar(onDismiss = onDismiss, title = {
+                Text(text = stringResource(Res.string.patch_selection_run_info_title),
+                    style = MorpheTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface)
+            })
 
             RunInfoGroup(label = stringResource(Res.string.patch_selection_run_info_app_group), color = secondaryColor) {
                 RunInfoHeadline(

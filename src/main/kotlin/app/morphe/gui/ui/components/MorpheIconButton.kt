@@ -116,7 +116,7 @@ fun MorpheIconButton(
 
     Box(
         modifier = modifier
-            .size(size.size)
+            .size(size.size.coerceAtLeast(32.dp))
             .hoverable(hoverInteraction)
             .clip(shapes.small)
             .background(animatedBg)

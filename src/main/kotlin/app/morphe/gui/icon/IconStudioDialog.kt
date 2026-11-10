@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import app.morphe.gui.ui.components.MorpheDialogTitleBar
 import androidx.compose.ui.zIndex
 import app.morphe.gui.ui.components.MorpheButton
 import app.morphe.gui.ui.components.MorpheButtonSize
@@ -275,20 +276,21 @@ fun IconStudioDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = { if (!busy) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
         Surface(
             shape = shapes.medium,
             color = MaterialTheme.colorScheme.surface,
-            modifier = Modifier.width(840.dp).heightIn(max = 660.dp).padding(4.dp),
+            modifier = Modifier.widthIn(max = 840.dp).fillMaxWidth(0.96f).heightIn(max = 660.dp).padding(4.dp),
         ) {
             Column(Modifier.padding(20.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = stringResource(Res.string.icon_studio_title),
-                        style = MorpheTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(Modifier.weight(1f))
+                MorpheDialogTitleBar(onDismiss = { if (!busy) onDismiss() },
+                    dismissEnabled = !busy,
+                    title = {
+                        Text(text = stringResource(Res.string.icon_studio_title),
+                            style = MorpheTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface)
+                    }, actions = {
                     MorpheButton(
                         label = stringResource(Res.string.icon_studio_undo_button),
                         icon = MorpheIcons.Undo,
@@ -306,7 +308,7 @@ fun IconStudioDialog(
                         enabled = histIndex < history.lastIndex,
                         onClick = { redo() },
                     )
-                }
+                })
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 14.dp)) {
                     Label(stringResource(Res.string.icon_studio_templates))
                     MorpheChoiceChip(

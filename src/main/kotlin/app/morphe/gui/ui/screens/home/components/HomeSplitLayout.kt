@@ -29,6 +29,8 @@ internal fun HomeSplitLayout(
     onFilterChange: (AppListFilter) -> Unit,
     onRetry: () -> Unit,
     onRefreshDeviceInfo: () -> Unit,
+    onRetryDeviceLabels: () -> Unit,
+    onInstallExistingApk: () -> Unit,
     onManageSources: () -> Unit,
     onClearClick: () -> Unit,
     onChangeClick: () -> Unit,
@@ -60,6 +62,9 @@ internal fun HomeSplitLayout(
                 patchedRecords = uiState.patchedRecords,
                 deviceAppInfo = uiState.deviceAppInfo,
                 deviceInstalledPackages = uiState.deviceInstalledPackages,
+                deviceAppLabels = uiState.deviceAppLabels,
+                deviceLabelIndexState = uiState.deviceLabelIndexState,
+                deviceLabelIndexedCount = uiState.deviceLabelIndexedCount,
                 deviceInventorySerial = uiState.deviceInventorySerial,
                 deviceRefreshSerial = uiState.deviceRefreshSerial,
                 deviceRefreshStage = uiState.deviceRefreshStage,
@@ -75,6 +80,8 @@ internal fun HomeSplitLayout(
                 loadError = uiState.patchLoadError,
                 onRetry = onRetry,
                 onRefreshDeviceInfo = onRefreshDeviceInfo,
+                onRetryDeviceLabels = onRetryDeviceLabels,
+                onInstallExistingApk = onInstallExistingApk,
                 onManageSources = onManageSources,
                 modifier = (if (uiState.appListFilter == AppListFilter.DEVICE) {
                     // Device inventory is read-only: use the full workspace instead

@@ -4,6 +4,10 @@
         <item quantity="one">%1$d Patch-Quelle konnte nicht geladen werden. Die erfolgreich geladenen Quellen werden verwendet</item>
         <item quantity="other">%1$d Patch-Quellen konnten nicht geladen werden. Die erfolgreich geladenen Quellen werden verwendet</item>
     </plurals>
+    <plurals name="home_header_sources_legacy">
+        <item quantity="one">%1$d alte Patch-Quelle benötigt eine kompatible neue Version. Die geladenen Quellen funktionieren weiter; Morphe selbst ist nicht veraltet</item>
+        <item quantity="other">%1$d alte Patch-Quellen benötigen kompatible neue Versionen. Die geladenen Quellen funktionieren weiter; Morphe selbst ist nicht veraltet</item>
+    </plurals>
     <plurals name="home_banner_update_available">
         <item quantity="one">Für %1$d gepatchte App ist ein Update verfügbar</item>
         <item quantity="other">Für %1$d gepatchte Apps sind Updates verfügbar</item>

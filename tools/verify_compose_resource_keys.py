@@ -7,6 +7,7 @@ resource at runtime. Always validate the default resource catalog separately.
 from __future__ import annotations
 
 import pathlib
+from collections import Counter
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -19,10 +20,39 @@ REFERENCE = re.compile(r"\bRes\.(string|plurals)\.([A-Za-z_]\w*)")
 def names(path: pathlib.Path, tag: str) -> set[str]:
     root = ET.parse(path).getroot()
     found = [item.attrib["name"] for item in root.findall(tag)]
-    duplicates = sorted({name for name in found if found.count(name) > 1})
+    duplicates = sorted(key for key, count in Counter(found).items() if count > 1)
     if duplicates:
         raise ValueError(f"Duplicate {tag} keys in {path}: {duplicates}")
     return set(found)
+
+
+def validate_locale_catalogs(resources_root: pathlib.Path) -> tuple[int, int]:
+    """Validate localized XML before the GUI loads it; missing keys may fall back."""
+    locales = 0
+    checked_files = 0
+    for folder in sorted(resources_root.glob("values-*")):
+        if not folder.is_dir():
+            continue
+        locales += 1
+        for filename, kind in (("strings.xml", "string"), ("plurals.xml", "plurals")):
+            path = folder / filename
+            if not path.is_file():
+                continue
+            root = ET.parse(path).getroot()
+            if root.tag != "resources":
+                raise ValueError(f"Invalid resource root in {path}: {root.tag}")
+            names(path, kind)
+            if kind == "plurals":
+                for plural in root.findall("plurals"):
+                    if not any(
+                        item.tag == "item" and item.get("quantity") == "other"
+                        for item in plural
+                    ):
+                        raise ValueError(
+                            f"Plural {plural.get('name')} in {path} lacks 'other'"
+                        )
+            checked_files += 1
+    return locales, checked_files
 
 def main() -> int:
     defined = {
@@ -50,6 +80,8 @@ def main() -> int:
             print(f"FAIL: critical GUI 2.0 navigation resource string:{key} is absent")
             return 1
     print("PASS: GUI 2.0 navigation resource keys are included.")
+    locales, checked_files = validate_locale_catalogs(RESOURCES.parent)
+    print(f"PASS: parsed {checked_files} localized Compose catalogs in {locales} languages.")
     return 0
 
 if __name__ == "__main__":

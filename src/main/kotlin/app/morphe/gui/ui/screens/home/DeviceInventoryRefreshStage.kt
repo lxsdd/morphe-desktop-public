@@ -29,3 +29,35 @@ internal fun mayPublishDeviceScan(
         refreshSerial == scanSerial &&
         stage.inProgress &&
         requestGeneration == currentGeneration
+
+
+/** A late label batch may update presentation only for the same completed scan. */
+internal fun mayPublishDeviceLabels(
+    activeSerial: String?,
+    indexedSerial: String,
+    inventorySerial: String?,
+    indexedPackages: Set<String>,
+    inventoryPackages: Set<String>,
+    requestGeneration: Long,
+    currentGeneration: Long,
+): Boolean = activeSerial == indexedSerial &&
+    inventorySerial == indexedSerial &&
+    indexedPackages == inventoryPackages &&
+    requestGeneration == currentGeneration
+
+
+/** Independent attempt guard: restarted label-only passes discard older batches. */
+internal fun mayPublishDeviceLabelAttempt(
+    activeSerial: String?,
+    indexedSerial: String,
+    inventorySerial: String?,
+    indexedPackages: Set<String>,
+    inventoryPackages: Set<String>,
+    requestGeneration: Long,
+    currentGeneration: Long,
+    requestAttempt: Long,
+    currentAttempt: Long,
+): Boolean = requestAttempt == currentAttempt && mayPublishDeviceLabels(
+    activeSerial, indexedSerial, inventorySerial, indexedPackages, inventoryPackages,
+    requestGeneration, currentGeneration,
+)

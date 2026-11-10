@@ -57,6 +57,14 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 
+/** Removal is only permitted for the exact explicitly confirmed non-default source. */
+internal fun mayCommitPatchSourceRemoval(
+    requestedId: String,
+    confirmedId: String?,
+    enabled: Boolean,
+    deletable: Boolean,
+): Boolean = requestedId.isNotBlank() && requestedId == confirmedId && enabled && deletable
+
 /** Modal sheet for managing, reordering, adding, and toggling patch sources. */
 /** Cursor displayed over source drag handles. */
 private val DragMoveCursor = PointerIcon(Cursor(Cursor.MOVE_CURSOR))
@@ -178,6 +186,7 @@ fun SourceManagementContent(
     var showAddDialog by remember { mutableStateOf(false) }
     var editingSource by remember { mutableStateOf<PatchSource?>(null) }
     var trustingSourceId by remember { mutableStateOf<String?>(null) }
+    var pendingRemoveId by remember { mutableStateOf<String?>(null) }
 
     // Live ordering rendered by the UI.
     val density = LocalDensity.current
@@ -209,7 +218,7 @@ fun SourceManagementContent(
         Column(
             modifier = Modifier
                 .verticalScroll(scrollState)
-                .widthIn(min = 360.dp)
+                .widthIn(min = 0.dp)
                 .padding(end = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -220,6 +229,16 @@ fun SourceManagementContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
+            if (sourceErrors.isNotEmpty()) Text(
+                text = stringResource(Res.string.source_sheet_error_summary, sourceErrors.size),
+                style = MorpheTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+            if (sourceSignerChanged.isNotEmpty()) Text(
+                text = stringResource(Res.string.source_sheet_signer_summary, sourceSignerChanged.size),
+                style = MorpheTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+            )
             Spacer(Modifier.height(4.dp))
 
             orderedSources.forEachIndexed { index, source ->
@@ -268,7 +287,7 @@ fun SourceManagementContent(
                         enabled = enabled,
                         onToggleEnabled = { newVal -> onToggleEnabled(source.id, newVal) },
                         onEdit = { editingSource = source },
-                        onRemove = { onRemove(source.id) },
+                        onRemove = { if (source.deletable && enabled) pendingRemoveId = source.id },
                         onOpenPatches = onOpenPatches?.let { handler -> { handler(source.id) } },
                         canReorder = canReorder,
                         position = index + 1,
@@ -308,6 +327,36 @@ fun SourceManagementContent(
                     .padding(vertical = 4.dp),
                 adapter = rememberScrollbarAdapter(scrollState),
                 style = MorpheScrollbarStyle()
+            )
+        }
+    }
+
+    pendingRemoveId?.let { id ->
+        val source = sourcesById[id]
+        if (source != null && source.deletable && enabled) {
+            MorpheAlertDialog(
+                onDismiss = { pendingRemoveId = null },
+                title = { Text(stringResource(Res.string.source_remove_confirm_title)) },
+                text = { Text(stringResource(Res.string.source_remove_confirm_message, source.name)) },
+                dismissButton = {
+                    MorpheButton(
+                        label = stringResource(Res.string.cancel),
+                        onClick = { pendingRemoveId = null },
+                        variant = MorpheButtonVariant.OUTLINED,
+                    )
+                },
+                confirmButton = {
+                    MorpheButton(
+                        label = stringResource(Res.string.remove),
+                        onClick = {
+                            val accepted = mayCommitPatchSourceRemoval(
+                                id, pendingRemoveId, enabled, sourcesById[id]?.deletable == true)
+                            pendingRemoveId = null
+                            if (accepted) onRemove(id)
+                        },
+                        variant = MorpheButtonVariant.DANGER,
+                    )
+                },
             )
         }
     }
@@ -586,7 +635,7 @@ private fun SourceRow(
                         text = error,
                         style = MorpheTheme.typography.labelSmall,
                         color = colors.danger,
-                        maxLines = 2,
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -657,7 +706,7 @@ private fun SourceRow(
                 )
                 if (!isDefault) {
                     MorpheIconButton(
-                        icon = MorpheIcons.Close,
+                        icon = MorpheIcons.Delete,
                         contentDescription = stringResource(Res.string.remove),
                         onClick = onRemove,
                         size = MorpheIconButtonSize.COMPACT,

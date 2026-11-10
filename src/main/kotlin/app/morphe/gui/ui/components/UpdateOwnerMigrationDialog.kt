@@ -21,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.morphe.engine.installation.MigrationRequiredReason
 import app.morphe.gui.util.UpdateOwnerMigrationRequest
+import app.morphe.morphe_desktop.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 
 /** Destructive migration is disabled until the user acknowledges possible data loss. */
 @Composable
@@ -34,23 +36,24 @@ fun UpdateOwnerMigrationDialog(
     var acknowledged by remember(request) { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = { if (!isBusy) onDismiss() },
-        title = { Text("Review Android update-ownership migration") },
+        title = {
+            MorpheDialogTitleBar(onDismiss = { if (!isBusy) onDismiss() },
+                dismissEnabled = !isBusy,
+                title = { Text(stringResource(Res.string.ui_migration_title)) })
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Device: ${request.deviceName} (${request.deviceSerial})")
-                Text("Package: ${request.packageName}")
-                request.versionName?.let { Text("Selected APK version: $it") }
+                Text(stringResource(Res.string.ui_install_device, request.deviceName, request.deviceSerial))
+                Text(stringResource(Res.string.ui_install_package, request.packageName))
+                request.versionName?.let { Text(stringResource(Res.string.ui_install_apk_version, it)) }
                 val ownerText = when (val reason = request.reason) {
-                    MigrationRequiredReason.NoOwner -> "The existing app has no update owner."
+                    MigrationRequiredReason.NoOwner -> stringResource(Res.string.ui_migration_owner_none)
                     is MigrationRequiredReason.ForeignOwner ->
-                        "The existing app's update owner is ${reason.packageName}."
+                        stringResource(Res.string.ui_migration_owner_other, reason.packageName)
                 }
                 Text(ownerText)
                 Text(
-                    "Continuing will uninstall the existing app and then install a verified copy of the " +
-                        "currently selected patched APK. Uninstalling may permanently delete local app " +
-                        "data, accounts, settings and downloads. Back up important data first. " +
-                        "Reinstallation or Play Store updates are not guaranteed.",
+                    stringResource(Res.string.ui_migration_warning),
                     color = MaterialTheme.colorScheme.error,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -60,7 +63,7 @@ fun UpdateOwnerMigrationDialog(
                         enabled = !isBusy,
                     )
                     Text(
-                        "I understand that this may permanently erase this app's local data.",
+                        stringResource(Res.string.ui_migration_acknowledge),
                         modifier = Modifier.padding(start = 4.dp),
                     )
                 }
@@ -72,11 +75,11 @@ fun UpdateOwnerMigrationDialog(
         confirmButton = {
             Button(onClick = onConfirm, enabled = acknowledged && !isBusy) {
                 if (isBusy) CircularProgressIndicator()
-                else Text("Uninstall and reinstall")
+                else Text(stringResource(Res.string.ui_migration_action))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isBusy) { Text("Cancel") }
+            TextButton(onClick = onDismiss, enabled = !isBusy) { Text(stringResource(Res.string.cancel)) }
         },
     )
 }

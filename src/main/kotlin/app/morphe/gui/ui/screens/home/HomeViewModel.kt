@@ -54,6 +54,10 @@ import app.morphe.gui.ui.screens.home.components.HomeAppSortMode
 import app.morphe.gui.util.ChangelogParser
 import app.morphe.gui.util.ChecksumStatus
 import app.morphe.gui.util.DeviceMonitor
+import app.morphe.gui.util.DeviceAppDiscoveryService
+import app.morphe.gui.util.DeviceAppDiscoverySnapshot
+import app.morphe.gui.util.AppLabelResolutionState
+import app.morphe.gui.util.AppLabelIndexState
 import app.morphe.gui.util.DevicePackageMutations
 import app.morphe.gui.util.shouldApplyDeviceResult
 import app.morphe.gui.util.captureOperationTarget
@@ -68,6 +72,7 @@ import app.morphe.gui.util.logIfFailed
 import app.morphe.gui.util.PatchException
 import app.morphe.gui.util.getUserMessage
 import app.morphe.gui.util.humanizePatchLoadError
+import app.morphe.gui.util.onlyLegacyPatcherFailures
 import app.morphe.gui.util.patchSourceHeaders
 import app.morphe.morphe_desktop.generated.resources.*
 import java.io.File
@@ -84,6 +89,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getPluralString
@@ -393,7 +400,10 @@ class HomeViewModel(
         viewModelScope.launch {
             DevicePackageMutations.events.collect { mutation ->
                 val selected = DeviceMonitor.state.value.selectedDevice
-                if (selected?.id == mutation.deviceSerial && selected.isReady) refreshDeviceInfo()
+                if (selected?.id == mutation.deviceSerial && selected.isReady) {
+                    deviceLabelDiscovery.invalidateLabel(mutation.deviceSerial, mutation.packageName)
+                    refreshDeviceInfo()
+                }
             }
         }
 
@@ -651,7 +661,12 @@ class HomeViewModel(
     private fun loadPatchesAndSupportedApps(forceRefresh: Boolean = false) {
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoadingPatches = true, patchLoadError = null, showSourcesFailedBanner = false)
+            _uiState.value = _uiState.value.copy(
+                isLoadingPatches = true,
+                patchLoadError = null,
+                showSourcesFailedBanner = false,
+                onlyLegacySourcesFailed = false,
+            )
 
             try {
                 val enabled = patchSourceManager.getEnabledRepositories()
@@ -761,6 +776,10 @@ class HomeViewModel(
                     result.resolved.forEach { if (it.error != null) add(it.source.id) }
                     result.loaded.perSource.forEach { if (!it.isSuccess) add(it.sourceId) }
                 }
+                val onlyLegacySourcesFailed = onlyLegacyPatcherFailures(
+                    failedSourceIds,
+                    result.loaded.perSource.associate { it.sourceId to it.error },
+                )
                 if (failedSourceIds.isNotEmpty()) {
                     // Log failure details for troubleshooting.
                     val details = buildList {
@@ -795,6 +814,7 @@ class HomeViewModel(
                     patchLoadError = null,
                     showSourcesFailedBanner = failedSourceIds.isNotEmpty() && !sourcesFailedBannerDismissed,
                     failedSourcesCount = failedSourceIds.size,
+                    onlyLegacySourcesFailed = onlyLegacySourcesFailed,
                     failedSourceIds = failedSourceIds,
                 )
                 refreshDeviceInfo() // Refresh device layer after records load
@@ -1334,14 +1354,18 @@ class HomeViewModel(
     }
 
     /** Invalidates obsolete asynchronous reads, including same-serial reselects. */
-    private var deviceRefreshGeneration: Long = 0
+    @Volatile private var deviceRefreshGeneration: Long = 0
+    private val deviceLabelDiscovery = DeviceAppDiscoveryService()
     private var deviceRefreshJob: Job? = null
+    private var deviceLabelIndexJob: Job? = null
+    @Volatile private var deviceLabelAttempt: Long = 0
 
     /** Rebuilds only the currently selected device's read-only inventory. */
     fun refreshDeviceInfo() {
         val generation = ++deviceRefreshGeneration
         val target = DeviceMonitor.state.value.captureOperationTarget()
         deviceRefreshJob?.cancel()
+        deviceLabelIndexJob?.cancel()
         if (target != null && !tabSelectedThisSession &&
             _uiState.value.appListFilter != AppListFilter.DEVICE) {
             _uiState.value = _uiState.value.copy(appListFilter = AppListFilter.DEVICE)
@@ -1351,6 +1375,9 @@ class HomeViewModel(
         _uiState.value = _uiState.value.copy(
             deviceAppInfo = emptyMap(),
             deviceInstalledPackages = emptySet(),
+            deviceAppLabels = emptyMap(),
+            deviceLabelIndexState = AppLabelIndexState.NOT_STARTED,
+            deviceLabelIndexedCount = 0,
             deviceInventorySerial = null,
             deviceRefreshSerial = target?.serial,
             deviceRefreshStage = if (target == null) DeviceInventoryRefreshStage.IDLE
@@ -1358,6 +1385,9 @@ class HomeViewModel(
         )
         if (target == null) return
         deviceRefreshJob = viewModelScope.launch {
+            var packagesForNames: Set<String>? = null
+            val priorityNames = (patchedRecordsByPackage.values.map { it.installedPackageName } +
+                _uiState.value.supportedApps.map { it.packageName }).distinct()
             try {
             val records = patchedRecordsByPackage.values
             val installed = adbManager.listInstalledPackages(target.serial).getOrNull() ?: run {
@@ -1485,6 +1515,7 @@ class HomeViewModel(
                     deviceAppInfo = _uiState.value.deviceAppInfo + additional,
                 )
             }
+            packagesForNames = installed
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
@@ -1509,6 +1540,98 @@ class HomeViewModel(
                         deviceRefreshSerial = null,
                     )
                 }
+            }
+
+            // Main inventory finishes before read-only Android label indexing.
+            packagesForNames?.takeIf { it.isNotEmpty() }?.let {
+                startDeviceLabelIndex(target.serial, it, generation, priorityNames)
+            }
+        }
+    }
+
+
+    /** Re-run only name indexing, without rechecking versions, owners or APK signatures. */
+    fun retryDeviceAppLabels() {
+        val target = DeviceMonitor.state.value.captureOperationTarget() ?: return
+        val state = _uiState.value
+        if (state.deviceInventorySerial != target.serial ||
+            state.deviceRefreshStage != DeviceInventoryRefreshStage.IDLE ||
+            state.deviceInstalledPackages.isEmpty()) return
+        val priority = (patchedRecordsByPackage.values.map { it.installedPackageName } +
+            state.supportedApps.map { it.packageName }).distinct()
+        startDeviceLabelIndex(target.serial, state.deviceInstalledPackages, deviceRefreshGeneration, priority)
+    }
+
+    /**
+     * Separate cancelable name-only worker: keeps Home interactive on large
+     * inventories and reuses the exact-device/user/install/locale label cache.
+     */
+    private fun startDeviceLabelIndex(
+        serial: String,
+        installed: Set<String>,
+        generation: Long,
+        priorityNames: List<String>,
+    ) {
+        deviceLabelIndexJob?.cancel()
+        val attempt = ++deviceLabelAttempt
+        fun mayApply(state: HomeUiState): Boolean = mayPublishDeviceLabelAttempt(
+            activeSerial = DeviceMonitor.state.value.captureOperationTarget()?.serial,
+            indexedSerial = serial,
+            inventorySerial = state.deviceInventorySerial,
+            indexedPackages = installed,
+            inventoryPackages = state.deviceInstalledPackages,
+            requestGeneration = generation,
+            currentGeneration = deviceRefreshGeneration,
+            requestAttempt = attempt,
+            currentAttempt = deviceLabelAttempt,
+        )
+        _uiState.update { current ->
+            if (mayApply(current)) current.copy(deviceLabelIndexState = AppLabelIndexState.INDEXING)
+            else current
+        }
+        deviceLabelIndexJob = viewModelScope.launch {
+            fun fail() {
+                _uiState.update { current ->
+                    if (mayApply(current)) current.copy(
+                        deviceLabelIndexState = AppLabelIndexState.INCOMPLETE_RETRYABLE)
+                    else current
+                }
+            }
+            try {
+                val adbForLabels = adbManager.findAdb()
+                if (adbForLabels == null) { fail(); return@launch }
+                runInterruptible(Dispatchers.IO) {
+                    val initial = deviceLabelDiscovery.discoverLabelsOnly(adbForLabels, serial, installed)
+                    if (initial.error != null) {
+                        Logger.warn("Read-only Android app labels unavailable: " + initial.error)
+                        fail()
+                        return@runInterruptible
+                    }
+                    fun publish(snapshot: DeviceAppDiscoverySnapshot) {
+                        if (Thread.currentThread().isInterrupted) {
+                            throw java.util.concurrent.CancellationException("Label scan cancelled")
+                        }
+                        val labels = snapshot.apps.asSequence()
+                            .filter { it.labelResolutionState == AppLabelResolutionState.RESOLVED }
+                            .filter { it.displayName.isNotBlank() && it.displayName != it.packageName }
+                            .associate { it.packageName to it.displayName }
+                        _uiState.update { current ->
+                            if (mayApply(current)) current.copy(
+                                deviceAppLabels = labels,
+                                deviceLabelIndexState = snapshot.labelIndexState,
+                                deviceLabelIndexedCount = snapshot.indexedLabelCount,
+                            ) else current
+                        }
+                    }
+                    deviceLabelDiscovery.enrichLabels(
+                        adbForLabels, initial, priorityPackages = { priorityNames }, onBatch = ::publish,
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Logger.warn("Read-only Android app labels failed: " + error.message)
+                fail()
             }
         }
     }
@@ -1884,6 +2007,8 @@ data class RecallUpdateInfo(
         /** True if [latestAvailableVersion] is newer than [usedVersion]. */
         val outdated: Boolean,
         val hasRelevantChanges: Boolean = false,
+        /** Existing private source ID. Display name is never a reliable identity. */
+        val sourceId: String = name,
     )
 
     val patchesChanged: Boolean get() = sources.any { it.hasRelevantChanges }
@@ -1938,6 +2063,10 @@ data class HomeUiState(
     val deviceAppInfo: Map<String, DeviceAppInfo> = emptyMap(),
     /** All package identifiers reported by the exact selected, ready ADB endpoint. */
     val deviceInstalledPackages: Set<String> = emptySet(),
+    /** Human-readable labels verified against the current installed device identity. */
+    val deviceAppLabels: Map<String, String> = emptyMap(),
+    val deviceLabelIndexState: AppLabelIndexState = AppLabelIndexState.NOT_STARTED,
+    val deviceLabelIndexedCount: Int = 0,
     /** Null while disconnected, switching targets, or when the read has failed. */
     val deviceInventorySerial: String? = null,
     /** Serial-bound asynchronous refresh state. Old snapshots are cleared while loading. */
@@ -1956,6 +2085,8 @@ data class HomeUiState(
     val showSourcesFailedBanner: Boolean = false,
     /** Count of sources that failed to load. */
     val failedSourcesCount: Int = 0,
+    /** All failures are verified older-major Patcher bundles, not network/signer errors. */
+    val onlyLegacySourcesFailed: Boolean = false,
     /** Source IDs that failed to load. */
     val failedSourceIds: Set<String> = emptySet(),
     /** Preferred patch source name per app package name for Simple mode. */

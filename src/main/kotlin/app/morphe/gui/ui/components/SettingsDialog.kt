@@ -118,10 +118,12 @@ fun SettingsDialog(
 
     val windowSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
-    val dialogWidth = with(density) { (windowSize.width * 0.86f).toDp() }
-        .coerceIn(720.dp, 1280.dp)
-    val dialogHeight = with(density) { (windowSize.height * 0.62f).toDp() }
-        .coerceIn(480.dp, 620.dp)
+    val viewportWidth = with(density) { windowSize.width.toDp() }
+    val viewportHeight = with(density) { windowSize.height.toDp() }
+    val dialogWidth = (viewportWidth * 0.86f).coerceAtMost(1280.dp)
+        .coerceAtLeast(0.dp).coerceAtMost((viewportWidth - 32.dp).coerceAtLeast(0.dp))
+    val dialogHeight = (viewportHeight * 0.62f).coerceAtMost(620.dp)
+        .coerceAtLeast(0.dp).coerceAtMost((viewportHeight - 130.dp).coerceAtLeast(0.dp))
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -131,11 +133,11 @@ fun SettingsDialog(
             modifier = Modifier.width(dialogWidth),
             horizontalAlignment = Alignment.Start,
         ) {
-            Text(
-                text = stringResource(Res.string.settings_dialog_title),
-                style = MorpheTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            MorpheDialogTitleBar(onDismiss = onDismiss, title = {
+                Text(text = stringResource(Res.string.settings_dialog_title),
+                    style = MorpheTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface)
+            })
             Row(
                 modifier = Modifier.fillMaxWidth().height(dialogHeight)
             ) {

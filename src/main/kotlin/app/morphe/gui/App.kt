@@ -27,6 +27,7 @@ import app.morphe.engine.PatchEngine
 import app.morphe.engine.config.EngineConfigRepository
 import app.morphe.engine.util.Logger
 import app.morphe.gui.data.model.MorpheFill
+import app.morphe.gui.data.model.effectiveSimpleMode
 import app.morphe.gui.data.repository.ActiveMode
 import app.morphe.gui.data.repository.ConfigRepository
 import app.morphe.gui.data.repository.PatchSourceManager
@@ -94,9 +95,17 @@ data class PatchSelectionParams(
     val apkArchitectures: List<String> = emptyList(),
     val patchesFilePaths: List<String> = emptyList(),
     val patchSourceNames: List<String> = emptyList(),
+    /** Persistent source provenance survives navigation; absent values stay unknown. */
+    val patchSourceIds: List<String> = emptyList(),
+    val patchSourceHashes: List<String> = emptyList(),
     val initialSelectionByBundle: Map<String, Set<String>> = emptyMap(),
     val initialPatchOptions: Map<String, String> = emptyMap(),
     val apkVersion: String = "",
+    /** Private device-import provenance. Never silently change the source device. */
+    val temporaryInputRoot: String? = null,
+    val sourceDeviceSerial: String? = null,
+    val deviceSpecificInput: Boolean = false,
+    val validatedDeviceImport: Boolean = false,
 )
 
 val LocalNavController = compositionLocalOf<NavHostController> {
@@ -237,7 +246,7 @@ private fun appContent(
         val config = configRepository.loadConfig()
         themePreference = config.getThemePreference()
         themeStyle = config.getThemeStyle()
-        isSimpleMode = config.useSimpleMode
+        isSimpleMode = config.effectiveSimpleMode()
         backgroundTypeState.value = try {
             BackgroundType.valueOf(config.backgroundType)
         } catch (_: Exception) {

@@ -46,7 +46,9 @@ import app.morphe.gui.ui.screens.home.components.HomeBanners
 import app.morphe.gui.ui.screens.home.DeviceInventoryRefreshStage
 import app.morphe.gui.ui.screens.home.components.AppListFilter
 import app.morphe.gui.ui.screens.home.components.HomeSplitLayout
+import app.morphe.gui.ui.screens.home.components.DirectExistingApkInstallFlow
 import app.morphe.gui.ui.screens.home.components.DeviceAppDetailsDialog
+import app.morphe.gui.ui.screens.home.components.resolveDeviceInventoryDisplayName
 import app.morphe.gui.ui.screens.home.components.DevicePatchSourceDetails
 import app.morphe.gui.ui.screens.home.components.availableDevicePatches
 import app.morphe.gui.ui.screens.home.components.PatchedAppDetailDialog
@@ -112,7 +114,9 @@ fun HomeScreenContent(
         (uiState.deviceInventorySerial == selectedSerial ||
             uiState.deviceRefreshSerial == selectedSerial)) uiState
         else uiState.copy(
-            deviceAppInfo = emptyMap(), deviceInstalledPackages = emptySet(),
+            deviceAppInfo = emptyMap(), deviceInstalledPackages = emptySet(), deviceAppLabels = emptyMap(),
+            deviceLabelIndexState = app.morphe.gui.util.AppLabelIndexState.NOT_STARTED,
+            deviceLabelIndexedCount = 0,
             deviceInventorySerial = null, deviceRefreshSerial = null,
             deviceRefreshStage = DeviceInventoryRefreshStage.IDLE,
         )
@@ -136,6 +140,14 @@ fun HomeScreenContent(
         if (pagerState.currentPage != uiState.selectedPage.ordinal) {
             pagerState.animateScrollToPage(uiState.selectedPage.ordinal)
         }
+    }
+
+    var showDirectApkInstall by remember { mutableStateOf(false) }
+    if (showDirectApkInstall) {
+        DirectExistingApkInstallFlow(
+            onDismiss = { showDirectApkInstall = false },
+            onInstalled = { viewModel.refreshDeviceInfo() },
+        )
     }
 
     var showChangelogDialog by remember { mutableStateOf(false) }
@@ -310,6 +322,7 @@ fun HomeScreenContent(
                 app = uiState.supportedApps.firstOrNull { it.packageName == pkg },
                 deviceInfo = visibleDeviceUiState.deviceAppInfo[pkg],
                 patchSources = sources,
+                resolvedDisplayName = visibleDeviceUiState.deviceAppLabels[pkg],
                 onDismiss = { untrackedDevicePackage = null },
             )
         }
@@ -348,6 +361,20 @@ fun HomeScreenContent(
             deviceInfo = visibleDeviceUiState.deviceAppInfo[record.packageName],
             updateInfo = updateInfo,
             supportedApp = uiState.supportedApps.find { it.packageName == record.packageName },
+            resolvedDisplayName = if (detailOriginSerial != null && detailOriginSerial == selectedSerial) {
+                resolveDeviceInventoryDisplayName(
+                    installedPackageName = record.installedPackageName,
+                    recordedDisplayName = record.displayName,
+                    originalPackageName = record.packageName,
+                    originalCatalogName = uiState.supportedApps.firstOrNull {
+                        it.packageName == record.packageName
+                    }?.displayName,
+                    installedCatalogName = uiState.supportedApps.firstOrNull {
+                        it.packageName == record.installedPackageName
+                    }?.displayName,
+                    androidResolvedName = visibleDeviceUiState.deviceAppLabels[record.installedPackageName],
+                )
+            } else null,
             activeSources = detailRecordSources,
             compatibleSources = detailCompatibleSources,
             allSources = allSources,
@@ -749,6 +776,8 @@ fun HomeScreenContent(
                                         onShowDeviceApp = onShowDeviceApp,
                                         onFilterChange = { viewModel.setAppListFilter(it) },
                                         onRefreshDeviceInfo = { viewModel.refreshDeviceInfo() },
+                                         onRetryDeviceLabels = { viewModel.retryDeviceAppLabels() },
+                                        onInstallExistingApk = { showDirectApkInstall = true },
                                         onRetry = onRetry,
                                         onManageSources = { openPage(HomePage.SOURCES) },
                                         onClearClick = onClearClick,

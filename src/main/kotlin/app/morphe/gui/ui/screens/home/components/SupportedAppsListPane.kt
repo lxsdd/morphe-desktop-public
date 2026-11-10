@@ -35,6 +35,7 @@ import app.morphe.gui.ui.components.MorpheScrollbarStyle
 import app.morphe.gui.ui.components.SlimSearchField
 import app.morphe.gui.ui.screens.home.DeviceInventoryRefreshStage
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
+import app.morphe.gui.util.AppLabelIndexState
 import app.morphe.gui.ui.screens.home.PatchedAppState
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
 import app.morphe.gui.ui.theme.MorpheTheme
@@ -51,6 +52,9 @@ internal fun SupportedAppsListPane(
     patchedRecords: List<PatchedAppRecord> = emptyList(),
     deviceAppInfo: Map<String, DeviceAppInfo> = emptyMap(),
     deviceInstalledPackages: Set<String> = emptySet(),
+    deviceAppLabels: Map<String, String> = emptyMap(),
+    deviceLabelIndexState: AppLabelIndexState = AppLabelIndexState.NOT_STARTED,
+    deviceLabelIndexedCount: Int = 0,
     deviceInventorySerial: String? = null,
     deviceRefreshSerial: String? = null,
     deviceRefreshStage: DeviceInventoryRefreshStage = DeviceInventoryRefreshStage.IDLE,
@@ -64,6 +68,8 @@ internal fun SupportedAppsListPane(
     loadError: String?,
     onRetry: () -> Unit,
     onRefreshDeviceInfo: () -> Unit,
+    onRetryDeviceLabels: () -> Unit,
+    onInstallExistingApk: () -> Unit,
     onManageSources: () -> Unit = {},
     sortMode: HomeAppSortMode = HomeAppSortMode.RECOMMENDED,
     onSortModeChange: (HomeAppSortMode) -> Unit = {},
@@ -179,6 +185,9 @@ internal fun SupportedAppsListPane(
         if (filter == AppListFilter.DEVICE) {
             DeviceInventoryPane(
                 installedPackages = deviceInstalledPackages,
+                deviceAppLabels = deviceAppLabels,
+                deviceLabelIndexState = deviceLabelIndexState,
+                deviceLabelIndexedCount = deviceLabelIndexedCount,
                 selectedDeviceSerial = deviceInventorySerial,
                 refreshSerial = deviceRefreshSerial,
                 refreshStage = deviceRefreshStage,
@@ -192,6 +201,8 @@ internal fun SupportedAppsListPane(
                 onShowDetail = onShowDetail,
                 onShowDeviceApp = onShowDeviceApp,
                 onRefreshDeviceInfo = onRefreshDeviceInfo,
+                onRetryDeviceLabels = onRetryDeviceLabels,
+                onInstallExistingApk = onInstallExistingApk,
             )
         } else if (filter != AppListFilter.ALL) {
             YourAppsListBody(

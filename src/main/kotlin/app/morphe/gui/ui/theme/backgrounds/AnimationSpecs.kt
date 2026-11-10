@@ -128,3 +128,20 @@ fun rememberParallaxState(
 
     return ParallaxState(smoothTiltX.asState(), smoothTiltY.asState()) to modifier
 }
+
+
+internal fun calculateParallaxTilt(
+    positionX: Float,
+    positionY: Float,
+    width: Int,
+    height: Int,
+    sensitivity: Float,
+): Pair<Float, Float> {
+    if (width <= 0 || height <= 0 || !sensitivity.isFinite()) return 0f to 0f
+    val centerX = width / 2f
+    val centerY = height / 2f
+    val maximum = 10f * sensitivity.coerceAtLeast(0f)
+    val tiltX = (((positionX - centerX) / centerX) * maximum).coerceIn(-maximum, maximum)
+    val tiltY = (((positionY - centerY) / centerY) * maximum).coerceIn(-maximum, maximum)
+    return tiltX to tiltY
+}

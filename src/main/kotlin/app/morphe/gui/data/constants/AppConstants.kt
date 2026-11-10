@@ -23,6 +23,14 @@ object AppConstants {
         resolvedVersion?.let { "v$it" } ?: "dev"
     }
 
+    /** Historic private Quick-mode web search API; retained until URL-service parity is validated. */
+    const val MORPHE_API_URL = "https://api.morphe.software"
+    val FALLBACK_PACKAGES = listOf(
+        "com.google.android.youtube",
+        "com.google.android.apps.youtube.music",
+        "com.reddit.frontpage",
+    )
+
     const val WEBSITE_URL = "https://morphe.software"
     /** True if the running version is a prerelease or unpackaged development build. */
     val IS_DEV_BUILD: Boolean by lazy { APP_VERSION == "dev" || APP_VERSION.contains('-') }

@@ -221,7 +221,7 @@ open class ConfigRepository {
 
     suspend fun setUseSimpleMode(enabled: Boolean) {
         val current = loadConfig()
-        saveConfig(current.copy(useSimpleMode = enabled))
+        saveConfig(current.copy(useSimpleMode = enabled, useSimplifiedMode = enabled))
     }
 
     /** Persists the expanded state of a settings section. */

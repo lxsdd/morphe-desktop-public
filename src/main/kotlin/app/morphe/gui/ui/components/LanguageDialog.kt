@@ -101,8 +101,9 @@ fun LanguageDialog(
 
     val windowSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
-    val dialogWidth = with(density) { (windowSize.width * 0.72f).toDp() }
-        .coerceIn(560.dp, 900.dp)
+    val viewportWidth = with(density) { windowSize.width.toDp() }
+    val dialogWidth = (viewportWidth * 0.72f).coerceAtMost(900.dp)
+        .coerceAtLeast(0.dp).coerceAtMost((viewportWidth - 32.dp).coerceAtLeast(0.dp))
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -112,11 +113,11 @@ fun LanguageDialog(
             modifier = Modifier.width(dialogWidth),
             horizontalAlignment = Alignment.Start,
         ) {
-            Text(
-                text = stringResource(Res.string.settings_language_dialog_title),
-                style = MorpheTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            MorpheDialogTitleBar(onDismiss = onDismiss, title = {
+                Text(text = stringResource(Res.string.settings_language_dialog_title),
+                    style = MorpheTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface)
+            })
 
             Column(
                 modifier = Modifier

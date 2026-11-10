@@ -107,8 +107,8 @@ fun ChangelogDialog(
     ) {
         MorpheDialogSurface(
             modifier = Modifier
-                .widthIn(min = 640.dp, max = 880.dp)
-                .heightIn(min = 520.dp, max = 780.dp)
+                .widthIn(max = 880.dp)
+                .heightIn(max = 780.dp)
                 .fillMaxWidth(0.85f)
                 .fillMaxHeight(0.85f),
             contentPadding = PaddingValues(0.dp),

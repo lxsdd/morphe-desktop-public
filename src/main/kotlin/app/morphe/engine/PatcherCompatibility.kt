@@ -61,7 +61,25 @@ object PatcherCompatibility {
             ?.takeUnless { it.isBlank() || it.equals("na", ignoreCase = true) }
 }
 
-/** Thrown when a patch bundle requires a newer patcher version than the current build. */
+/** Actionable diagnostic only. It never changes the fail-closed bundle gate. */
+enum class PatcherRequirementDirection { LEGACY_MAJOR, NEWER_REQUIRED, UNKNOWN }
+
+/** Distinguishes old-major community bundles from genuinely newer requirements. */
+internal fun patcherRequirementDirection(required: String?, current: String?): PatcherRequirementDirection {
+    fun major(version: String?): Int? = version?.trim()?.removePrefix("v")
+        ?.substringBefore('.')?.toIntOrNull()
+    val requiredMajor = major(required) ?: return PatcherRequirementDirection.UNKNOWN
+    val currentMajor = major(current) ?: return PatcherRequirementDirection.UNKNOWN
+    return when {
+        requiredMajor < currentMajor -> PatcherRequirementDirection.LEGACY_MAJOR
+        requiredMajor > currentMajor -> PatcherRequirementDirection.NEWER_REQUIRED
+        required != null && current != null && isNewerVersion(required, current) ->
+            PatcherRequirementDirection.NEWER_REQUIRED
+        else -> PatcherRequirementDirection.UNKNOWN
+    }
+}
+
+/** Thrown when a patch bundle is incompatible with the current patcher version. */
 class PatchBundleIncompatibleException(
     message: String,
     val requiredPatcherVersion: String? = null,

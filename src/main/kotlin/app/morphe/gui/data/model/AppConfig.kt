@@ -8,6 +8,10 @@ package app.morphe.gui.data.model
 import app.morphe.gui.ui.theme.ThemePreference
 import app.morphe.gui.ui.theme.ThemeStyle
 import kotlinx.serialization.Serializable
+import app.morphe.engine.PatchEngine
+import app.morphe.engine.util.PortablePaths
+import app.morphe.gui.util.FileUtils
+import java.io.File
 
 /** Application configuration stored in config.json. */
 
@@ -28,6 +32,13 @@ enum class FollowMode { FOLLOW_STABLE, FOLLOW_DEV, PINNED }
 data class SourceVersionPref(
     val mode: FollowMode,
     val pinnedTag: String? = null,
+)
+
+/** Previously persisted per-view sort settings; retained for private Quick/Home migration. */
+@Serializable
+data class AppSortPreference(
+    val criterion: String = "NAME",
+    val direction: String = "ASCENDING",
 )
 
 @Serializable
@@ -52,6 +63,24 @@ data class AppConfig(
     val homeAppSortMode: String = "RECOMMENDED",
     val preferredPatchChannel: String = "STABLE",
     val useSimpleMode: Boolean = true,
+    // Retain pre-2.1 keys: dropping them loses private Quick/Home device preferences.
+    val useSimplifiedMode: Boolean = true,
+    val groupPatchesByCategory: Boolean = true,
+    val defaultOutputDirectory: String? = null,
+    val autoCleanupTempFiles: Boolean = true,
+    val keystorePath: String? = null,
+    val keystorePassword: String? = null,
+    val keystoreAlias: String = PatchEngine.Config.DEFAULT_KEYSTORE_ALIAS,
+    val keystoreEntryPassword: String = PatchEngine.Config.DEFAULT_KEYSTORE_PASSWORD,
+    val keepArchitectures: Set<String> = FileUtils.ANDROID_ARCHITECTURES,
+    val autoStartAdb: Boolean = false,
+    val developerOptions: Boolean = false,
+    val lastLocalPatchDir: String? = null,
+    val excludedMppPatterns: List<String> = emptyList(),
+    val homeAppSortPreferences: Map<String, AppSortPreference> = emptyMap(),
+    val autoRouteLinksAfterInstall: Boolean = false,
+    val disableStockLinksAfterInstall: Boolean = false,
+    val gitHubPat: String = "",
     val patchSource: List<PatchSource> = listOf(DEFAULT_PATCH_SOURCE),
     val activePatchSourceId: String = "morphe-default",
     // Persisted expand/collapse state for settings sections.
@@ -85,6 +114,11 @@ data class AppConfig(
             ThemePreference.SYSTEM
         }
     }
+    fun resolvedDefaultOutputDirectory(): File? =
+        defaultOutputDirectory?.let(PortablePaths::resolve)
+
+    fun resolvedKeystorePath(): File? = keystorePath?.let(PortablePaths::resolve)
+
     fun getThemeStyle(): ThemeStyle {
         return try {
             ThemeStyle.valueOf(themeStyle)
@@ -104,6 +138,7 @@ data class PatchSource (
     val deletable: Boolean = true,
     val enabled: Boolean = true,
     val usePreRelease: Boolean = false,
+    val useExperimentalVersions: Boolean = false,
 )
 
 @Serializable
@@ -118,3 +153,7 @@ enum class UpdateChannelPreference {
     /** Disable update checking. */
     OFF,
 }
+
+
+/** Old private Quick flag and upstream 2.1 Simple flag both remain authoritative. */
+fun AppConfig.effectiveSimpleMode(): Boolean = useSimpleMode && useSimplifiedMode

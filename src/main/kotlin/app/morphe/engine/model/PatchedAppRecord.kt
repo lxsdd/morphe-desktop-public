@@ -43,5 +43,7 @@ data class PatchedAppRecord(
         val sourceId: String,
         val sourceName: String,
         val version: String,
+        /** Historic per-bundle fingerprint; absence is UNKNOWN, never a false match. */
+        val artifactSha256: String? = null,
     )
 }

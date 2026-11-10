@@ -170,6 +170,7 @@ internal fun MultiSourceHintBanner(
 @Composable
 internal fun SourcesFailedBanner(
     count: Int,
+    onlyLegacySourcesFailed: Boolean = false,
     onManageSources: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
@@ -180,7 +181,11 @@ internal fun SourcesFailedBanner(
         icon = MorpheIcons.Warning,
     ) {
         MorpheBannerText(
-            text = pluralStringResource(Res.plurals.home_header_sources_failed, count, count),
+            text = if (onlyLegacySourcesFailed) {
+                pluralStringResource(Res.plurals.home_header_sources_legacy, count, count)
+            } else {
+                pluralStringResource(Res.plurals.home_header_sources_failed, count, count)
+            },
             modifier = Modifier.weight(1f),
         )
         MorpheBannerAction(label = stringResource(Res.string.home_header_manage_sources_button), onClick = onManageSources)

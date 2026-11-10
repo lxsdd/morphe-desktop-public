@@ -34,6 +34,7 @@ import app.morphe.gui.ui.components.MorpheDropdown
 import app.morphe.gui.ui.components.MorpheDropdownItem
 import app.morphe.gui.ui.components.MorpheScrollbarStyle
 import app.morphe.gui.ui.screens.home.DeviceInventoryRefreshStage
+import app.morphe.gui.util.AppLabelIndexState
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
 import app.morphe.gui.ui.theme.MorpheTheme
@@ -101,6 +102,9 @@ private fun deviceLabel(status: DeviceOverviewStatus): StringResource = when (st
 @Composable
 internal fun DeviceInventoryPane(
     installedPackages: Set<String>,
+    deviceAppLabels: Map<String, String>,
+    deviceLabelIndexState: AppLabelIndexState,
+    deviceLabelIndexedCount: Int,
     selectedDeviceSerial: String?,
     refreshSerial: String?,
     refreshStage: DeviceInventoryRefreshStage,
@@ -114,6 +118,8 @@ internal fun DeviceInventoryPane(
     onShowDetail: (PatchedAppRecord) -> Unit,
     onShowDeviceApp: (String) -> Unit,
     onRefreshDeviceInfo: () -> Unit,
+    onRetryDeviceLabels: () -> Unit,
+    onInstallExistingApk: () -> Unit,
 ) {
     if (refreshSerial != null && refreshStage.inProgress) {
         // A scan may have a partially loaded package list internally, but those
@@ -165,7 +171,7 @@ internal fun DeviceInventoryPane(
     }
     val uriHandler = LocalUriHandler.current
     val rows = remember(selectedDeviceSerial, installedPackages, supportedApps,
-        patchedRecords, deviceAppInfo, updateInfoByPackage, sourceNamesByPackage) {
+        patchedRecords, deviceAppInfo, deviceAppLabels, updateInfoByPackage, sourceNamesByPackage) {
         val supported = supportedApps.associateBy { it.packageName }
         val history = patchedRecords.associateBy { it.installedPackageName }
         installedPackages.map { pkg ->
@@ -192,7 +198,14 @@ internal fun DeviceInventoryPane(
             ))
             DeviceOverviewRow(
                 packageName = pkg,
-                displayName = record?.displayName ?: app?.displayName ?: pkg,
+                displayName = resolveDeviceInventoryDisplayName(
+                    installedPackageName = pkg,
+                    recordedDisplayName = record?.displayName,
+                    originalPackageName = record?.packageName,
+                    originalCatalogName = record?.packageName?.let { supported[it]?.displayName },
+                    installedCatalogName = app?.displayName,
+                    androidResolvedName = deviceAppLabels[pkg],
+                ),
                 installedVersion = installedVersion,
                 targetVersion = target?.takeIf { newerVersion },
                 record = record,
@@ -260,9 +273,43 @@ internal fun DeviceInventoryPane(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
             )
+            OutlinedButton(onClick = onInstallExistingApk) {
+                Text(stringResource(Res.string.direct_apk_install_button))
+            }
             OutlinedButton(onClick = onRefreshDeviceInfo) {
                 Text(stringResource(Res.string.device_overview_refresh))
             }
+        }
+        when (deviceLabelIndexState) {
+            AppLabelIndexState.INDEXING -> Text(
+                text = stringResource(Res.string.device_labels_indexing,
+                    deviceLabelIndexedCount, installedPackages.size, deviceAppLabels.size),
+                style = MorpheTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            AppLabelIndexState.INCOMPLETE_RETRYABLE -> Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(Res.string.device_labels_incomplete),
+                    style = MorpheTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedButton(onClick = onRetryDeviceLabels) {
+                    Text(stringResource(Res.string.device_labels_retry))
+                }
+            }
+            AppLabelIndexState.COMPLETE -> {
+                if (deviceAppLabels.size < installedPackages.size) Text(
+                    text = stringResource(Res.string.device_labels_complete),
+                    style = MorpheTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            AppLabelIndexState.NOT_STARTED -> Unit
         }
         Text(
             text = stringResource(Res.string.device_overview_disclaimer),

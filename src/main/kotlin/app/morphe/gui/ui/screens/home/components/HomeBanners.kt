@@ -48,6 +48,7 @@ internal fun HomeBanners(
                 if (uiState.showSourcesFailedBanner) {
                     SourcesFailedBanner(
                         count = uiState.failedSourcesCount,
+                        onlyLegacySourcesFailed = uiState.onlyLegacySourcesFailed,
                         onManageSources = onManageSources,
                         onDismiss = onDismissSourcesFailed,
                     )

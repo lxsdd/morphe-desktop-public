@@ -75,6 +75,7 @@ internal fun IdentityBand(
     state: PatchedAppState,
     deviceInfo: DeviceAppInfo?,
     updateInfo: RecallUpdateInfo?,
+    displayName: String = record.displayName,
 ) {
     val accents = MorpheTheme.colors
     Column(
@@ -86,14 +87,14 @@ internal fun IdentityBand(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             MorpheAppAvatar(
-                name = record.displayName,
+                name = displayName,
                 size = MorpheAvatarSize.ROW,
                 onGradient = false,
             )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text(
-                    text = record.displayName,
+                    text = displayName,
                     style = MorpheTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,

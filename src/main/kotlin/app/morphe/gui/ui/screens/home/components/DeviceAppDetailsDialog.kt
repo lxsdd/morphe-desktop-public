@@ -29,9 +29,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.morphe.engine.model.SupportedApp
+import app.morphe.gui.ui.components.MorpheDialogTitleBar
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+
+/** The detail title uses the exact same name precedence as the device list. */
+internal fun deviceAppDetailsTitle(
+    packageName: String,
+    catalogDisplayName: String?,
+    androidDisplayName: String?,
+): String = resolveDeviceInventoryDisplayName(
+    installedPackageName = packageName,
+    recordedDisplayName = null,
+    originalPackageName = null,
+    originalCatalogName = null,
+    installedCatalogName = catalogDisplayName,
+    androidResolvedName = androidDisplayName,
+)
 
 /** Source patches available for one package. Never interpreted as applied patches. */
 internal data class DevicePatchSourceDetails(
@@ -59,9 +74,10 @@ internal fun DeviceAppDetailsDialog(
     deviceInfo: DeviceAppInfo?,
     patchSources: List<DevicePatchSourceDetails>,
     onDismiss: () -> Unit,
+    resolvedDisplayName: String? = null,
 ) {
     val uriHandler = LocalUriHandler.current
-    val appName = app?.displayName ?: packageName
+    val appName = deviceAppDetailsTitle(packageName, app?.displayName, resolvedDisplayName)
     val installed = deviceInfo?.installedVersion?.takeIf(String::isNotBlank)
     val target = app?.recommendedVersion?.takeIf(String::isNotBlank)
     val url = target?.let { SupportedApp.getDownloadUrl(packageName, it) }
@@ -86,12 +102,8 @@ internal fun DeviceAppDetailsDialog(
                         .padding(PaddingValues(horizontal = 22.dp, vertical = 16.dp)),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                    MorpheDialogTitleBar(onDismiss = onDismiss, title = {
+                        Column {
                             Text(
                                 appName,
                                 style = MaterialTheme.typography.titleLarge,
@@ -105,10 +117,7 @@ internal fun DeviceAppDetailsDialog(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        TextButton(onClick = onDismiss) {
-                            Text(stringResource(Res.string.device_details_close))
-                        }
-                    }
+                    })
                     HorizontalDivider()
                     Text(
                         stringResource(Res.string.device_details_on_device),

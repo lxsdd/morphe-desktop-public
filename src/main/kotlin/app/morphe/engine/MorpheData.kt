@@ -43,6 +43,8 @@ object MorpheData {
 
     /** Default signing keystore file. */
     val defaultKeystoreFile: File get() = File(root, "morphe.keystore")
+    val importedKeystoreFile: File get() = File(root, "imported.keystore")
+    val installedAppLabelsCacheFile: File get() = File(root, "installed-app-labels.json")
 
     // Reason primary JAR-adjacent storage could not be used.
     private enum class FallbackReason(val message: String) {
