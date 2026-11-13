@@ -2,13 +2,13 @@
 
 **Unofficial community-maintained fork of [Morphe Desktop](https://github.com/MorpheApp/morphe-desktop).** Independent of and not endorsed by the original Morphe project. The original project's name, logos and trademarks belong to their respective owners. See [LICENSE](LICENSE) and [NOTICE](NOTICE), including the additional GPLv3 Section 7 conditions.
 
-[**Download the public Windows beta (2.1.1-beta.1)**](https://github.com/lxsdd/morphe-desktop-public/releases/tag/custom-v2.1.1-beta.1) · [Release details and reproducibility](docs/PUBLIC_BETA_2_1_1.md) · [Full documentation](docs/documentation.md)
+[**Download the public Windows beta (2.1.1-beta.2)**](https://github.com/lxsdd/morphe-desktop-public/releases/tag/custom-v2.1.1-beta.2) · [Release details and reproducibility](docs/PUBLIC_BETA_2_1_1.md) · [Full documentation](docs/documentation.md)
 
 > **Beta notice:** This is a public preview, not an official Morphe release or a guarantee that a particular patched app will work on your device. The private development repository, user data, credentials and private builds are not published here.
 
 ## What's in this Custom edition?
 
-Morphe Desktop Custom is a desktop **GUI and CLI** for patching Android apps using compatible Morphe Patcher bundles. This public **2.1.1** beta includes the current device-oriented Custom interface and the owner-reviewed application source, with the following improvements:
+Morphe Desktop Custom is a desktop **GUI and CLI** for patching Android apps using compatible Morphe Patcher bundles. This public **2.1.1-beta.2** hotfix includes the current device-oriented Custom interface and the owner-reviewed application source, with the following improvements:
 
 | Area | Features |
 | --- | --- |
@@ -28,9 +28,11 @@ Screenshots below are captured from the **real 2.1.1 application** on a clean Li
 | --- | --- |
 | ![Morphe Desktop Custom 2.1.1 Apps workspace, clean profile](docs/images/current/desktop-apps.png) | ![Morphe Desktop Custom 2.1.1 Sources page, clean profile](docs/images/current/desktop-sources.png) |
 
+Earlier compiled Patcher 1.x community MPP bundles now enter the official Patcher 2.x backward-compatible loader instead of being rejected solely by major version. Three SHA-256 pinned published MPPs are covered by read-only class-load tests. This does not guarantee individual Android APK patch success.
+
 ## Download and run on Windows
 
-1. Download `Morphe-Desktop-Custom-2.1.1-BETA-*.zip` from the [public release](https://github.com/lxsdd/morphe-desktop-public/releases/tag/custom-v2.1.1-beta.1). Check the associated `SHA256SUMS.txt` if you want to verify the download.
+1. Download `Morphe-Desktop-Custom-2.1.1-BETA2-*.zip` from the [public release](https://github.com/lxsdd/morphe-desktop-public/releases/tag/custom-v2.1.1-beta.2). Check the associated `SHA256SUMS.txt` if you want to verify the download.
 2. Extract the entire ZIP to a folder of your choice; don't run the launcher from inside the archive.
 3. Run `Start-Morphe-Windows.cmd`. You need **Java 21 or newer** for a direct JAR launch; the release documentation covers the packaged Windows launcher.
 4. Open **Sources** to review patch bundles and their compatibility, then use **Apps** to choose an APK or inspect a connected, authorized ADB device. Select patches and any installation target yourself.
@@ -60,7 +62,7 @@ Use the actual JAR filename in place of `*` if your shell does not expand wildca
 - Android signing certificates, installer attribution, Android update ownership and **Google Play update offers** are different concepts. Replacing an app from Google Play with a differently signed APK can be blocked. The optional `Disable Play Store updates` patch has significant version-code and rollback trade-offs and is never enabled silently.
 - Source tests on Ubuntu, Windows and macOS and a verified public Windows ZIP do not constitute tests on every Android device, or acceptance of any particular APK installation.
 
-For source and safety details, see [public beta verification](docs/PUBLIC_BETA_2_1_1.md), [documentation](docs/documentation.md) and [release checksums](https://github.com/lxsdd/morphe-desktop-public/releases/tag/custom-v2.1.1-beta.1).
+For source and safety details, see [public beta verification](docs/PUBLIC_BETA_2_1_1.md), [documentation](docs/documentation.md) and [release checksums](https://github.com/lxsdd/morphe-desktop-public/releases/tag/custom-v2.1.1-beta.2).
 
 ## Build from source
 

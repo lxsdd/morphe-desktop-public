@@ -220,7 +220,7 @@ e3c79ed1f99f7fef5b438da7438954a6cec6afd7	src/main/kotlin/app/morphe/engine/model
 f87d25f89d0082fd22237082a3ebd08e35821744	src/main/kotlin/app/morphe/engine/MorpheComponents.kt
 3e17378e69fc5479c88ecbaf061e457fb362eae7	src/main/kotlin/app/morphe/engine/MorpheConstants.kt
 9026ef99bd85516679253fbd0ed8cbd968492b33	src/main/kotlin/app/morphe/engine/MorpheData.kt
-9bbd103efe7000cb2991883f3cb06b4796c5f40f	src/main/kotlin/app/morphe/engine/MultiSourceLoader.kt
+b81c8e75ec1181405155330fec8db4f1cdcaea39	src/main/kotlin/app/morphe/engine/MultiSourceLoader.kt
 bd8b62d28fbb3eeed59713d1790347e1c65fa0d0	src/main/kotlin/app/morphe/engine/network/HttpClient.kt
 89e25425bfdceb11a801ae6b575972531ccb2c38	src/main/kotlin/app/morphe/engine/network/HttpService.kt
 ee170d409c06adc0965f964150bfee90518880ab	src/main/kotlin/app/morphe/engine/options/PatchOption.kt
@@ -229,11 +229,11 @@ c2895be80c511db29693436e70d72c805c42144b	src/main/kotlin/app/morphe/engine/optio
 fb52057d26078261053f87cdaff19a4266fa9ee5	src/main/kotlin/app/morphe/engine/options/PatchPreferencesRepository.kt
 fa875c040c331cf65227e8b42c396a06f236805c	src/main/kotlin/app/morphe/engine/PatchedAppStore.kt
 c72d5f2cee40222f89f2298d746816971c2e563f	src/main/kotlin/app/morphe/engine/PatchEngine.kt
-354907606b4392098e9c1e49bc82872fdca45425	src/main/kotlin/app/morphe/engine/PatcherCompatibility.kt
+89cb21b23c9f3351395a001f7590af205c0c1c97	src/main/kotlin/app/morphe/engine/PatcherCompatibility.kt
 0b8dd455a03f44cac24e3fd8c474f85693071231	src/main/kotlin/app/morphe/engine/patches/AppVersionResolver.kt
 4243de79895c5e242939f3187c6d00778faf1b58	src/main/kotlin/app/morphe/engine/patches/GitHubPatchSource.kt
 52aa5a2f0539459cd104ad8db3967da7ac150f85	src/main/kotlin/app/morphe/engine/patches/GitLabPatchSource.kt
-164fac16db6c1578846dec2c5606f4019ae1062d	src/main/kotlin/app/morphe/engine/patches/PatchBundleLoader.kt
+cf57796f3976dc8b0e1a088a216338994aded878	src/main/kotlin/app/morphe/engine/patches/PatchBundleLoader.kt
 f18d3a776ddc995797b6c1bb14617ee07669c1a8	src/main/kotlin/app/morphe/engine/patches/PatchBundleSignerChangedException.kt
 bd8f75f21685838364a9df13cc8632a58aaecc12	src/main/kotlin/app/morphe/engine/patches/PatchCache.kt
 20cba870f01185ca1ddc883f12faab072056d81f	src/main/kotlin/app/morphe/engine/patches/PatchExtensions.kt
@@ -540,12 +540,12 @@ b828c3aef59427e7cf1b7da559825c3a6b145832	src/main/resources/fonts/RobotoMono-Sem
 3b86e20f47befe1502549d3b7d61dd0868f78bff	src/test/kotlin/app/morphe/engine/installation/AdbDeviceTargetSafetyTest.kt
 352fd806f119cca792438e9dca2e38a9a12772e4	src/test/kotlin/app/morphe/engine/installation/AdbExactSerialTargetPortTest.kt
 b6098df7d519580d077d559d558a3da977d25e86	src/test/kotlin/app/morphe/engine/installation/AdbOwnershipSectionSafetyTest.kt
-86311d510e795312faba51667bf0814e609833ef	src/test/kotlin/app/morphe/engine/OfficialStablePatchBundleSmokeTest.kt
+28a61607ead2a98eb210971f4c76876fb2b81fd1	src/test/kotlin/app/morphe/engine/OfficialStablePatchBundleSmokeTest.kt
 08e9070f202050bec8eca3b904b2aaea41a7956c	src/test/kotlin/app/morphe/engine/options/OptionValueConverterTest.kt
 413f4319c89653f4e93362983052ef5aa013ef4f	src/test/kotlin/app/morphe/engine/options/PatchOptionsFileTest.kt
 1b659fdbc1ce21603250e128d62c9ebb8ded0fb8	src/test/kotlin/app/morphe/engine/PatchCacheTrustPreservationTest.kt
 472e6c87fa24ceaf315ee3a1ad0d2c04f4d8036f	src/test/kotlin/app/morphe/engine/PatchedAppStoreTest.kt
-2a6b2ad9a74660b870c669c9743853b00ecf46ef	src/test/kotlin/app/morphe/engine/PatcherCompatibilityMigrationTest.kt
+6730e3da80ee905eaa8aaaa55df5a3fe3bce3986	src/test/kotlin/app/morphe/engine/PatcherCompatibilityMigrationTest.kt
 f58f390d4fda34d06b51f1126a26ad812e72e300	src/test/kotlin/app/morphe/engine/patches/PatchBundleSigningTest.kt
 a7f83161f3646dd10f4df5cde79f8216bde908a2	src/test/kotlin/app/morphe/engine/patches/SupportedAppCatalogTest.kt
 87d0d95059334f9463dee0c2c9ef1a764c1f4ba2	src/test/kotlin/app/morphe/engine/SplitBundleStagingTest.kt

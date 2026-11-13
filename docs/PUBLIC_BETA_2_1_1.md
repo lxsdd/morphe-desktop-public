@@ -1,4 +1,4 @@
-# Morphe Desktop Custom 2.1.1 — Unofficial public beta
+# Morphe Desktop Custom 2.1.1-beta.2 — Unofficial public hotfix
 
 **Unofficial community-maintained derivative. Not associated with, endorsed by or
 published on behalf of the original Morphe project.** The upstream name and
@@ -7,15 +7,21 @@ trademarks remain with their owners. See [NOTICE](../NOTICE) and
 
 ## Scope
 
-This public beta contains the same application source, translations, resource
-files, build dependencies and deterministic regressions as the owner's
-successful private Windows UI acceptance snapshot. The
+This public hotfix contains the prior public application plus a targeted
+backward-compatibility change for older compiled MPP bundles. Source, resources
+and regressions are integrity-pinned at this commit. Previously accepted Windows
+UI behavior is not automatically accepted for this new binary. The
 [`public_beta_source_manifest.tsv`](../tools/public_beta_source_manifest.tsv)
 lists the exact Git blob hash of every relevant product/build/resource file.
 GitHub Actions rejects any missing, extra or mismatched source file before
 building. **No private repository documentation, credentials, certificates,
 keystore contents, device identifiers, user files, private releases or
 private GitHub Actions workflows are bundled.**
+
+Older Patcher-1.x compiled MPPs are no longer rejected simply because the
+runtime Patcher is 2.x. Read-only load tests cover published official,
+riky-dev and rushiranpise MPPs. Future-engine, signing, source trust and
+exact-device protections remain enabled.
 
 It includes the multi-source patch workflow, exact-ADB-device safeguards,
 installed APK inspection and guarded direct fresh installation, truthful
@@ -33,10 +39,9 @@ included. You select and authorize any app/patch/device operation explicitly.
 
 This is a **beta**, not a stable update or a claim of successful Android
 deployment on arbitrary devices. Exact-commit Linux, Windows and macOS
-source tests and integrity checks accompany the published release. The
-owner's Windows UI acceptance applies to the corresponding application
-source; the separately built public ZIP gets its own SHA-256 and package
-verification. Never use a public binary without corresponding public source.
+source tests and integrity checks accompany the published release. The separately built public ZIP gets its own SHA-256 and package
+verification. Legacy bundles are tested for loading, not for patching arbitrary
+Android APKs. Never use a public binary without corresponding public source.
 
 ## Reproducibility and licensing
 
