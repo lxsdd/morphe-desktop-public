@@ -64,9 +64,10 @@ object MultiSourceLoader {
 
     private suspend fun loadOne(input: SourceInput): LoadedSource = withContext(Dispatchers.IO) {
         try {
-            // Fail closed before reflecting over patch classes: a Patcher 1.x
-            // bundle may otherwise appear to load under Patcher 2.x by accident.
-            // Preserve sibling sources and give the UI an explicit source error.
+            // Only genuinely newer engine requirements fail preflight. Older
+            // compiled bundles intentionally reach Morphe's backward-compatible
+            // loader. Keep errors isolated to their own source and preserve
+            // sibling sources; never treat a version number as load success.
             PatcherCompatibility.incompatibilityMessage(input.patchFile)?.let { message ->
                 throw PatchBundleIncompatibleException(
                     message = message,

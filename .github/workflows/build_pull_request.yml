@@ -38,6 +38,26 @@ jobs:
         with:
           distribution: jetbrains
           java-version: '21'
+      - name: Verify pinned official and legacy MPP runtime fixtures
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          official="$RUNNER_TEMP/official-patches-2.1.0.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/MorpheApp/morphe-patches/releases/download/v2.1.0/patches-2.1.0.mpp' -o "$official"
+          echo "114eafa139ea3018f35af3498e8e67fe7850d4dd22a6065a02e891699dcc5e96  $official" | sha256sum -c -
+          echo "MORPHE_OFFICIAL_PATCHES_TEST_FILE=$official" >> "$GITHUB_ENV"
+          amazon="$RUNNER_TEMP/legacy-amazon-patches-1.23.1.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/rushiranpise/morphe-patches/releases/download/v1.23.1/patches-1.23.1.mpp' -o "$amazon"
+          echo "75ede4e416edf147be8132b6c7693d78b37264a1a89dd2c4fa835efccefcdd9d  $amazon" | sha256sum -c -
+          echo "MORPHE_THIRDPARTY_PATCHES_TEST_FILE=$amazon" >> "$GITHUB_ENV"
+          riky="$RUNNER_TEMP/legacy-riky-patches-2.3.2.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/riky-dev/morphe-patches/releases/download/v2.3.2/patches-2.3.2.mpp' -o "$riky"
+          echo "6c257bcae4023a73c92e9cb9d00589baeef4dbc6997f7137f6dead27bb35e764  $riky" | sha256sum -c -
+          echo "MORPHE_RIKY_PATCHES_TEST_FILE=$riky" >> "$GITHUB_ENV"
       - name: Build and run tests; do not upload artifacts
         shell: bash
         env:
