@@ -38,21 +38,21 @@ object PatcherCompatibility {
         val current = currentPatcherVersion ?: return null
         if (!isIncompatiblePatcherVersion(required, current)) return null
         Logger.info("Bundle ${mpp.name} needs patcher $required, this build ships $current")
-        return "This patch bundle requires Morphe Patcher $required, but this build ships $current. " +
-            "Different major versions are incompatible; use a patch source built for this Patcher version."
+        return "This patch bundle needs Morphe Patcher $required, but this build ships $current. " +
+            "Update Morphe to use it."
     }
 
     /**
-     * A Patcher 1.x bundle cannot be loaded by Patcher 2.x even if its
-     * numeric requirement is lower. Fail closed on invalid requirements,
-     * newer versions, or any major-version mismatch.
+     * Match official Morphe Desktop: an older Patcher major is not a reason
+     * to reject a compiled MPP. The Patcher 2.x loader preserves legacy patch
+     * APIs/behaviors using the bundle's Patcher-Version manifest attribute.
+     * Only a genuinely newer engine requirement needs an update.
+     *
+     * Missing/malformed requirements get a normal load attempt, whose
+     * actual success or failure is reported per source.
      */
-    internal fun isIncompatiblePatcherVersion(required: String, current: String): Boolean {
-        val requiredMajor = required.trim().removePrefix("v").substringBefore('.').toIntOrNull()
-        val currentMajor = current.trim().removePrefix("v").substringBefore('.').toIntOrNull()
-        if (requiredMajor == null || currentMajor == null) return true
-        return requiredMajor != currentMajor || isNewerVersion(required, current)
-    }
+    internal fun isIncompatiblePatcherVersion(required: String, current: String): Boolean =
+        isNewerVersion(required, current)
 
     private fun patcherVersionFromManifest(manifest: String): String? =
         manifest.lineSequence()
@@ -61,7 +61,7 @@ object PatcherCompatibility {
             ?.takeUnless { it.isBlank() || it.equals("na", ignoreCase = true) }
 }
 
-/** Actionable diagnostic only. It never changes the fail-closed bundle gate. */
+/** Classify genuine load/linkage errors; an older major alone is not an error. */
 enum class PatcherRequirementDirection { LEGACY_MAJOR, NEWER_REQUIRED, UNKNOWN }
 
 /** Distinguishes old-major community bundles from genuinely newer requirements. */

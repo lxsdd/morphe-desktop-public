@@ -26,8 +26,9 @@ object PatchBundleLoader {
     /** Loads each `.mpp` file into a [LoadedBundle], preserving input order. */
     fun loadEach(files: Iterable<File>): List<LoadedBundle> =
         files.map { file ->
-            // All GUI and CLI consumers share the same fail-closed Patcher
-            // version rule, even when they bypass the multi-source preview.
+            // Direct CLI/patch execution keeps the newer-engine preflight gate.
+            // Old majors are intentionally allowed into the official loader,
+            // which preserves backward-compatible Patcher behavior per bundle.
             PatcherCompatibility.incompatibilityMessage(file)?.let { message ->
                 throw PatchBundleIncompatibleException(
                     message = message,
