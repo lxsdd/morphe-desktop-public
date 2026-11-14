@@ -844,6 +844,8 @@
     <string name="home_device_inventory_unavailable">Select an online device to see its installed apps</string>
     <string name="home_device_inventory_title">Installed on selected device (read-only)</string>
     <string name="home_update_unknown">Only confirmed updates to your patched apps are listed here.</string>
+    <string name="home_update_checks_incomplete">Update check incomplete for %1$d patched apps. The counts show confirmed, patch-compatible updates only.</string>
+    <string name="home_update_checks_incomplete_short">Update check incomplete</string>
     <string name="home_version_patch_only">Patch source used: %1$s</string>
     <string name="home_update_view_empty">No confirmed updates in this category</string>
     <string name="home_your_apps_patch_update_status">Patch update</string>

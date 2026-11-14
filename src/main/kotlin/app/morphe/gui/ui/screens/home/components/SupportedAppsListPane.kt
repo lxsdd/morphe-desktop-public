@@ -98,20 +98,27 @@ internal fun SupportedAppsListPane(
             compareBy(order) { it.sortKeys(patchedStates, installedPackages, patchedAtByPackage) }
         )
     }
-    val matchingRecords = remember(searchQuery, patchedRecords) {
+    // Shared read-only name projection for rows, search and sort; no history mutation.
+    val historyNames = remember(patchedRecords, supportedApps) {
+        patchedRecords.associate { it.packageName to resolvePatchedHistoryDisplayName(it, supportedApps) }
+    }
+    val matchingRecords = remember(searchQuery, patchedRecords, historyNames) {
         if (searchQuery.isBlank()) patchedRecords
         else patchedRecords.filter {
-            it.displayName.contains(searchQuery, ignoreCase = true) ||
+            (historyNames[it.packageName] ?: it.displayName).contains(searchQuery, ignoreCase = true) ||
             it.packageName.contains(searchQuery, ignoreCase = true)
         }
     }
-    val filteredRecords = remember(matchingRecords, order, patchedStates, installedPackages) {
+    val filteredRecords = remember(matchingRecords, order, patchedStates, installedPackages, historyNames) {
         matchingRecords.sortedWith(
-            compareBy(order) { it.sortKeys(patchedStates, installedPackages) }
+            compareBy(order) { it.sortKeys(patchedStates, installedPackages, historyNames[it.packageName]) }
         )
     }
     val confirmedAppUpdates = remember(patchedRecords, updateInfoByPackage) {
         patchedRecords.count { hasConfirmedAppUpdate(updateInfoByPackage[it.packageName]) }
+    }
+    val uncheckedAppCount = remember(patchedRecords, updateInfoByPackage) {
+        incompleteUpdateChecks(patchedRecords, updateInfoByPackage)
     }
     val confirmedPatchUpdates = remember(patchedRecords, updateInfoByPackage, patchedStates) {
         patchedRecords.count {
@@ -155,6 +162,15 @@ internal fun SupportedAppsListPane(
             deviceCount = verifiedDeviceInventoryCount(deviceInstalledPackages.size, deviceInventorySerial),
             modifier = Modifier.fillMaxWidth(),
         )
+        if (!isLoading && uncheckedAppCount > 0) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(Res.string.home_update_checks_incomplete, uncheckedAppCount),
+                style = MorpheTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
         val searchVisible = true
         Row(
@@ -213,6 +229,7 @@ internal fun SupportedAppsListPane(
                 deviceAppInfo = deviceAppInfo,
                 updateInfoByPackage = updateInfoByPackage,
                 appIconColorByPackage = supportedApps.associate { it.packageName to (it.appIconColor ?: "") }.filterValues { it.isNotEmpty() },
+                displayNameByPackage = historyNames,
                 onShowDetail = onShowDetail,
                 paneMaxHeight = paneMaxHeight,
                 showSearch = searchVisible,

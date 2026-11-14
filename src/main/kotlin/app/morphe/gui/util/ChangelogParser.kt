@@ -177,9 +177,13 @@ object ChangelogParser {
         entries: List<ChangelogEntry>,
         installedVersion: String?,
         appNames: Collection<String>,
+        latestSelectedVersion: String? = null,
     ): Boolean {
         if (appNames.isEmpty()) return false
-        val newerEntries = entriesNewerThan(entries, installedVersion)
+        // Do not count future or cross-channel changes beyond the selected release.
+        val newerEntries = entriesNewerThan(entries, installedVersion).filter { entry ->
+            latestSelectedVersion == null || !isNewerVersion(entry.version, latestSelectedVersion)
+        }
         return newerEntries.any { entry ->
             entry.scopedBullets.any { (scope, bullets) ->
                 val scopeMatches = appNames.any { name ->

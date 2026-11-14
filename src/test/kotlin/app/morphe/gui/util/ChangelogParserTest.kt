@@ -143,4 +143,18 @@ class ChangelogParserTest {
         assertTrue(devEntry.isPrerelease)
         assertFalse(stableEntry.isPrerelease)
     }
+    @Test fun `selected stable release never includes later dev-only fixes`() {
+        val changes = ChangelogParser.parse("""
+            ## [2.3.0-dev.5](https://x/compare) (2026-11-14)
+            * **YouTube:** New dev-only feature
+            ## [2.2.0](https://x/compare) (2026-11-10)
+            * **Reddit:** Stable bug fix
+        """.trimIndent())
+        assertFalse(ChangelogParser.hasChangesFor(
+            changes, "2.1.0", listOf("YouTube"), latestSelectedVersion = "2.2.0"))
+        assertTrue(ChangelogParser.hasChangesFor(
+            changes, "2.1.0", listOf("Reddit"), latestSelectedVersion = "2.2.0"))
+        assertTrue(ChangelogParser.hasChangesFor(
+            changes, "2.2.0", listOf("YouTube"), latestSelectedVersion = "2.3.0-dev.5"))
+    }
 }

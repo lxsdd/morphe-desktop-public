@@ -26,13 +26,21 @@ class ChangelogRepository(
 ) {
     private val http = HttpService(httpClient)
     private val mutex = Mutex()
-    private val cache = mutableMapOf<String, List<ChangelogEntry>>()
+    private data class CachedEntries(val entries: List<ChangelogEntry>, val fetchedAt: Long)
+    private val cache = mutableMapOf<String, CachedEntries>()
+    private val cacheTtlMs = 5 * 60 * 1000L
+
+    /** Explicit source refresh invalidates both source and desktop changelogs. */
+    suspend fun invalidate() = mutex.withLock { cache.clear() }
+
+    private fun fresh(url: String): List<ChangelogEntry>? =
+        cache[url]?.takeIf { System.currentTimeMillis() - it.fetchedAt < cacheTtlMs }?.entries
 
     suspend fun entriesFor(source: PatchSource, prerelease: Boolean): List<ChangelogEntry>? =
         withContext(Dispatchers.IO) {
             val url = changelogUrl(source, prerelease) ?: return@withContext null
             mutex.withLock {
-                cache[url]?.let { return@withContext it }
+                fresh(url)?.let { return@withContext it }
                 val entries = try {
                     ChangelogParser.parse(http.request<String>(url))
                 } catch (e: CancellationException) {
@@ -45,7 +53,7 @@ class ChangelogRepository(
                     Logger.debug("Changelog at $url parsed to zero entries, treating as unavailable")
                     return@withContext null
                 }
-                cache[url] = entries
+                cache[url] = CachedEntries(entries, System.currentTimeMillis())
                 entries
             }
         }
@@ -55,7 +63,7 @@ class ChangelogRepository(
             val branch = if (prerelease) "dev" else "main"
             val url = "$GITHUB_RAW_BASE/MorpheApp/morphe-desktop/refs/heads/$branch/$CHANGELOG_FILE"
             mutex.withLock {
-                cache[url]?.let { return@withContext it }
+                fresh(url)?.let { return@withContext it }
                 val rawMarkdown = try {
                     http.request<String>(url)
                 } catch (e: CancellationException) {
@@ -72,7 +80,7 @@ class ChangelogRepository(
 
                 val entries = ChangelogParser.parse(rawMarkdown)
                 if (entries.isNotEmpty()) {
-                    cache[url] = entries
+                    cache[url] = CachedEntries(entries, System.currentTimeMillis())
                 }
                 entries.ifEmpty { null }
             }

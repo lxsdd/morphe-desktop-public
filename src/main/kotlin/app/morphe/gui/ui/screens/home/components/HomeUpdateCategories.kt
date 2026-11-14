@@ -21,6 +21,18 @@ internal fun hasConfirmedAppUpdate(info: RecallUpdateInfo?): Boolean =
 /** The cached per-app status already contains confirmed scoped changelog changes.
  * Count that evidence even if a subsequent async catalogue refresh has no metadata.
  */
+/** Unknown check state is never equivalent to zero available updates. */
+internal fun incompleteUpdateChecks(
+    records: List<PatchedAppRecord>,
+    infoByPackage: Map<String, RecallUpdateInfo>,
+): Int = records.count { record ->
+    val info = infoByPackage[record.packageName]
+    info == null ||
+        info.metadataResolution != UpdateMetadataResolution.READY ||
+        info.appSuggestedVersion.isNullOrBlank() ||
+        info.patchCheckIncomplete
+}
+
 internal fun hasConfirmedPatchUpdate(
     info: RecallUpdateInfo?,
     state: PatchedAppState? = null,

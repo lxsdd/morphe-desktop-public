@@ -122,6 +122,11 @@ internal fun IdentityBand(
         } else if (hasConfirmedPatchUpdate(updateInfo)) {
             InfoNote(stringResource(Res.string.home_your_apps_patch_review_hint))
         }
+        if (updateInfo == null || updateInfo.patchCheckIncomplete ||
+            updateInfo.metadataResolution != app.morphe.gui.util.UpdateMetadataResolution.READY ||
+            updateInfo.appSuggestedVersion.isNullOrBlank()) {
+            InfoNote(stringResource(Res.string.home_update_checks_incomplete_short))
+        }
     }
 }
 

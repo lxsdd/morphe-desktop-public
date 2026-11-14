@@ -808,7 +808,7 @@ fun PatchedAppDetailDialog(
                             onClick = {
                                 cardFills.requestEdit(
                                     record.packageName,
-                                    record.displayName,
+                                    detailDisplayName,
                                     supportedApp?.appIconColor,
                                 )
                             },

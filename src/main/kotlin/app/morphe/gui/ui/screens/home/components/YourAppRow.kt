@@ -38,6 +38,7 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun YourAppRow(
     record: PatchedAppRecord,
+    displayName: String = record.displayName,
     state: PatchedAppState,
     deviceInfo: DeviceAppInfo?,
     updateInfo: RecallUpdateInfo?,
@@ -62,8 +63,14 @@ fun YourAppRow(
         }
     } else null
 
-    val subtitle = remember(versionPart, datePart, devicePart) {
-        listOfNotNull(versionPart, datePart, devicePart).joinToString(" · ")
+    val checkPart = if (updateInfo == null ||
+        updateInfo.patchCheckIncomplete ||
+        updateInfo.metadataResolution != app.morphe.gui.util.UpdateMetadataResolution.READY ||
+        updateInfo.appSuggestedVersion.isNullOrBlank()) {
+        stringResource(Res.string.home_update_checks_incomplete_short)
+    } else null
+    val subtitle = remember(versionPart, datePart, devicePart, checkPart) {
+        listOfNotNull(versionPart, datePart, devicePart, checkPart).joinToString(" · ")
     }
 
     // Patch and APK-version updates are separate facts. A generic newer
@@ -80,7 +87,7 @@ fun YourAppRow(
         fill = cardFills[record.packageName],
         onClick = onClick,
         onCustomise = {
-            cardFills.requestEdit(record.packageName, record.displayName, appIconColorHex)
+            cardFills.requestEdit(record.packageName, displayName, appIconColorHex)
         },
     ) {
         Row(
@@ -90,7 +97,7 @@ fun YourAppRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             MorpheAppAvatar(
-                name = record.displayName,
+                name = displayName,
                 size = MorpheAvatarSize.MEDIUM,
                 onGradient = !cardColors.isMonochrome,
             )
@@ -100,7 +107,7 @@ fun YourAppRow(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = record.displayName,
+                    text = displayName,
                     style = MorpheTheme.typography.titleSmall.copy(color = cardColors.title),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

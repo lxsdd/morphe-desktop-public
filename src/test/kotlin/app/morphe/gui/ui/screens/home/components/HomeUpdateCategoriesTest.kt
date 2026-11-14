@@ -124,4 +124,24 @@ class HomeUpdateCategoriesTest {
         assertFalse(hasConfirmedPatchUpdate(null, PatchedAppState.PATCHED))
     }
 
+    @Test fun `zero confirmed updates is not a statement that all apps were checked`() {
+        val rows = listOf("unknown", "confirmed").map { pkg ->
+            PatchedAppRecord(packageName = pkg, displayName = pkg, apkVersion = "1.0",
+                inputApkPath = "/not-read/in", outputApkPath = "/not-read/out",
+                patchedAt = 1, patchedWithMorpheVersion = "test")
+        }
+        val unknown = info(suggested = null, resolution = UpdateMetadataResolution.UNAVAILABLE)
+        val checked = info(sources = listOf(RecallUpdateInfo.SourceUpdate(
+            "source", "2.2.0", "2.2.0", "2.2.0", outdated = false, checkIncomplete = false)))
+        val map = mapOf("unknown" to unknown, "confirmed" to checked)
+        assertEquals(1, incompleteUpdateChecks(rows, map))
+        assertEquals(0, rows.count { hasConfirmedAppUpdate(map[it.packageName]) })
+        assertEquals(0, rows.count { hasConfirmedPatchUpdate(map[it.packageName]) })
+    }
+
+    @Test fun `newer unsupported app versions do not produce a Morphe update`() {
+        val missing = info(appOutdated = false, suggested = null)
+        assertFalse(hasConfirmedAppUpdate(missing))
+        assertFalse(hasConfirmedPatchUpdate(missing))
+    }
 }
