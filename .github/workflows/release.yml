@@ -1,4 +1,4 @@
-name: Owner-approved Morphe Desktop Custom 2.1.1-beta.2 public hotfix
+name: Owner-approved Morphe Desktop Custom 2.1.1-beta.3 public compatibility and update fix
 
 on:
   push:
@@ -8,14 +8,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: public-beta-211-hotfix-${{ github.sha }}
+  group: public-beta-211-update3-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
   qualify-other-os:
     if: >-
       github.repository == 'lxsdd/morphe-desktop-public' &&
-      startsWith(github.event.head_commit.message, 'release(beta): Morphe Desktop Custom 2.1.1-beta.2')
+      startsWith(github.event.head_commit.message, 'release(beta): Morphe Desktop Custom 2.1.1-beta.3')
     name: Exact-release regression (${{ matrix.os }})
     # Keep the exact required macOS check name; use the supported, capacity-stable macOS 15 ARM runner.
     # macos-latest (macOS 26 ARM) was cancelled after 15 minutes without a runner twice.
@@ -58,7 +58,7 @@ jobs:
     needs: qualify-other-os
     if: >-
       github.repository == 'lxsdd/morphe-desktop-public' &&
-      startsWith(github.event.head_commit.message, 'release(beta): Morphe Desktop Custom 2.1.1-beta.2') &&
+      startsWith(github.event.head_commit.message, 'release(beta): Morphe Desktop Custom 2.1.1-beta.3') &&
       needs.qualify-other-os.result == 'success'
     runs-on: windows-latest
     timeout-minutes: 60
@@ -95,7 +95,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $tag = 'custom-v2.1.1-beta.2'
+          $tag = 'custom-v2.1.1-beta.3'
           $existing = & gh release view $tag --json tagName 2>$null
           if ($LASTEXITCODE -eq 0) { throw "Refusing to overwrite existing public beta: $tag" }
           $jars = @(Get-ChildItem -LiteralPath 'build/libs' -Filter 'morphe-desktop-*-all.jar' -File)
@@ -133,7 +133,7 @@ jobs:
           }
           "$jarHash  $($jars[0].Name)" | Set-Content -LiteralPath (Join-Path $stage 'SHA256SUMS.txt') -Encoding ascii
           $provenance = @(
-            'Morphe Desktop Custom 2.1.1-beta.2 (unofficial fork)',
+            'Morphe Desktop Custom 2.1.1-beta.3 (unofficial fork)',
             "SOURCE_GIT_SHA=$env:GITHUB_SHA",
             "JAR_SHA256=$jarHash",
             "PUBLIC_REPOSITORY=$env:GITHUB_REPOSITORY",
@@ -143,7 +143,7 @@ jobs:
             'No Android APK or third-party patch bundle is included.'
           )
           $provenance | Set-Content -LiteralPath (Join-Path $stage 'SOURCE_PROVENANCE.txt') -Encoding utf8
-          $zipName = "Morphe-Desktop-Custom-2.1.1-BETA2-$($env:GITHUB_SHA.Substring(0,12)).zip"
+          $zipName = "Morphe-Desktop-Custom-2.1.1-BETA3-$($env:GITHUB_SHA.Substring(0,12)).zip"
           $zip = Join-Path $dist $zipName
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
           $checkZip = [System.IO.Compression.ZipFile]::OpenRead($zip)
@@ -160,17 +160,18 @@ jobs:
             Set-Content -LiteralPath $sums -Encoding ascii
           $notes = Join-Path $dist 'RELEASE_NOTES.txt'
           @(
-            'Unofficial Morphe Desktop Custom 2.1.1-beta.2 legacy compatibility hotfix; not endorsed by original project.',
+            'Unofficial Morphe Desktop Custom 2.1.1-beta.3 patch-compatible update and app-name correction; not endorsed by original project.',
             'All application/build/resource source blobs are pinned in tools/public_beta_source_manifest.tsv.',
             'Linux, macOS and Windows regression tests passed at this exact public Git commit.',
-            'Legacy MPP source compatibility is tested; Windows GUI and APK/device acceptance is not inferred.',
+            'Historical app labels, source-scoped patch update counting and unknown-check messaging are tested.',
+            'Legacy MPP source compatibility is retained; GUI/Android-device acceptance is not inferred.',
             'This public ZIP is separately built and SHA-256 checked; Android installation remains user-authorized.',
             "SOURCE_SHA=$env:GITHUB_SHA",
             "JAR_SHA256=$jarHash",
             "ZIP_SHA256=$zipHash",
             'GPLv3 LICENSE and supplementary NOTICE are included. No private secrets or APKs.'
           ) | Set-Content -LiteralPath $notes -Encoding utf8
-          & gh release create $tag $zip $sums --target $env:GITHUB_SHA --title 'Morphe Desktop Custom 2.1.1-beta.2 (unofficial)' --notes-file $notes --prerelease
+          & gh release create $tag $zip $sums --target $env:GITHUB_SHA --title 'Morphe Desktop Custom 2.1.1-beta.3 (unofficial)' --notes-file $notes --prerelease
           if ($LASTEXITCODE -ne 0) { throw 'Public release creation failed; do not claim delivery' }
           $readback = Join-Path $dist 'verified-download'
           New-Item -ItemType Directory -Force -Path $readback | Out-Null
@@ -178,12 +179,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Public release asset readback failed' }
           $actualHash = (Get-FileHash -LiteralPath (Join-Path $readback $zipName) -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($actualHash -ne $zipHash) { throw 'Public asset SHA256 readback mismatch' }
+          # Verify that the separately published checksum manifest matches the same ZIP.
+          & gh release download $tag --pattern 'SHA256SUMS.txt' --dir $readback
+          if ($LASTEXITCODE -ne 0) { throw 'Public SHA256SUMS download failed' }
+          $checksums = Get-Content -LiteralPath (Join-Path $readback 'SHA256SUMS.txt') -Raw
+          if (-not $checksums.Contains("$zipHash  $zipName")) {
+            throw 'Published SHA256SUMS does not match verified ZIP'
+          }
           # Remove the superseded public beta ONLY after verified replacement byte readback.
           # Never delete a fallback when the new asset failed creation/download/integrity.
-          $oldTag = 'custom-v2.1.1-beta.1'
+          $oldTag = 'custom-v2.1.1-beta.2'
           $old = & gh release view $oldTag --json tagName 2>$null
           if ($LASTEXITCODE -eq 0) {
             & gh release delete $oldTag --yes --cleanup-tag
             if ($LASTEXITCODE -ne 0) { throw 'Replacement verified, but old public beta cleanup failed' }
           }
-          Write-Host "PUBLIC_BETA_RELEASE=PASS SOURCE_SHA=$env:GITHUB_SHA ZIP_SHA256=$zipHash JAR_SHA256=$jarHash READBACK=PASS OLD_BETA_REMOVED=PASS"
+          Write-Host "PUBLIC_BETA_RELEASE=PASS SOURCE_SHA=$env:GITHUB_SHA ZIP_SHA256=$zipHash JAR_SHA256=$jarHash READBACK=PASS OLD_BETA2_REMOVED=PASS"
