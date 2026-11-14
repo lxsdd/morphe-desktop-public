@@ -1,4 +1,4 @@
-# Morphe Desktop Custom 2.1.1-beta.2 — Unofficial public hotfix
+# Morphe Desktop Custom 2.1.1-beta.3 — Unofficial public update
 
 **Unofficial community-maintained derivative. Not associated with, endorsed by or
 published on behalf of the original Morphe project.** The upstream name and
@@ -7,8 +7,9 @@ trademarks remain with their owners. See [NOTICE](../NOTICE) and
 
 ## Scope
 
-This public hotfix contains the prior public application plus a targeted
-backward-compatibility change for older compiled MPP bundles. Source, resources
+This public update contains the prior beta.2 legacy-MPP backward-compatibility
+fix plus consistent historical app-name presentation and patch-scoped update
+evidence across the Home UI. Source, resources
 and regressions are integrity-pinned at this commit. Previously accepted Windows
 UI behavior is not automatically accepted for this new binary. The
 [`public_beta_source_manifest.tsv`](../tools/public_beta_source_manifest.tsv)
@@ -22,6 +23,15 @@ Older Patcher-1.x compiled MPPs are no longer rejected simply because the
 runtime Patcher is 2.x. Read-only load tests cover published official,
 riky-dev and rushiranpise MPPs. Future-engine, signing, source trust and
 exact-device protections remain enabled.
+
+**Update semantics:** "App updates" only means a newer app target actually
+supported by an enabled patch source in the selected Stable/Dev channel, not
+an arbitrary newer version appearing in a public APK store. "Patch updates"
+requires newer, relevant changes scoped to that app and patch source, rather
+than a repository-wide release number alone. Unknown or unavailable metadata
+is presented as an incomplete check, never assumed to mean up-to-date.
+Historical app titles use original package identity and trusted catalog names
+without modifying the signed output, patch history or selected device.
 
 It includes the multi-source patch workflow, exact-ADB-device safeguards,
 installed APK inspection and guarded direct fresh installation, truthful

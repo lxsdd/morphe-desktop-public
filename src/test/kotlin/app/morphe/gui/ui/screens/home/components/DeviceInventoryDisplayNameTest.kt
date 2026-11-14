@@ -2,6 +2,8 @@ package app.morphe.gui.ui.screens.home.components
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import app.morphe.engine.model.PatchedAppRecord
+import app.morphe.engine.model.SupportedApp
 
 class DeviceInventoryDisplayNameTest {
     private fun name(
@@ -85,5 +87,42 @@ class DeviceInventoryDisplayNameTest {
     @Test fun `blank names do not become blank titles`() {
         assertEquals("org.example.unknown",
             name("org.example.unknown", recorded = "  ", originalCatalog = " "))
+    }
+    private fun record(pkg: String, name: String, installed: String? = null) = PatchedAppRecord(
+        packageName = pkg, currentPackageName = installed, displayName = name,
+        apkVersion = "1.0", inputApkPath = "/not-read/input.apk",
+        outputApkPath = "/not-read/output.apk", patchedAt = 1L,
+        patchedWithMorpheVersion = "test",
+    )
+    private fun catalog(pkg: String, name: String) = SupportedApp(
+        packageName = pkg, displayName = name, supportedVersions = listOf("1.0"),
+        recommendedVersion = "1.0",
+    )
+
+    @Test fun `history uses known original name without device scan`() {
+        assertEquals("YouTube", resolvePatchedHistoryDisplayName(
+            record("com.google.android.youtube", "com.google.android.youtube"), emptyList()))
+        assertEquals("YouTube Music", resolvePatchedHistoryDisplayName(
+            record("com.google.android.apps.youtube.music", "com.google.android.apps.youtube.music",
+                "app.morphe.android.youtubemusic"), emptyList()))
+    }
+
+    @Test fun `history uses catalog and never modifies persisted record`() {
+        val old = record("org.example.editor", "org.example.editor")
+        assertEquals("Photo Editor", resolvePatchedHistoryDisplayName(
+            old, listOf(catalog("org.example.editor", "Photo Editor"))))
+        assertEquals("org.example.editor", old.displayName)
+    }
+
+    @Test fun `explicit friendly recorded name remains authoritative`() {
+        assertEquals("Custom video", resolvePatchedHistoryDisplayName(
+            record("com.google.android.youtube", "Custom video"),
+            listOf(catalog("com.google.android.youtube", "YouTube"))))
+    }
+
+    @Test fun `unknown package does not inherit unrelated catalog name`() {
+        assertEquals("org.example.unknown", resolvePatchedHistoryDisplayName(
+            record("org.example.unknown", "org.example.unknown"),
+            listOf(catalog("org.example.other", "Wrong app"))))
     }
 }

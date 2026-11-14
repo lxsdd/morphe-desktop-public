@@ -49,6 +49,7 @@ import app.morphe.gui.ui.screens.home.components.HomeSplitLayout
 import app.morphe.gui.ui.screens.home.components.DirectExistingApkInstallFlow
 import app.morphe.gui.ui.screens.home.components.DeviceAppDetailsDialog
 import app.morphe.gui.ui.screens.home.components.resolveDeviceInventoryDisplayName
+import app.morphe.gui.ui.screens.home.components.resolvePatchedHistoryDisplayName
 import app.morphe.gui.ui.screens.home.components.DevicePatchSourceDetails
 import app.morphe.gui.ui.screens.home.components.availableDevicePatches
 import app.morphe.gui.ui.screens.home.components.PatchedAppDetailDialog
@@ -168,7 +169,7 @@ fun HomeScreenContent(
             PatchSelectionScreenRoute,
             PatchSelectionParams(
                 apkPath = apkPath,
-                apkName = record.displayName,
+                apkName = resolvePatchedHistoryDisplayName(record, uiState.supportedApps),
                 patchesFilePath = patchFilePaths.first(),
                 packageName = record.packageName,
                 patchesFilePaths = patchFilePaths,
@@ -374,7 +375,7 @@ fun HomeScreenContent(
                     }?.displayName,
                     androidResolvedName = visibleDeviceUiState.deviceAppLabels[record.installedPackageName],
                 )
-            } else null,
+            } else resolvePatchedHistoryDisplayName(record, uiState.supportedApps),
             activeSources = detailRecordSources,
             compatibleSources = detailCompatibleSources,
             allSources = allSources,

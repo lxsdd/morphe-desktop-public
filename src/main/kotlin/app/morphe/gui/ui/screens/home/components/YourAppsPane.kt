@@ -122,6 +122,7 @@ internal fun YourAppsListBody(
     deviceAppInfo: Map<String, DeviceAppInfo>,
     updateInfoByPackage: Map<String, RecallUpdateInfo>,
     appIconColorByPackage: Map<String, String>,
+    displayNameByPackage: Map<String, String> = emptyMap(),
     onShowDetail: (PatchedAppRecord) -> Unit,
     paneMaxHeight: Dp,
     showSearch: Boolean,
@@ -156,6 +157,7 @@ internal fun YourAppsListBody(
                     items(items = filteredRecords, key = { it.packageName }) { record ->
                         YourAppRow(
                             record = record,
+                            displayName = displayNameByPackage[record.packageName] ?: record.displayName,
                             state = patchedStates[record.packageName] ?: PatchedAppState.PATCHED,
                             deviceInfo = deviceAppInfo[record.packageName],
                             updateInfo = updateInfoByPackage[record.packageName],

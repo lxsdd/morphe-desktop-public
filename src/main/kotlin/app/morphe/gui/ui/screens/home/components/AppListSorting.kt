@@ -119,17 +119,18 @@ internal fun sortPatchedApps(
     apps: List<PatchedAppRecord>,
     state: AppSortState,
     unifiedStates: Map<String, UnifiedHomeAppState> = emptyMap(),
+    displayNames: Map<String, String> = emptyMap(),
 ): List<PatchedAppRecord> =
     when (state.criterion) {
         AppSortCriterion.LAST_PATCHED -> apps.sortedFor(state) { it.patchedAt }
         AppSortCriterion.ACTION_PRIORITY -> apps.sortedWithDirection(
             state,
             compareBy<PatchedAppRecord> { actionPriority(unifiedStates[it.packageName]) }
-                .thenBy { normalized(it.displayName) }
+                .thenBy { normalized(displayNames[it.packageName] ?: it.displayName) }
                 .thenBy { normalized(it.packageName) },
         )
         AppSortCriterion.PACKAGE -> apps.sortedFor(state) { normalized(it.packageName) }
-        else -> apps.sortedFor(state) { normalized(it.displayName) }
+        else -> apps.sortedFor(state) { normalized(displayNames[it.packageName] ?: it.displayName) }
     }
 
 private fun actionPriority(state: UnifiedHomeAppState?): Int = when (state?.primaryAction) {
@@ -147,6 +148,7 @@ internal fun filterPatchedApps(
     filter: YourAppsFilter,
     unifiedStates: Map<String, UnifiedHomeAppState>,
     searchQuery: String,
+    displayNames: Map<String, String> = emptyMap(),
 ): List<PatchedAppRecord> = apps.filter { app ->
     val state = unifiedStates[app.packageName]
     val matchesFilter = when (filter) {
@@ -158,7 +160,7 @@ internal fun filterPatchedApps(
     }
     matchesFilter && (
         searchQuery.isBlank() ||
-            app.displayName.contains(searchQuery, ignoreCase = true) ||
+            (displayNames[app.packageName] ?: app.displayName).contains(searchQuery, ignoreCase = true) ||
             app.packageName.contains(searchQuery, ignoreCase = true)
         )
 }

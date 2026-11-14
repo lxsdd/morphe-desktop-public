@@ -37,3 +37,15 @@ internal fun resolveDeviceInventoryDisplayName(
         ?: installedCatalogName?.trim()?.takeIf { it.isNotEmpty() }
         ?: installedPackageName
 }
+
+/** Shared read-only historical name projection for cards, search, sort and dialogs. */
+internal fun resolvePatchedHistoryDisplayName(
+    record: app.morphe.engine.model.PatchedAppRecord,
+    supportedApps: List<SupportedApp>,
+): String = resolveDeviceInventoryDisplayName(
+    installedPackageName = record.installedPackageName,
+    recordedDisplayName = record.displayName,
+    originalPackageName = record.packageName,
+    originalCatalogName = supportedApps.firstOrNull { it.packageName == record.packageName }?.displayName,
+    installedCatalogName = supportedApps.firstOrNull { it.packageName == record.installedPackageName }?.displayName,
+)

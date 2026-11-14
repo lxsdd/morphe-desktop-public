@@ -52,6 +52,9 @@ import app.morphe.gui.data.repository.UpdateCheckRepository
 import app.morphe.gui.ui.screens.home.components.AppListFilter
 import app.morphe.gui.ui.screens.home.components.HomeAppSortMode
 import app.morphe.gui.util.ChangelogParser
+import app.morphe.gui.util.ChangelogEntry
+import app.morphe.gui.util.UpdateMetadataGenerationGuard
+import app.morphe.gui.data.model.PatchSourceType
 import app.morphe.gui.util.ChecksumStatus
 import app.morphe.gui.util.DeviceMonitor
 import app.morphe.gui.util.DeviceAppDiscoveryService
@@ -658,9 +661,14 @@ class HomeViewModel(
     private var lastLoadedVersionsBySource: Map<String, SourceVersionPref> = emptyMap()
 
     /** Loads patches from all enabled sources and aggregates their supported apps. */
+    private val updateMetadataGeneration = UpdateMetadataGenerationGuard()
+
     private fun loadPatchesAndSupportedApps(forceRefresh: Boolean = false) {
         loadJob?.cancel()
+        updateMetadataGeneration.next()
+        latestResolvedApps = null
         loadJob = viewModelScope.launch {
+            if (forceRefresh) changelogRepository.invalidate()
             _uiState.value = _uiState.value.copy(
                 isLoadingPatches = true,
                 patchLoadError = null,
@@ -859,6 +867,7 @@ class HomeViewModel(
                 isNewerVersion(it.latestAvailableVersion ?: it.resolvedVersion, it.resolvedVersion)
         } == true
         if (!anyBehind || patchedRecordsByPackage.isEmpty()) return
+        val generation = updateMetadataGeneration.next()
         viewModelScope.launch {
             try {
                 val enabled = patchSourceManager.getEnabledRepositories()
@@ -868,6 +877,7 @@ class HomeViewModel(
                     val u = buildUpdateInfoMap(a)
                     a to u
                 }
+                if (!updateMetadataGeneration.isCurrent(generation)) return@launch
                 latestResolvedApps = apps
                 _uiState.value = _uiState.value.copy(updateInfoByPackage = updateInfo)
             } catch (e: CancellationException) {
@@ -882,9 +892,10 @@ class HomeViewModel(
         record: PatchedAppRecord,
         apps: List<SupportedApp>,
     ): RecallUpdateInfo {
-        val resolvedBySource = resolvedVersionBySource()
-        val latestBySource = latestAvailableBySource()
+        val current = cachedSourcesResult?.usableResolvedSources.orEmpty()
+        val identities = current.map { it.source.id to it.source.name }
         val changedSources = relevantSourceUpdates[record.packageName].orEmpty()
+        val incompleteSources = incompleteSourceChecks[record.packageName].orEmpty()
         val allSources = patchSourceManager.allSources.value
         val sources = record.sourcesSnapshot
             // Include only sources that provided patches for this record.
@@ -893,16 +904,21 @@ class HomeViewModel(
                 sel == null || sel.isNotEmpty()
             }
             .map { snap ->
-                val matchingSrc = allSources.firstOrNull { it.id == snap.sourceId }
-                val cleanName = matchingSrc?.name ?: PatchSourceNaming.sanitize(snap.sourceName, allSources)
-                val latest = latestBySource[cleanName] ?: latestBySource[snap.sourceName]
+                val id = matchHistoricalSourceId(snap, identities)
+                val resolved = current.firstOrNull { it.source.id == id }
+                val matchingSrc = allSources.firstOrNull { it.id == id }
+                val cleanName = resolved?.source?.name ?: matchingSrc?.name
+                    ?: PatchSourceNaming.sanitize(snap.sourceName, allSources)
+                val latest = resolved?.latestAvailableVersion ?: resolved?.resolvedVersion
                 RecallUpdateInfo.SourceUpdate(
                     name = cleanName,
                     usedVersion = snap.version,
-                    resolvedVersion = resolvedBySource[cleanName] ?: resolvedBySource[snap.sourceName],
+                    resolvedVersion = resolved?.resolvedVersion,
                     latestAvailableVersion = latest,
                     outdated = isNewerVersion(latest, snap.version),
-                    hasRelevantChanges = cleanName in changedSources || snap.sourceName in changedSources,
+                    hasRelevantChanges = snap.sourceId in changedSources,
+                    sourceId = snap.sourceId,
+                    checkIncomplete = snap.sourceId in incompleteSources || resolved == null,
                 )
             }
         val app = apps.find { it.packageName == record.packageName }
@@ -1007,33 +1023,22 @@ class HomeViewModel(
     private fun sortedPatchedRecords(): List<PatchedAppRecord> =
         patchedRecordsByPackage.values.sortedByDescending { it.patchedAt }
 
-    /** Maps source names to their currently resolved versions. */
-    private fun resolvedVersionBySource(): Map<String, String?> =
-        cachedSourcesResult?.usableResolvedSources
-            ?.associate { it.source.name to it.resolvedVersion }
-            ?: emptyMap()
-
-    /** Maps source names to their newest available versions. */
-    private fun latestAvailableBySource(): Map<String, String?> =
-        cachedSourcesResult?.usableResolvedSources
-            ?.associate { it.source.name to (it.latestAvailableVersion ?: it.resolvedVersion) }
-            ?: emptyMap()
-
     private suspend fun computePatchedStates(
         apps: List<SupportedApp>,
     ): Map<String, PatchedAppState> = try {
         val records = patchedAppStore.getAll().associateBy { it.packageName }
         patchedRecordsByPackage = records
-        // Compare each record's patch-time snapshot against the latest available versions.
-        val latestBySource = latestAvailableBySource()
+        // Compare stable source IDs instead of mutable source display names.
         val relevant = mutableMapOf<String, Set<String>>()
+        val incomplete = mutableMapOf<String, Set<String>>()
         val states = apps.associate { app ->
             val record = records[app.packageName]
             val output = record?.let { File(it.outputApkPath) }
-            val changedSources =
-                if (record == null) emptySet() else relevantUpdatedSources(record, app, latestBySource)
-            if (changedSources.isNotEmpty()) relevant[app.packageName] = changedSources
-            val sourceUpdate = changedSources.isNotEmpty()
+            val proof = if (record == null) PatchSourceAssessment()
+                else relevantUpdatedSources(record, app)
+            if (proof.changed.isNotEmpty()) relevant[app.packageName] = proof.changed
+            if (proof.unknown.isNotEmpty()) incomplete[app.packageName] = proof.unknown
+            val sourceUpdate = proof.changed.isNotEmpty()
             app.packageName to when {
                 record == null -> PatchedAppState.NEVER_PATCHED
                 output?.exists() != true -> PatchedAppState.APK_MISSING
@@ -1045,6 +1050,7 @@ class HomeViewModel(
             }
         }
         relevantSourceUpdates = relevant
+        incompleteSourceChecks = incomplete
         states
     } catch (e: CancellationException) {
         throw e
@@ -1314,38 +1320,42 @@ class HomeViewModel(
     }
 
     private var relevantSourceUpdates: Map<String, Set<String>> = emptyMap()
+    private var incompleteSourceChecks: Map<String, Set<String>> = emptyMap()
 
     private suspend fun relevantUpdatedSources(
         record: PatchedAppRecord,
         app: SupportedApp,
-        latestBySource: Map<String, String?>,
-    ): Set<String> {
-        val resolvedByName = cachedSourcesResult?.resolved?.associateBy { it.source.name }.orEmpty()
+    ): PatchSourceAssessment {
+        val usable = cachedSourcesResult?.usableResolvedSources.orEmpty()
+        val identities = usable.map { it.source.id to it.source.name }
         val names = appNameCandidates(app)
-        return buildSet {
-            for ((_, sourceName, version) in record.sourcesSnapshot) {
-                val latest = latestBySource[sourceName] ?: continue
-                if (!isNewerVersion(latest, version)) continue
-
-                val resolved = resolvedByName[sourceName]
-                // Missing metadata cannot establish an app-specific patch change.
-                if (resolved == null) continue
-                val prerelease = resolved.channel == PatchResolver.Channel.PRERELEASE
-                val entries = changelogRepository.entriesFor(resolved.source, prerelease)
-                // A newer repository release alone is not a confirmed update for this app.
-                if (entries == null) continue
-                if (names.isEmpty()) continue
-
-                if (hasConfirmedScopedPatchChange(version, latest, entries, names)) {
-                    add(sourceName)
-                } else {
-                    Logger.debug(
-                        "Changelog: '$sourceName' $version -> $latest lists no scoped " +
-                            "changes for ${app.displayName} (tried ${names.joinToString(", ")}), no badge"
-                    )
-                }
+        val changed = mutableSetOf<String>()
+        val unknown = mutableSetOf<String>()
+        for (snapshot in record.sourcesSnapshot) {
+            val sourceId = matchHistoricalSourceId(snapshot, identities)
+            val resolved = usable.firstOrNull { it.source.id == sourceId }
+            val hasCompatiblePatches = sourceId != null &&
+                sourceContainsCompatiblePackage(cachedSourcesResult?.patchesBySource?.get(sourceId), record.packageName)
+            val latest = resolved?.latestAvailableVersion ?: resolved?.resolvedVersion
+            val needChangelog = resolved != null && !resolved.isOffline &&
+                resolved.source.type != PatchSourceType.LOCAL &&
+                !latest.isNullOrBlank() && isNewerVersion(latest, snapshot.version)
+            val entries = if (needChangelog && names.isNotEmpty()) {
+                changelogRepository.entriesFor(
+                    resolved!!.source, resolved.channel == PatchResolver.Channel.PRERELEASE,
+                )
+            } else null
+            when (assessScopedSourceChange(
+                snapshot.version, latest, entries, names,
+                unavailable = resolved == null || !hasCompatiblePatches || resolved.isOffline ||
+                    resolved.source.type == PatchSourceType.LOCAL,
+            )) {
+                ScopedSourceChange.CHANGED -> changed += snapshot.sourceId
+                ScopedSourceChange.UNKNOWN -> unknown += snapshot.sourceId
+                ScopedSourceChange.NO_CHANGE -> Unit
             }
         }
+        return PatchSourceAssessment(changed, unknown)
     }
 
     private fun appNameCandidates(app: SupportedApp): Set<String> = buildSet {
@@ -1961,7 +1971,46 @@ internal fun hasConfirmedScopedPatchChange(
 ): Boolean = latestVersion != null &&
     isNewerVersion(latestVersion, usedVersion) &&
     !entries.isNullOrEmpty() &&
-    ChangelogParser.hasChangesFor(entries, usedVersion, appNames)
+    ChangelogParser.hasChangesFor(entries, usedVersion, appNames, latestVersion)
+
+internal enum class ScopedSourceChange { CHANGED, NO_CHANGE, UNKNOWN }
+internal data class PatchSourceAssessment(
+    val changed: Set<String> = emptySet(),
+    val unknown: Set<String> = emptySet(),
+)
+
+/** Stable identity survives renaming; legacy name-only IDs require a unique match. */
+internal fun matchHistoricalSourceId(
+    snapshot: PatchedAppRecord.PatchedSourceSnapshot,
+    available: List<Pair<String, String>>,
+): String? {
+    available.firstOrNull { it.first == snapshot.sourceId }?.let { return it.first }
+    if (snapshot.sourceId.isBlank() || snapshot.sourceId == snapshot.sourceName) {
+        return available.filter { it.second.equals(snapshot.sourceName, ignoreCase = true) }
+            .singleOrNull()?.first
+    }
+    return null
+}
+
+/** A current patch source must actually still expose compatible patches for the app. */
+internal fun sourceContainsCompatiblePackage(patches: List<PatchMetadata>?, packageName: String): Boolean =
+    patches?.any { patch -> patch.compatiblePackages.any { it.name == packageName } } == true
+
+/** Never mistake an unverified changelog or source for a confirmed zero updates. */
+internal fun assessScopedSourceChange(
+    used: String,
+    latest: String?,
+    changelog: List<ChangelogEntry>?,
+    appNames: Collection<String>,
+    unavailable: Boolean = false,
+): ScopedSourceChange {
+    if (unavailable || latest.isNullOrBlank() || latest.equals("unknown", true) ||
+        used.isBlank() || used.equals("unknown", true)) return ScopedSourceChange.UNKNOWN
+    if (!isNewerVersion(latest, used)) return ScopedSourceChange.NO_CHANGE
+    if (changelog == null || appNames.isEmpty()) return ScopedSourceChange.UNKNOWN
+    return if (ChangelogParser.hasChangesFor(changelog, used, appNames, latest))
+        ScopedSourceChange.CHANGED else ScopedSourceChange.NO_CHANGE
+}
 
 /** Update guidance for a patched app comparing against resolved patch sources and app versions. */
 data class RecallUpdateInfo(
@@ -2009,9 +2058,12 @@ data class RecallUpdateInfo(
         val hasRelevantChanges: Boolean = false,
         /** Existing private source ID. Display name is never a reliable identity. */
         val sourceId: String = name,
+        /** Offline, missing release info or changelog; never a confirmed no-update. */
+        val checkIncomplete: Boolean = false,
     )
 
     val patchesChanged: Boolean get() = sources.any { it.hasRelevantChanges }
+    val patchCheckIncomplete: Boolean get() = sources.isEmpty() || sources.any { it.checkIncomplete }
 
     enum class AppChannel { STABLE, EXPERIMENTAL, UNKNOWN }
 }

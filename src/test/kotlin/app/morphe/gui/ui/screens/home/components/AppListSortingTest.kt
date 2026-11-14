@@ -410,4 +410,20 @@ class AppListSortingTest {
         ),
         primaryAction = action,
     )
+    @Test
+    fun `historical title sorting and searching use one resolved name map`() {
+        val youtube = patched("com.google.android.youtube", "com.google.android.youtube", 1)
+        val facebook = patched("com.facebook.katana", "Facebook", 2)
+        val names = mapOf("com.google.android.youtube" to "YouTube")
+        val order = sortPatchedApps(listOf(youtube, facebook),
+            AppSortState(AppSortCriterion.NAME, AppSortDirection.ASCENDING),
+            displayNames = names)
+        assertEquals(listOf("com.facebook.katana", "com.google.android.youtube"),
+            order.map { it.packageName })
+        assertEquals(listOf(youtube), filterPatchedApps(listOf(youtube, facebook),
+            YourAppsFilter.ALL, emptyMap(), "youtube", names))
+        assertEquals("com.google.android.youtube", youtube.displayName)
+        assertEquals(listOf(youtube), filterPatchedApps(listOf(youtube, facebook),
+            YourAppsFilter.ALL, emptyMap(), "com.google.android.youtube", names))
+    }
 }

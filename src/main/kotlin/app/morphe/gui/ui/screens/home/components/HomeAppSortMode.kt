@@ -62,8 +62,9 @@ fun SupportedApp.sortKeys(
 fun PatchedAppRecord.sortKeys(
     states: Map<String, PatchedAppState>,
     installed: Set<String>,
+    resolvedDisplayName: String? = null,
 ): HomeSortKeys = HomeSortKeys(
-    displayName = displayName,
+    displayName = resolvedDisplayName ?: displayName,
     packageName = packageName,
     isPatched = true,
     isInstalled = packageName in installed,
