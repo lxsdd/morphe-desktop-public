@@ -30,7 +30,10 @@ import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.model.PatchMetadata
 import app.morphe.engine.model.SupportedApp
 import app.morphe.engine.util.isNewerVersion
+import app.morphe.gui.ui.components.MorpheAppAvatar
+import app.morphe.gui.ui.components.MorpheAvatarSize
 import app.morphe.gui.ui.components.MorpheChoiceChip
+import app.morphe.gui.util.rememberLocalLauncherIcon
 import app.morphe.gui.ui.components.MorpheDropdown
 import app.morphe.gui.ui.components.MorpheDropdownItem
 import app.morphe.gui.ui.components.MorpheScrollbarStyle
@@ -463,6 +466,16 @@ internal fun DeviceInventoryPane(
                         // Every installed app has details. Existing local-history
                         // entries keep their full patched-app editor; other entries
                         // open a read-only catalog/device dialog instead.
+                        val validatedSource = verifiedLocalIconSource(
+                            record = row.record,
+                            installedPackageName = row.packageName,
+                            installedVersion = row.installedVersion,
+                            exactBuildVerified = deviceInstalledAppInfo[row.packageName]?.exactBuildVerified == true,
+                        )
+                        val icon = rememberLocalLauncherIcon(
+                            validatedSource?.outputApkPath,
+                            validatedSource?.inputApkPath,
+                        )
                         Card(modifier = Modifier.fillMaxWidth().clickable {
                             val record = row.record
                             if (record != null) onShowDetail(record)
@@ -473,6 +486,11 @@ internal fun DeviceInventoryPane(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
+                                MorpheAppAvatar(
+                                    name = row.displayName,
+                                    size = MorpheAvatarSize.MEDIUM,
+                                    iconBitmap = icon,
+                                )
                                 Column(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement = Arrangement.spacedBy(3.dp),

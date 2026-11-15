@@ -50,6 +50,8 @@ data class AppConfig(
     val enableParallax: Boolean = true,
     /** Community discovery card is opt-in; never changes patch-supported update lists. */
     val showMoreAppsCard: Boolean = false,
+    /** Local-only cosmetic launcher icons, visible in old configurations as before. */
+    val showLocalAppIcons: Boolean = true,
     /** Set only after the owner explicitly accepts the third-party-source notice. */
     val communityNoticeAcknowledged: Boolean = false,
     val customAccentColorArgb: Int? = null,

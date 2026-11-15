@@ -1075,4 +1075,6 @@
     <string name="community_patches_notice_title">Patchquellen von Drittanbietern</string>
     <string name="community_patches_notice_message">Community-Patchquellen werden von unabhängigen Autoren gepflegt und nicht von Morphe überprüft. Bitte prüfe Sicherheit und Kompatibilität vor der Verwendung. Das Öffnen des Links installiert keine Patches und verändert keine eingerichteten Quellen.</string>
     <string name="community_patches_open_button">Community-Seite öffnen</string>
+    <string name="settings_toggle_local_icons_label">Lokale App-Symbole anzeigen</string>
+    <string name="settings_toggle_local_icons_desc">Symbole aus vorhandenen APK-Dateien anzeigen. Gerätezeilen erfordern eine verifizierte identische Version; deaktiviert werden keine APKs gelesen</string>
 </resources>

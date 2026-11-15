@@ -55,6 +55,8 @@ internal fun settingsSearchItems(
         item("Appearance", appearance, stringResource(Res.string.settings_section_accent_color)),
         item("Appearance", appearance, stringResource(Res.string.settings_section_app_cards),
             target = if (cardColorsAvailable) stringResource(Res.string.settings_section_app_cards) else themeTitle),
+        item("Appearance", appearance, stringResource(Res.string.settings_toggle_local_icons_label),
+            stringResource(Res.string.settings_toggle_local_icons_desc)),
         item("Appearance", appearance, stringResource(Res.string.settings_toggle_more_apps_label),
             stringResource(Res.string.settings_toggle_more_apps_desc)),
         item("Appearance", appearance, stringResource(Res.string.settings_section_background_animation)),

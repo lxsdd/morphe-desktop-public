@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import app.morphe.engine.apk.BundleBaseApkSelection
 import app.morphe.engine.apk.BundleFormats
+import app.morphe.gui.LocalShowLocalAppIcons
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipFile
@@ -115,10 +116,14 @@ internal object LocalLauncherIcons {
 
 @Composable
 internal fun rememberLocalLauncherIcon(outputPath: String?, inputPath: String?): ImageBitmap? {
-    val outputKey = LocalLauncherIcons.key(outputPath)
-    val inputKey = LocalLauncherIcons.key(inputPath)
-    val icon by produceState<ImageBitmap?>(null, outputKey, inputKey) {
-        value = LocalLauncherIcons.load(outputPath) ?: LocalLauncherIcons.load(inputPath)
+    val enabled = LocalShowLocalAppIcons.current.value
+    // Disabled mode never probes local files, launches ADB or exposes a cached icon.
+    val outputKey = if (enabled) LocalLauncherIcons.key(outputPath) else null
+    val inputKey = if (enabled) LocalLauncherIcons.key(inputPath) else null
+    val icon by produceState<ImageBitmap?>(null, enabled, outputKey, inputKey) {
+        value = if (enabled) {
+            LocalLauncherIcons.load(outputPath) ?: LocalLauncherIcons.load(inputPath)
+        } else null
     }
     return icon
 }

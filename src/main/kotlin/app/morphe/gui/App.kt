@@ -173,6 +173,11 @@ val LocalShowMoreAppsCard = compositionLocalOf<MutableState<Boolean>> {
     error("No LocalShowMoreAppsCard provided")
 }
 
+/** Cosmetic local icons can be disabled without reading files or devices. */
+val LocalShowLocalAppIcons = compositionLocalOf<MutableState<Boolean>> {
+    error("No LocalShowLocalAppIcons provided")
+}
+
 val LocalBackgroundSpeed = compositionLocalOf { mutableFloatStateOf(1f) }
 val LocalPatchingCompleted = compositionLocalOf { mutableStateOf(false) }
 
@@ -244,6 +249,7 @@ private fun appContent(
     var globalCardFill by remember { mutableStateOf<MorpheFill?>(null) }
     val sharpCornersState = remember { mutableStateOf(false) }
     val showMoreAppsCardState = remember { mutableStateOf(false) }
+    val showLocalAppIconsState = remember { mutableStateOf(true) }
     val backgroundSpeedState = remember { mutableFloatStateOf(1f) }
     val patchingCompletedState = remember { mutableStateOf(false) }
 
@@ -263,6 +269,7 @@ private fun appContent(
         globalCardFill = config.globalCardFill
         sharpCornersState.value = config.useSharpCorners
         showMoreAppsCardState.value = config.showMoreAppsCard
+        showLocalAppIconsState.value = config.showLocalAppIcons
 
         appLanguage = config.language
         applyLocale(config.language)
@@ -389,7 +396,8 @@ private fun appContent(
                 LocalSharpCorners provides sharpCornersState,
                 LocalBackgroundSpeed provides backgroundSpeedState,
                 LocalPatchingCompleted provides patchingCompletedState,
-                LocalShowMoreAppsCard provides showMoreAppsCardState
+                LocalShowMoreAppsCard provides showMoreAppsCardState,
+                LocalShowLocalAppIcons provides showLocalAppIconsState
             ) {
                 CardFillHost(
                     fills = cardFills,

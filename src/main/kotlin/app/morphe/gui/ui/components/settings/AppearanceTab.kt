@@ -25,6 +25,7 @@ import androidx.compose.ui.window.PopupProperties
 import app.morphe.gui.LocalBackgroundType
 import app.morphe.gui.LocalEnableParallax
 import app.morphe.gui.LocalSharpCorners
+import app.morphe.gui.LocalShowLocalAppIcons
 import app.morphe.gui.LocalShowMoreAppsCard
 import app.morphe.gui.data.repository.ConfigRepository
 import app.morphe.gui.data.repository.LanguageRepository
@@ -314,6 +315,20 @@ internal fun AppearanceTab(
             }
         }
     }
+
+    SettingsDivider(borderColor)
+
+    val showIcons = LocalShowLocalAppIcons.current
+    SettingToggleRow(
+        label = stringResource(Res.string.settings_toggle_local_icons_label),
+        description = stringResource(Res.string.settings_toggle_local_icons_desc),
+        checked = showIcons.value,
+        onCheckedChange = { enabled ->
+            showIcons.value = enabled
+            scope.launch { configRepo.setShowLocalAppIcons(enabled) }
+        },
+        icon = MorpheIcons.Apps,
+    )
 
     SettingsDivider(borderColor)
 

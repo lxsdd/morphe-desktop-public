@@ -1253,4 +1253,6 @@
     <string name="community_patches_notice_title">Third-party patch sources</string>
     <string name="community_patches_notice_message">Community patch sources are maintained by independent authors and are not verified by Morphe. Review their security and compatibility before using them. Opening this link does not install patches or change configured sources.</string>
     <string name="community_patches_open_button">Open community site</string>
+    <string name="settings_toggle_local_icons_label">Show local APK icons</string>
+    <string name="settings_toggle_local_icons_desc">Display icons from existing local APK files. Device rows require a verified matching build; disabling never reads APKs</string>
 </resources>
