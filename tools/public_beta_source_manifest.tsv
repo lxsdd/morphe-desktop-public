@@ -353,7 +353,7 @@ f764928cb663660948e0683ae279136869469f4f	src/main/kotlin/app/morphe/gui/ui/compo
 12bb6512d656354828223827c6bb3c08df297152	src/main/kotlin/app/morphe/gui/ui/components/settings/StripLibsSection.kt
 5ac69032f7089cf7ecfae458e39dd7866b76fb2b	src/main/kotlin/app/morphe/gui/ui/components/settings/SystemTab.kt
 74eea2d5f0a9187ab72dc16db1c95e54e27e7433	src/main/kotlin/app/morphe/gui/ui/components/SettingsButton.kt
-a2d13726ca4e6d0be4157ea2fb167c08a5a6eb9a	src/main/kotlin/app/morphe/gui/ui/components/SettingsDialog.kt
+ecb3ebe5ae3e4ede680705356b2485283b3f5c98	src/main/kotlin/app/morphe/gui/ui/components/SettingsDialog.kt
 58e6090a564031218bce0ac3f40b7c9b2933bd32	src/main/kotlin/app/morphe/gui/ui/components/SigningKeyTrustDialog.kt
 b07ddd0a21c7364e02317c59c594fba4511ee1b0	src/main/kotlin/app/morphe/gui/ui/components/SlimInputs.kt
 8107798a7f88924d1cfb9a8be26a58115860d34d	src/main/kotlin/app/morphe/gui/ui/components/SourceManagementSheet.kt
