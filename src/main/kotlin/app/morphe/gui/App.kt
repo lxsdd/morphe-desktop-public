@@ -168,6 +168,11 @@ val LocalEnableParallax = compositionLocalOf<MutableState<Boolean>> {
     error("No LocalEnableParallax provided")
 }
 
+/** Explicit user-controlled discovery card, never a new patch update or app recommendation. */
+val LocalShowMoreAppsCard = compositionLocalOf<MutableState<Boolean>> {
+    error("No LocalShowMoreAppsCard provided")
+}
+
 val LocalBackgroundSpeed = compositionLocalOf { mutableFloatStateOf(1f) }
 val LocalPatchingCompleted = compositionLocalOf { mutableStateOf(false) }
 
@@ -238,6 +243,7 @@ private fun appContent(
     var cardFills by remember { mutableStateOf(emptyMap<String, MorpheFill>()) }
     var globalCardFill by remember { mutableStateOf<MorpheFill?>(null) }
     val sharpCornersState = remember { mutableStateOf(false) }
+    val showMoreAppsCardState = remember { mutableStateOf(false) }
     val backgroundSpeedState = remember { mutableFloatStateOf(1f) }
     val patchingCompletedState = remember { mutableStateOf(false) }
 
@@ -256,6 +262,7 @@ private fun appContent(
         cardFills = config.cardFills
         globalCardFill = config.globalCardFill
         sharpCornersState.value = config.useSharpCorners
+        showMoreAppsCardState.value = config.showMoreAppsCard
 
         appLanguage = config.language
         applyLocale(config.language)
@@ -381,7 +388,8 @@ private fun appContent(
                 LocalCustomAccentColor provides customAccentColorState,
                 LocalSharpCorners provides sharpCornersState,
                 LocalBackgroundSpeed provides backgroundSpeedState,
-                LocalPatchingCompleted provides patchingCompletedState
+                LocalPatchingCompleted provides patchingCompletedState,
+                LocalShowMoreAppsCard provides showMoreAppsCardState
             ) {
                 CardFillHost(
                     fills = cardFills,

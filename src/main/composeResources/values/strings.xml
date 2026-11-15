@@ -1244,4 +1244,12 @@
     <string name="settings_cache_category_clear_failed">Failed to clear %1$s</string>
     <string name="settings_search_settings_placeholder">Find a setting…</string>
     <string name="settings_search_no_results">No matching settings</string>
+
+    <!-- Optional official 2.2 community discovery; never a verified app/update recommendation. -->
+    <string name="settings_toggle_more_apps_label">Show community patch discovery</string>
+    <string name="settings_toggle_more_apps_desc">Optional external link below supported apps. Unsupported apps and versions are never shown as updates.</string>
+    <string name="home_more_apps_title">More apps</string>
+    <string name="home_more_apps_subtitle">Community patches (external)</string>
+    <string name="community_patches_notice_title">Third-party patch sources</string>
+    <string name="community_patches_notice_message">Community patch sources are maintained by independent authors and are not verified by Morphe. Review their security and compatibility before using them. Opening this link does not install patches or change configured sources.</string>
 </resources>

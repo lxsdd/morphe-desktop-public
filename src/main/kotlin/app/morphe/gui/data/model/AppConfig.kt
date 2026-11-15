@@ -48,6 +48,10 @@ data class AppConfig(
     val themeStyle: String = ThemeStyle.MORPHE.name,
     val backgroundType: String = "CIRCLES",
     val enableParallax: Boolean = true,
+    /** Community discovery card is opt-in; never changes patch-supported update lists. */
+    val showMoreAppsCard: Boolean = false,
+    /** Set only after the owner explicitly accepts the third-party-source notice. */
+    val communityNoticeAcknowledged: Boolean = false,
     val customAccentColorArgb: Int? = null,
     val lastCliVersion: String? = null,
     /** Legacy single-source version pin kept for config migration. */

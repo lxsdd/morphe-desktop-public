@@ -138,6 +138,19 @@ open class ConfigRepository {
         val current = loadConfig()
         saveConfig(current.copy(enableParallax = enabled))
     }
+
+    suspend fun setShowMoreAppsCard(enabled: Boolean) {
+        val current = loadConfig()
+        saveConfig(current.copy(showMoreAppsCard = enabled))
+    }
+
+    /** Persists only a user's explicit confirmation of the external-source notice. */
+    suspend fun setCommunityNoticeAcknowledged() {
+        val current = loadConfig()
+        if (!current.communityNoticeAcknowledged) {
+            saveConfig(current.copy(communityNoticeAcknowledged = true))
+        }
+    }
     
     suspend fun setCustomAccentColorArgb(color: Int?) {
         val current = loadConfig()

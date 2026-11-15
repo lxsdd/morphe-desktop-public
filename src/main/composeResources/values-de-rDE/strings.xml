@@ -1066,4 +1066,12 @@
     <string name="settings_cache_category_clear_failed">%1$s konnte nicht geleert werden</string>
     <string name="settings_search_settings_placeholder">Einstellung suchen…</string>
     <string name="settings_search_no_results">Keine passenden Einstellungen</string>
+
+    <!-- Optionale Community-Suche nach 2.2; keine bestätigten App-Updates. -->
+    <string name="settings_toggle_more_apps_label">Community-Patchquellen anzeigen</string>
+    <string name="settings_toggle_more_apps_desc">Optionaler externer Link unter unterstützten Apps. Nicht unterstützte Apps und Versionen werden nie als Updates angezeigt.</string>
+    <string name="home_more_apps_title">Weitere Apps</string>
+    <string name="home_more_apps_subtitle">Community-Patches (extern)</string>
+    <string name="community_patches_notice_title">Patchquellen von Drittanbietern</string>
+    <string name="community_patches_notice_message">Community-Patchquellen werden von unabhängigen Autoren gepflegt und nicht von Morphe überprüft. Bitte prüfe Sicherheit und Kompatibilität vor der Verwendung. Das Öffnen des Links installiert keine Patches und verändert keine eingerichteten Quellen.</string>
 </resources>
