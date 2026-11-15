@@ -313,7 +313,7 @@ f822e00cc1eaaee21b32cc925aceac20a51f6928	src/main/kotlin/app/morphe/gui/ui/compo
 773683c22f8409f21c5b7ddb92cf860fb5a73310	src/main/kotlin/app/morphe/gui/ui/components/LicensesDialog.kt
 f6cd01ead987479c90ec53153590d4fa60932e75	src/main/kotlin/app/morphe/gui/ui/components/Modifiers.kt
 39b8d8e3c209591a93a23bc4b3cf1d1fde5e5657	src/main/kotlin/app/morphe/gui/ui/components/MorpheActionButton.kt
-5543544eb55b44c01d2a7777f29e26149c30b1f4	src/main/kotlin/app/morphe/gui/ui/components/MorpheAppAvatar.kt
+52b2709231b7cee3bfc9795ffeb39c24d9017afc	src/main/kotlin/app/morphe/gui/ui/components/MorpheAppAvatar.kt
 1c29c0aa09c79db41f85fafee59d13661c2b39fe	src/main/kotlin/app/morphe/gui/ui/components/MorpheBadge.kt
 b3260935b45a07d5bf116b67d549e01e6f68ee0f	src/main/kotlin/app/morphe/gui/ui/components/MorpheBanners.kt
 c00eab040e924acd0b4e9de5963aa44eaa00e0ca	src/main/kotlin/app/morphe/gui/ui/components/MorpheButton.kt
@@ -388,7 +388,7 @@ d87998fb744f5f9d7104c494f0869cfff778b145	src/main/kotlin/app/morphe/gui/ui/scree
 2ac56520845865bbf35472ab76ccfdd82187f1ad	src/main/kotlin/app/morphe/gui/ui/screens/home/components/SupportedAppListRow.kt
 f88d63757be9f2197e0fdea5300942fc45bc2073	src/main/kotlin/app/morphe/gui/ui/screens/home/components/SupportedAppsListPane.kt
 f2d1f65bdc71fad3bd160a4eb786c3023ef36c97	src/main/kotlin/app/morphe/gui/ui/screens/home/components/UnifiedHomeAppPresentation.kt
-f396076e39340150cb4b539afe141c987c3c6928	src/main/kotlin/app/morphe/gui/ui/screens/home/components/YourAppRow.kt
+5a2e6d1b29bf682c64b49ebaa467081f43ae4ad5	src/main/kotlin/app/morphe/gui/ui/screens/home/components/YourAppRow.kt
 d44820fa232cc94e9b35729f953e44173e0bbaf0	src/main/kotlin/app/morphe/gui/ui/screens/home/components/YourAppsHelpers.kt
 c614ac69ea73333fdcb3ddde6d66b264a0e3e88d	src/main/kotlin/app/morphe/gui/ui/screens/home/components/YourAppsPane.kt
 08a0e781b0e263e502101a017358fad4a36ec12f	src/main/kotlin/app/morphe/gui/ui/screens/home/DeviceHomeAppProjection.kt
@@ -468,6 +468,7 @@ d47a2fce073186c92b8588feb7ab45fb7c496f61	src/main/kotlin/app/morphe/gui/ui/theme
 cc9fd726f20fb97476025de6545356120dd9d22f	src/main/kotlin/app/morphe/gui/ui/theme/Theme.kt
 3aa34ce2f86b6d80ce8f6dcbf27a1b4aa67ce2c9	src/main/kotlin/app/morphe/gui/ui/theme/ThemeState.kt
 447d600688a5ea3373f87378425b0f3bcf30d531	src/main/kotlin/app/morphe/gui/util/AdbManager.kt
+c1246ed099f849d3376c275deaefeac9c1855476	src/main/kotlin/app/morphe/gui/util/AppIconExtractor.kt
 1c42ea4b6259d22c7557f0664b08fadb03d02007	src/main/kotlin/app/morphe/gui/util/AppUpdateStatus.kt
 3b80eb55d7d249df6db403e91bca8e2ce2261f07	src/main/kotlin/app/morphe/gui/util/AvatarLoader.kt
 a7439bab0ce93a557015638c3f90ca5e210707f1	src/main/kotlin/app/morphe/gui/util/BackgroundWork.kt
@@ -490,6 +491,7 @@ cad0cd90490ec3dfa8ff469e068c2e9b2ce0fea2	src/main/kotlin/app/morphe/gui/util/Exi
 c20c975c9dc3638532aca6423dab86ddce058d12	src/main/kotlin/app/morphe/gui/util/InstalledAppLabels.kt
 d3cc3e1bd6b0ec7859836a08dfb665168cb720e1	src/main/kotlin/app/morphe/gui/util/InstalledManifestBatch.kt
 9079199f2eaf4290eca11a287e589d5c71d2a8af	src/main/kotlin/app/morphe/gui/util/InstalledPatchStatus.kt
+8ff84ed4c562ab2f4dfb3d0f85b80e54ac772860	src/main/kotlin/app/morphe/gui/util/LocalLauncherIcons.kt
 fb14d290584441a861d6ecc44241c294e5d2e8c1	src/main/kotlin/app/morphe/gui/util/Logger.kt
 c47bc3e82a5c108c44b5cab4d5d882efd7a68360	src/main/kotlin/app/morphe/gui/util/MorpheFilePicker.kt
 07679756559292799892528c1cc6fb06ac6e9b76	src/main/kotlin/app/morphe/gui/util/OwnerMigrationUiState.kt
@@ -614,6 +616,7 @@ ebdf562a88422b3cd165723f992d2eb7d7104060	src/test/kotlin/app/morphe/gui/util/Exi
 bc06f7d62fd71419aee58d0cc08c89a86f2cd35c	src/test/kotlin/app/morphe/gui/util/InstalledAppLabelsTest.kt
 64acd44f7eb369a67f5dc6cd782d9c2b6314991d	src/test/kotlin/app/morphe/gui/util/InstalledManifestBatchTest.kt
 894852c37d23b9ec521ddbf248eadcf00de7b1e8	src/test/kotlin/app/morphe/gui/util/InstalledPatchStatusTest.kt
+f4e08c263f0f517d91ca77184e843acab79b57f7	src/test/kotlin/app/morphe/gui/util/LocalLauncherIconsTest.kt
 9ed9dcf032f71dd2d9729c0d5acb94e4a30b13b9	src/test/kotlin/app/morphe/gui/util/PatchedApkAutoRelinkerTest.kt
 b107e8c2e855f03d10d0e8638e3213c6fcd6e34a	src/test/kotlin/app/morphe/gui/util/PatchedApkRelinkerTest.kt
 03e473e4c36f78ddead79453fa59f2d63bdb51f9	src/test/kotlin/app/morphe/gui/util/PatchProgressTest.kt
