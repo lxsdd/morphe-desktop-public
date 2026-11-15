@@ -1064,4 +1064,6 @@
     <string name="settings_cache_confirm_avatars_message">Nur zwischengespeicherte Repository-Avatare löschen. Lokale App-Icons und eigene Kartenfarben bleiben erhalten.</string>
     <string name="settings_cache_category_cleared">%1$s geleert</string>
     <string name="settings_cache_category_clear_failed">%1$s konnte nicht geleert werden</string>
+    <string name="settings_search_settings_placeholder">Einstellung suchen…</string>
+    <string name="settings_search_no_results">Keine passenden Einstellungen</string>
 </resources>

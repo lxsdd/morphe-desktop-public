@@ -1242,4 +1242,6 @@
     <string name="settings_cache_confirm_avatars_message">Delete cached repository avatar images only. Local app icons and custom card colors are unchanged.</string>
     <string name="settings_cache_category_cleared">%1$s cleared</string>
     <string name="settings_cache_category_clear_failed">Failed to clear %1$s</string>
+    <string name="settings_search_settings_placeholder">Find a setting…</string>
+    <string name="settings_search_no_results">No matching settings</string>
 </resources>

@@ -177,7 +177,7 @@ private fun UpdateChannelRow(
     }
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().settingsJumpAnchor(stringResource(Res.string.settings_channel_label)),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
