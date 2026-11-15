@@ -213,7 +213,7 @@ d1d4371db9e5ba4b0ce530d50b5262b60dc8c26a	src/main/kotlin/app/morphe/engine/confi
 956d20232d63441af787e61544a75fa68db30687	src/main/kotlin/app/morphe/engine/model/DevicePatchDeploymentRecord.kt
 e3c79ed1f99f7fef5b438da7438954a6cec6afd7	src/main/kotlin/app/morphe/engine/model/PatchedAppRecord.kt
 5fd9af71792cd500476c5b6ca9f35dd2bc9ef5ce	src/main/kotlin/app/morphe/engine/model/PatchesBundle.kt
-9e76065a9e4c75839ee5decdffed1fe0eb6b20e8	src/main/kotlin/app/morphe/engine/model/PatchMetadata.kt
+d29381b2798b442bef506e3c3860b8de296714ac	src/main/kotlin/app/morphe/engine/model/PatchMetadata.kt
 4d104bb67521910f369a66a2c0a475364d3f4c34	src/main/kotlin/app/morphe/engine/model/Release.kt
 7431176f9203e2f535802a4894b430018a94c7c7	src/main/kotlin/app/morphe/engine/model/SupportedApp.kt
 39ab593b75896bebe6bd1ed80d89d9e1247928cc	src/main/kotlin/app/morphe/engine/model/VersionStatus.kt

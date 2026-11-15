@@ -11,7 +11,7 @@ This **unreleased** public branch preserves the existing public Custom 2.1.1 bet
 
 ## Product changes from official, publicly licensed source
 
-- 2.4.0 patcher engine and matching ARSCLib/Ktor pins with the required resource-table getter/writer changes; preserve the installed-app label provenance and per-device safeguards already in public beta.4
+- 2.4.0 patcher engine and matching ARSCLib/Ktor pins with the required resource-table getter/writer changes and version/ABI/form-factor metadata model; preserve the installed-app label provenance and per-device safeguards already in public beta.4
 - Upstream case-insensitive patch-option matching and index override with regression coverage
 - Safe output app-folder names on Windows with invalid-character regressions
 - OBB extraction and forwarding to PatcherConfig for supported split bundles; retain the existing Custom absolute/safe bundle-staging function and workspace cleanup guards
