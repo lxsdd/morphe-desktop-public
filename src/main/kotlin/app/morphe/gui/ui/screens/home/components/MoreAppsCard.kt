@@ -82,7 +82,7 @@ internal fun CommunityPatchesNoticeDialog(onDismiss: () -> Unit, onConfirm: () -
         },
         confirmButton = {
             MorpheButton(
-                label = stringResource(Res.string.open),
+                label = stringResource(Res.string.community_patches_open_button),
                 onClick = onConfirm,
                 variant = MorpheButtonVariant.FILLED,
                 size = MorpheButtonSize.COMPACT,

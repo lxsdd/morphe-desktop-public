@@ -46,7 +46,7 @@ b450fa543702d0a10f04d456dae2075473a23784	src/main/composeResources/values-bg-rBG
 72a2164a60d352fc69268130f45cfd2dd0507cc9	src/main/composeResources/values-da-rDK/plurals.xml
 5f77b387ce9595c5534a697da6d00ff2d7d64b04	src/main/composeResources/values-da-rDK/strings.xml
 c3fb7ba6ce9e6f6cf8951093038a1e265e6d3ca0	src/main/composeResources/values-de-rDE/plurals.xml
-827c63b0b3aa263ac933cb4183ee6ac9620a4baf	src/main/composeResources/values-de-rDE/strings.xml
+5e80dc18f7d88911730f2236e446a09f7264ce0d	src/main/composeResources/values-de-rDE/strings.xml
 e5c2f8ac2b2fbd89440b1d987788dfcdc63dc0a3	src/main/composeResources/values-el-rGR/plurals.xml
 67cb49184d87f120ea4a15e88578b46f107fdac5	src/main/composeResources/values-el-rGR/strings.xml
 2b91a61a8118d80581eda65e9bb0338e05ebc862	src/main/composeResources/values-es-rES/plurals.xml
@@ -176,7 +176,7 @@ de32080815d24a51cbad8581b86c261583595386	src/main/composeResources/values-zh-rTW
 ed6308700985c6b2583f10b51031ed9edff37031	src/main/composeResources/values-zu-rZA/plurals.xml
 c88fa14d94ede80f458686ff7d00287153247a1e	src/main/composeResources/values-zu-rZA/strings.xml
 a9e7bc6f13d60978cd3cbce8f4b6d9e088f0fac5	src/main/composeResources/values/plurals.xml
-748a334e8f600a17d3f00b9c13a765203bb84ead	src/main/composeResources/values/strings.xml
+78eb4eeccb45cc1dc8bc6adb6274f7897270f1e3	src/main/composeResources/values/strings.xml
 c79b45a8a6d06a3282282d38ad515449ff1b9eb6	src/main/kotlin/app/morphe/BootstrapProgressWindow.kt
 2d92c5383d872dad73671bc3e20680adab2e5c17	src/main/kotlin/app/morphe/desktop/command/CliHttpClient.kt
 e6e3f046767847093b1e8123f8e086e0ed38d4ec	src/main/kotlin/app/morphe/desktop/command/CommandUtils.kt
@@ -384,7 +384,7 @@ a6d623d347ca12150bba74fab02019e9e295a7fa	src/main/kotlin/app/morphe/gui/ui/scree
 d401a7b12c11801e8fe22338b4283b9d93812c77	src/main/kotlin/app/morphe/gui/ui/screens/home/components/HomeNavigationHelpers.kt
 75ef2f11e29e037b4cf67bef369abfbf9a87832a	src/main/kotlin/app/morphe/gui/ui/screens/home/components/HomeSplitLayout.kt
 f0a09476442b6274b3c366d125b48ae99789437b	src/main/kotlin/app/morphe/gui/ui/screens/home/components/HomeUpdateCategories.kt
-2291424c6dc2c28f48022b03ed2b5e8cfb552984	src/main/kotlin/app/morphe/gui/ui/screens/home/components/MoreAppsCard.kt
+70c9fad9f1f519979159d6e8695beb5a39699b71	src/main/kotlin/app/morphe/gui/ui/screens/home/components/MoreAppsCard.kt
 7c8a864d4d13102db7734d07985cd03da8165554	src/main/kotlin/app/morphe/gui/ui/screens/home/components/PatchedAppDetailComponents.kt
 d87998fb744f5f9d7104c494f0869cfff778b145	src/main/kotlin/app/morphe/gui/ui/screens/home/components/PatchedAppDetailDialog.kt
 3b5ecff091fb3b6809e083e6dbea1e9372583556	src/main/kotlin/app/morphe/gui/ui/screens/home/components/PatchedAppDetailSections.kt

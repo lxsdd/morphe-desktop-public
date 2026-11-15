@@ -1074,4 +1074,5 @@
     <string name="home_more_apps_subtitle">Community-Patches (extern)</string>
     <string name="community_patches_notice_title">Patchquellen von Drittanbietern</string>
     <string name="community_patches_notice_message">Community-Patchquellen werden von unabhängigen Autoren gepflegt und nicht von Morphe überprüft. Bitte prüfe Sicherheit und Kompatibilität vor der Verwendung. Das Öffnen des Links installiert keine Patches und verändert keine eingerichteten Quellen.</string>
+    <string name="community_patches_open_button">Community-Seite öffnen</string>
 </resources>
