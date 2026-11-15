@@ -34,9 +34,14 @@ class DeviceOverviewStatusTest {
         assertEquals(DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED,
             classifyDeviceOverview(evidence()))
     }
-    @Test fun `supported device app is visible without local patch history`() {
+    @Test fun `catalog package is patchable only for a confirmed compatible version`() {
+        val stock = evidence(history = false, local = null, signer = null)
+        assertEquals(DeviceOverviewStatus.PATCH_SOURCE_UNVERIFIED,
+            classifyDeviceOverview(stock))
         assertEquals(DeviceOverviewStatus.PATCH_CANDIDATE,
-            classifyDeviceOverview(evidence(history = false, local = null, signer = null)))
+            classifyDeviceOverview(stock.copy(sourceCompatibility = DevicePatchCompatibility.COMPATIBLE)))
+        assertEquals(DeviceOverviewStatus.PATCH_VERSION_INCOMPATIBLE,
+            classifyDeviceOverview(stock.copy(sourceCompatibility = DevicePatchCompatibility.INCOMPATIBLE)))
     }
     @Test fun `unknown local history cannot mark Morphe signed device app as unpatched`() {
         assertEquals(DeviceOverviewStatus.REVIEW_REQUIRED,
@@ -51,10 +56,10 @@ class DeviceOverviewStatusTest {
         assertEquals(DeviceOverviewStatus.LOCAL_BUILD_REVIEW,
             classifyDeviceOverview(evidence(localNewer = true)))
     }
-    @Test fun `matching exact SHA verifies local build only when signer and version agree`() {
+    @Test fun `byte identical signed APK proves identity independently of current key`() {
         assertEquals(DeviceOverviewStatus.EXACT_BUILD_VERIFIED,
             classifyDeviceOverview(evidence().copy(exactBuildVerified = true)))
-        assertEquals(DeviceOverviewStatus.SIGNER_CONFLICT,
+        assertEquals(DeviceOverviewStatus.EXACT_BUILD_OTHER_KEY,
             classifyDeviceOverview(evidence(signer = false).copy(exactBuildVerified = true)))
         assertEquals(DeviceOverviewStatus.REVIEW_REQUIRED,
             classifyDeviceOverview(evidence(installed = "1.2").copy(exactBuildVerified = true)))
@@ -62,8 +67,44 @@ class DeviceOverviewStatusTest {
             classifyDeviceOverview(evidence(patchUpdate = true).copy(exactBuildVerified = true)))
     }
 
+    @Test fun `renamed Morphe installation is not the original app's installed patch evidence`() {
+        val stock = evidence(history = false, local = null, signer = null)
+        assertEquals(DeviceOverviewStatus.ORIGINAL_WITH_SEPARATE_INSTALL,
+            classifyDeviceOverview(stock.copy(separateLocalPackageInstalled = true)))
+        assertEquals(DeviceOverviewStatus.PATCH_SOURCE_UNVERIFIED,
+            classifyDeviceOverview(stock))
+        assertEquals(DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG,
+            classifyDeviceOverview(stock.copy(patchSupported = false, separateLocalPackageInstalled = true)))
+    }
+    @Test fun `unverified SHA or changed version cannot override current-key mismatch`() {
+        assertEquals(DeviceOverviewStatus.SIGNER_CONFLICT,
+            classifyDeviceOverview(evidence(signer = false).copy(exactBuildVerified = false)))
+        assertEquals(DeviceOverviewStatus.SIGNER_CONFLICT,
+            classifyDeviceOverview(evidence(signer = false, installed = "2.0")
+                .copy(exactBuildVerified = true)))
+    }
+
     @Test fun `unknown signer with equal version cannot be marked current`() {
         assertEquals(DeviceOverviewStatus.REVIEW_REQUIRED,
             classifyDeviceOverview(evidence(signer = null)))
+    }
+
+    @Test fun `signer mismatch and missing proof never imply a confirmed update`() {
+        assertEquals(0, confirmedDeviceUpdateCount(listOf(
+            DeviceUpdateFacts(), DeviceUpdateFacts(), DeviceUpdateFacts())))
+        assertEquals(true, deviceTechnicalReview(DeviceOverviewStatus.SIGNER_CONFLICT))
+        assertEquals(false, deviceTechnicalReview(DeviceOverviewStatus.EXACT_BUILD_OTHER_KEY))
+        assertEquals(false, deviceTechnicalReview(DeviceOverviewStatus.ORIGINAL_WITH_SEPARATE_INSTALL))
+    }
+    @Test fun `confirmed patch and app updates are counted once per package`() {
+        assertEquals(3, confirmedDeviceUpdateCount(listOf(
+            DeviceUpdateFacts(), DeviceUpdateFacts(true), DeviceUpdateFacts(false, true),
+            DeviceUpdateFacts(true, true))))
+    }
+    @Test fun `technical signer state cannot mask an actual independently confirmed update`() {
+        assertEquals(DeviceOverviewStatus.SIGNER_CONFLICT,
+            classifyDeviceOverview(evidence(signer = false, patchUpdate = true)))
+        assertEquals(1, confirmedDeviceUpdateCount(listOf(DeviceUpdateFacts(
+            confirmedPatchUpdate = true))))
     }
 }

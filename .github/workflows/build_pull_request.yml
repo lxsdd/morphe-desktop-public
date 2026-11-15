@@ -32,7 +32,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Verify exact public beta product and dependency source
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'integration/custom-2-0-upstream-20261104'
+        if: github.event_name == 'pull_request'
         shell: bash
         run: python tools/verify_public_beta_source_manifest.py
       - name: Set up JetBrains JDK 21
@@ -82,7 +82,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Verify exact public beta product and dependency source
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'integration/custom-2-0-upstream-20261104'
+        if: github.event_name == 'pull_request'
         shell: bash
         run: python tools/verify_public_beta_source_manifest.py
       - name: Set up JetBrains JDK 21

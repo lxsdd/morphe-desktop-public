@@ -33,6 +33,7 @@ import app.morphe.engine.util.AdbManager
 import app.morphe.engine.util.KeystoreService
 import app.morphe.engine.util.FileChecksum
 import app.morphe.gui.util.ReadOnlyDeviceBuildVerifier
+import app.morphe.gui.util.canCheckRecordedDeviceApk
 import app.morphe.engine.util.isNewerVersion
 import app.morphe.engine.model.PatchMetadata
 import app.morphe.engine.model.SupportedApp
@@ -51,6 +52,7 @@ import app.morphe.gui.data.repository.PatchSourceManager
 import app.morphe.gui.data.repository.UpdateCheckRepository
 import app.morphe.gui.ui.screens.home.components.AppListFilter
 import app.morphe.gui.ui.screens.home.components.HomeAppSortMode
+import app.morphe.gui.ui.screens.home.components.projectHistoryInfoByInstalledPackage
 import app.morphe.gui.util.ChangelogParser
 import app.morphe.gui.util.ChangelogEntry
 import app.morphe.gui.util.UpdateMetadataGenerationGuard
@@ -363,86 +365,6 @@ class HomeViewModel(
                 sourcesSnapshot = sourcesSnapshot,
             ),
         )
-    }
-
-    init {
-        viewModelScope.launch {
-            val config = configRepository.loadConfig()
-            val info = updateCheckRepository.getUpdateInfo()
-            val dismissed = config.dismissedUpdateVersion
-            val multiSourceShouldShow = !config.multiSourceHintDismissed &&
-                    patchSourceManager.getEnabledSourcesSync().size > 1
-            _uiState.value = _uiState.value.copy(
-                updateInfo = info,
-                dismissedUpdateVersion = dismissed,
-                showMultiSourceHint = multiSourceShouldShow,
-                appListFilter = if (tabSelectedThisSession) _uiState.value.appListFilter
-                    else if (DeviceMonitor.state.value.captureOperationTarget() != null) AppListFilter.DEVICE
-                    else runCatching { AppListFilter.valueOf(config.homeAppListFilter) }
-                        .getOrDefault(AppListFilter.ALL),
-                sortMode = HomeAppSortMode.fromPreference(config.homeAppSortMode),
-                preferredPatchSourceByPackage = config.preferredPatchSourceByPackage,
-            )
-        }
-
-        // Refresh badges and device state when history changes.
-        viewModelScope.launch {
-            patchedAppStore.changes.collect { refreshPatchedState() }
-        }
-
-        // Refresh installed status for patched apps when the selected ADB device changes.
-        viewModelScope.launch {
-            DeviceMonitor.state
-                .map { it.selectedDevice?.id to (it.selectedDevice?.isReady == true) }
-                .distinctUntilChanged()
-                .collect { refreshDeviceInfo() }
-        }
-
-        // Re-evaluate only the exact selected serial when another UI surface
-        // successfully changes package state on that same endpoint.
-        viewModelScope.launch {
-            DevicePackageMutations.events.collect { mutation ->
-                val selected = DeviceMonitor.state.value.selectedDevice
-                if (selected?.id == mutation.deviceSerial && selected.isReady) {
-                    deviceLabelDiscovery.invalidateLabel(mutation.deviceSerial, mutation.packageName)
-                    refreshDeviceInfo()
-                }
-            }
-        }
-
-        // Load patches whenever expert mode becomes active.
-        viewModelScope.launch {
-            patchSourceManager.activeMode.collect {
-                loadPatchesAndSupportedApps()
-            }
-        }
-
-        viewModelScope.launch {
-            patchSourceManager.sourceVersion.drop(1).collect {
-                Logger.info("HomeVM: Source changed, reloading patches...")
-                patchRepository = patchSourceManager.getActiveRepositorySync()
-                localPatchFilePath = patchSourceManager.getLocalFilePath()
-                isDefaultSource = patchSourceManager.isDefaultSource()
-                lastLoadedVersion = null
-                cachedPatchesFile = null
-                cachedAllPatchFiles = emptyList()
-                cachedPatches = emptyList()
-                cachedSourcesResult = null
-                // Preserve update banner and navigation state across source changes.
-                val carriedUpdate = _uiState.value.updateInfo
-                val carriedDismissed = _uiState.value.dismissedUpdateVersion
-                val carriedSelectedPage = _uiState.value.selectedPage
-                val carriedAppListFilter = _uiState.value.appListFilter
-                _uiState.value = HomeUiState(
-                    isDefaultSource = isDefaultSource,
-                    updateInfo = carriedUpdate,
-                    dismissedUpdateVersion = carriedDismissed,
-                    selectedPage = carriedSelectedPage,
-                    appListFilter = carriedAppListFilter,
-                )
-                loadPatchesAndSupportedApps()
-            }
-        }
     }
 
     /** Re-checks for updates; called after settings channel changes. */
@@ -1384,6 +1306,7 @@ class HomeViewModel(
         // It must never be presented as a freshly scanned inventory.
         _uiState.value = _uiState.value.copy(
             deviceAppInfo = emptyMap(),
+            deviceInstalledAppInfo = emptyMap(),
             deviceInstalledPackages = emptySet(),
             deviceAppLabels = emptyMap(),
             deviceLabelIndexState = AppLabelIndexState.NOT_STARTED,
@@ -1446,6 +1369,7 @@ class HomeViewModel(
             // small read-only batches. A large device must not leave Home blank.
             _uiState.value = _uiState.value.copy(
                 deviceAppInfo = info,
+                deviceInstalledAppInfo = projectHistoryInfoByInstalledPackage(records, info),
                 deviceInstalledPackages = installed,
                 deviceInventorySerial = target.serial,
             )
@@ -1464,11 +1388,13 @@ class HomeViewModel(
                             currentGeneration = deviceRefreshGeneration,
                         )) return@launch
                     val state = _uiState.value.deviceAppInfo[record.packageName] ?: continue
-                    if (state.installed != true || state.signedByMorphe != true ||
-                        !state.installedVersion.equals(record.apkVersion, ignoreCase = true)) continue
-                    val expected = record.outputApkSha256
-                        ?.takeIf { it.matches(Regex("[a-fA-F0-9]{64}")) }
-                        ?.lowercase() ?: continue
+                    // Read-only byte identity is independent of the *current* signing
+                    // key; version, recorded SHA-256 and fresh local SHA-256 still gate it.
+                    // Unknown or split device APKs remain unverified.
+                    if (!canCheckRecordedDeviceApk(
+                            state.installed, state.installedVersion,
+                            record.apkVersion, record.outputApkSha256)) continue
+                    val expected = record.outputApkSha256!!.lowercase()
                     val measuredLocal = withContext(Dispatchers.IO) {
                         FileChecksum.fingerprintOrNull(record.outputApkPath).first
                     }
@@ -1484,17 +1410,24 @@ class HomeViewModel(
                             currentGeneration = deviceRefreshGeneration,
                         )) return@launch
                     if (observed != null) {
+                        val verifiedState = state.copy(exactBuildVerified = observed == expected)
                         _uiState.value = _uiState.value.copy(
                             deviceAppInfo = _uiState.value.deviceAppInfo +
-                                (record.packageName to state.copy(exactBuildVerified = observed == expected)),
+                                (record.packageName to verifiedState),
+                            deviceInstalledAppInfo = _uiState.value.deviceInstalledAppInfo +
+                                (record.installedPackageName to verifiedState),
                         )
                     }
                 }
             }
             _uiState.value = _uiState.value.copy(
                 deviceRefreshStage = DeviceInventoryRefreshStage.READING_CATALOG_APPS)
+            // Scan installed ORIGINAL apps independently of renamed historical
+            // Morphe packages. The legacy history map is keyed by original ID,
+            // so it must not suppress a separate installed stock-package scan.
             val supportedNotInHistory = _uiState.value.supportedApps.filter { app ->
-                app.packageName in installed && app.packageName !in info
+                app.packageName in installed &&
+                    app.packageName !in _uiState.value.deviceInstalledAppInfo
             }
             for (batch in supportedNotInHistory.chunked(4)) {
                 val additional = coroutineScope {
@@ -1522,7 +1455,11 @@ class HomeViewModel(
                     )) return@launch
                 // Preserve other live UI fields, and publish each verified batch.
                 _uiState.value = _uiState.value.copy(
-                    deviceAppInfo = _uiState.value.deviceAppInfo + additional,
+                    // Do not overwrite the original-keyed PATCHED history state
+                    // when the stock APK and renamed APK are both installed.
+                    deviceAppInfo = _uiState.value.deviceAppInfo +
+                        additional.filterKeys { it !in info },
+                    deviceInstalledAppInfo = _uiState.value.deviceInstalledAppInfo + additional,
                 )
             }
             packagesForNames = installed
@@ -1535,7 +1472,8 @@ class HomeViewModel(
                         target.serial, _uiState.value.deviceRefreshSerial,
                         _uiState.value.deviceRefreshStage, generation, deviceRefreshGeneration)) {
                     _uiState.value = _uiState.value.copy(
-                        deviceAppInfo = emptyMap(), deviceInstalledPackages = emptySet(),
+                        deviceAppInfo = emptyMap(), deviceInstalledAppInfo = emptyMap(),
+                        deviceInstalledPackages = emptySet(),
                         deviceInventorySerial = null,
                         deviceRefreshStage = DeviceInventoryRefreshStage.FAILED,
                     )
@@ -1925,6 +1863,90 @@ class HomeViewModel(
     //     architectures: List<String>, recommendedVersion: String?
     // ): app.morphe.gui.util.ChecksumStatus { ... }
 
+
+    // Subscribe only after all backing fields have been initialized. Main.immediate
+    // StateFlow collectors can run synchronously inside launch(), including on AWT.
+
+    init {
+        viewModelScope.launch {
+            val config = configRepository.loadConfig()
+            val info = updateCheckRepository.getUpdateInfo()
+            val dismissed = config.dismissedUpdateVersion
+            val multiSourceShouldShow = !config.multiSourceHintDismissed &&
+                    patchSourceManager.getEnabledSourcesSync().size > 1
+            _uiState.value = _uiState.value.copy(
+                updateInfo = info,
+                dismissedUpdateVersion = dismissed,
+                showMultiSourceHint = multiSourceShouldShow,
+                appListFilter = if (tabSelectedThisSession) _uiState.value.appListFilter
+                    else if (DeviceMonitor.state.value.captureOperationTarget() != null) AppListFilter.DEVICE
+                    else runCatching { AppListFilter.valueOf(config.homeAppListFilter) }
+                        .getOrDefault(AppListFilter.ALL),
+                sortMode = HomeAppSortMode.fromPreference(config.homeAppSortMode),
+                preferredPatchSourceByPackage = config.preferredPatchSourceByPackage,
+            )
+        }
+
+        // Refresh badges and device state when history changes.
+        viewModelScope.launch {
+            patchedAppStore.changes.collect { refreshPatchedState() }
+        }
+
+        // Refresh installed status for patched apps when the selected ADB device changes.
+        viewModelScope.launch {
+            DeviceMonitor.state
+                .map { it.selectedDevice?.id to (it.selectedDevice?.isReady == true) }
+                .distinctUntilChanged()
+                .collect { refreshDeviceInfo() }
+        }
+
+        // Re-evaluate only the exact selected serial when another UI surface
+        // successfully changes package state on that same endpoint.
+        viewModelScope.launch {
+            DevicePackageMutations.events.collect { mutation ->
+                val selected = DeviceMonitor.state.value.selectedDevice
+                if (selected?.id == mutation.deviceSerial && selected.isReady) {
+                    deviceLabelDiscovery.invalidateLabel(mutation.deviceSerial, mutation.packageName)
+                    refreshDeviceInfo()
+                }
+            }
+        }
+
+        // Load patches whenever expert mode becomes active.
+        viewModelScope.launch {
+            patchSourceManager.activeMode.collect {
+                loadPatchesAndSupportedApps()
+            }
+        }
+
+        viewModelScope.launch {
+            patchSourceManager.sourceVersion.drop(1).collect {
+                Logger.info("HomeVM: Source changed, reloading patches...")
+                patchRepository = patchSourceManager.getActiveRepositorySync()
+                localPatchFilePath = patchSourceManager.getLocalFilePath()
+                isDefaultSource = patchSourceManager.isDefaultSource()
+                lastLoadedVersion = null
+                cachedPatchesFile = null
+                cachedAllPatchFiles = emptyList()
+                cachedPatches = emptyList()
+                cachedSourcesResult = null
+                // Preserve update banner and navigation state across source changes.
+                val carriedUpdate = _uiState.value.updateInfo
+                val carriedDismissed = _uiState.value.dismissedUpdateVersion
+                val carriedSelectedPage = _uiState.value.selectedPage
+                val carriedAppListFilter = _uiState.value.appListFilter
+                _uiState.value = HomeUiState(
+                    isDefaultSource = isDefaultSource,
+                    updateInfo = carriedUpdate,
+                    dismissedUpdateVersion = carriedDismissed,
+                    selectedPage = carriedSelectedPage,
+                    appListFilter = carriedAppListFilter,
+                )
+                loadPatchesAndSupportedApps()
+            }
+        }
+    }
+
 }
 
 /** Active patch source details. */
@@ -2112,7 +2134,10 @@ data class HomeUiState(
     val installingPackage: String? = null,
     /** Package currently being uninstalled from the device. */
     val uninstallingPackage: String? = null,
+    /** Historic patched-app details, keyed by original package name. */
     val deviceAppInfo: Map<String, DeviceAppInfo> = emptyMap(),
+    /** Actual Android package identity for each installed stock / renamed package. */
+    val deviceInstalledAppInfo: Map<String, DeviceAppInfo> = emptyMap(),
     /** All package identifiers reported by the exact selected, ready ADB endpoint. */
     val deviceInstalledPackages: Set<String> = emptySet(),
     /** Human-readable labels verified against the current installed device identity. */

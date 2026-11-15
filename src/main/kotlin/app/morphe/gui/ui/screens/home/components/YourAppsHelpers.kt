@@ -87,3 +87,19 @@ internal fun humanSize(bytes: Long): String {
     if (bytes <= 0) return "-"
     return FormatUtils.formatFileSize(bytes, currentLocale())
 }
+
+/** A named, read-only explanation of why a source cannot confirm an app-scoped update. */
+internal data class IncompleteUpdateSource(val name: String, val sourceLoaded: Boolean)
+
+internal fun incompleteUpdateSources(info: RecallUpdateInfo?): List<IncompleteUpdateSource> =
+    info?.sources.orEmpty().asSequence()
+        .filter { it.checkIncomplete }
+        .map { source ->
+            IncompleteUpdateSource(
+                name = source.name,
+                sourceLoaded = !source.resolvedVersion.isNullOrBlank() ||
+                    !source.latestAvailableVersion.isNullOrBlank(),
+            )
+        }
+        .distinctBy { it.name }
+        .toList()

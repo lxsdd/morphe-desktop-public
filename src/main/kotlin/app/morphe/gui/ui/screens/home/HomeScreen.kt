@@ -52,6 +52,7 @@ import app.morphe.gui.ui.screens.home.components.resolveDeviceInventoryDisplayNa
 import app.morphe.gui.ui.screens.home.components.resolvePatchedHistoryDisplayName
 import app.morphe.gui.ui.screens.home.components.DevicePatchSourceDetails
 import app.morphe.gui.ui.screens.home.components.availableDevicePatches
+import app.morphe.gui.ui.screens.home.components.installedSeparateHistoryPackage
 import app.morphe.gui.ui.screens.home.components.PatchedAppDetailDialog
 import app.morphe.gui.ui.screens.home.components.UninstallConfirmDialog
 import app.morphe.gui.ui.screens.home.components.VersionWarningDialog
@@ -115,7 +116,8 @@ fun HomeScreenContent(
         (uiState.deviceInventorySerial == selectedSerial ||
             uiState.deviceRefreshSerial == selectedSerial)) uiState
         else uiState.copy(
-            deviceAppInfo = emptyMap(), deviceInstalledPackages = emptySet(), deviceAppLabels = emptyMap(),
+            deviceAppInfo = emptyMap(), deviceInstalledAppInfo = emptyMap(),
+            deviceInstalledPackages = emptySet(), deviceAppLabels = emptyMap(),
             deviceLabelIndexState = app.morphe.gui.util.AppLabelIndexState.NOT_STARTED,
             deviceLabelIndexedCount = 0,
             deviceInventorySerial = null, deviceRefreshSerial = null,
@@ -306,7 +308,7 @@ fun HomeScreenContent(
             // A switched/disconnected device must never display stale package details.
             untrackedDevicePackage = null
         } else {
-            val version = visibleDeviceUiState.deviceAppInfo[pkg]?.installedVersion
+            val version = visibleDeviceUiState.deviceInstalledAppInfo[pkg]?.installedVersion
             val snapshot = viewModel.getResolvedSourcesSnapshot()
             val byId = snapshot?.resolved.orEmpty().associateBy { it.source.id }
             val sources = snapshot?.patchesBySource.orEmpty().mapNotNull { (id, patches) ->
@@ -321,8 +323,10 @@ fun HomeScreenContent(
             DeviceAppDetailsDialog(
                 packageName = pkg,
                 app = uiState.supportedApps.firstOrNull { it.packageName == pkg },
-                deviceInfo = visibleDeviceUiState.deviceAppInfo[pkg],
+                deviceInfo = visibleDeviceUiState.deviceInstalledAppInfo[pkg],
                 patchSources = sources,
+                separateLocalPackage = installedSeparateHistoryPackage(
+                    pkg, visibleDeviceUiState.deviceInstalledPackages, visibleDeviceUiState.patchedRecords),
                 resolvedDisplayName = visibleDeviceUiState.deviceAppLabels[pkg],
                 onDismiss = { untrackedDevicePackage = null },
             )
@@ -763,6 +767,7 @@ fun HomeScreenContent(
                                         uiState = if (activeApkInfo != null) uiState.copy(apkInfo = activeApkInfo) else uiState,
                                         padding = padding,
                                         sourceNamesByPackage = sourceNamesByPackage,
+                                        patchesBySource = resolvedSnapshot?.patchesBySource.orEmpty(),
                                         patchSourcesForSelectedApk = patchSourcesForSelectedApk,
                                         selectedPatchSource = effectiveSimplePatchSource,
                                         onSelectPatchSource = { source ->

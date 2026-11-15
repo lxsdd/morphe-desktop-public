@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.morphe.engine.model.PatchedAppRecord
+import app.morphe.engine.model.PatchMetadata
 import app.morphe.engine.model.SupportedApp
 import app.morphe.gui.ui.components.MorpheButton
 import app.morphe.gui.ui.components.MorpheButtonSize
@@ -51,6 +52,7 @@ internal fun SupportedAppsListPane(
     patchedStates: Map<String, PatchedAppState> = emptyMap(),
     patchedRecords: List<PatchedAppRecord> = emptyList(),
     deviceAppInfo: Map<String, DeviceAppInfo> = emptyMap(),
+    deviceInstalledAppInfo: Map<String, DeviceAppInfo> = emptyMap(),
     deviceInstalledPackages: Set<String> = emptySet(),
     deviceAppLabels: Map<String, String> = emptyMap(),
     deviceLabelIndexState: AppLabelIndexState = AppLabelIndexState.NOT_STARTED,
@@ -64,6 +66,7 @@ internal fun SupportedAppsListPane(
     filter: AppListFilter = AppListFilter.ALL,
     onFilterChange: (AppListFilter) -> Unit = {},
     sourceNamesByPackage: Map<String, List<String>>,
+    patchesBySource: Map<String, List<PatchMetadata>> = emptyMap(),
     isLoading: Boolean,
     loadError: String?,
     onRetry: () -> Unit,
@@ -86,9 +89,9 @@ internal fun SupportedAppsListPane(
             it.packageName.contains(searchQuery, ignoreCase = true)
         }
     }
-    val installedPackages = remember(deviceAppInfo) {
-        deviceAppInfo.filterValues { it.installed }.keys
-    }
+    // Catalog sorting must reflect actual installed package IDs, not a
+    // renamed APK stored under its original historical package key.
+    val installedPackages = deviceInstalledPackages
     val patchedAtByPackage = remember(patchedRecords) {
         patchedRecords.associate { it.packageName to it.patchedAt }
     }
@@ -209,9 +212,10 @@ internal fun SupportedAppsListPane(
                 refreshStage = deviceRefreshStage,
                 supportedApps = supportedApps,
                 patchedRecords = patchedRecords,
-                deviceAppInfo = deviceAppInfo,
+                deviceInstalledAppInfo = deviceInstalledAppInfo,
                 updateInfoByPackage = updateInfoByPackage,
                 sourceNamesByPackage = sourceNamesByPackage,
+                patchesBySource = patchesBySource,
                 searchQuery = searchQuery,
                 paneMaxHeight = paneMaxHeight,
                 onShowDetail = onShowDetail,
@@ -323,7 +327,7 @@ internal fun SupportedAppsListPane(
                                 },
                                 patchSourceNames = sourceNamesByPackage[app.packageName] ?: emptyList(),
                                 patchedState = patchedStates[app.packageName] ?: PatchedAppState.NEVER_PATCHED,
-                                deviceInfo = deviceAppInfo[app.packageName],
+                                deviceInfo = deviceInstalledAppInfo[app.packageName],
                             )
                         }
                     }

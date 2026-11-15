@@ -47,36 +47,18 @@ fun YourAppRow(
 ) {
     val cardFills = LocalCardFills.current
 
-    val versionPart = if (updateInfo?.appOutdated == true && updateInfo.appSuggestedVersion != null) {
-        "v${record.apkVersion.removePrefix("v")} → v${updateInfo.appSuggestedVersion.removePrefix("v")}"
-    } else {
-        "v${record.apkVersion.removePrefix("v")}"
-    }
-    val datePart = relativeOrShortDate(record.patchedAt)
-    val devicePart = if (deviceInfo != null) {
-        when {
-            !deviceInfo.installed -> stringResource(Res.string.home_app_row_not_on_device)
-            deviceInfo.signedByMorphe == false -> stringResource(Res.string.home_app_row_on_device_not_signed)
-            deviceInfo.installedVersion != null && deviceInfo.installedVersion.removePrefix("v") != record.apkVersion.removePrefix("v") ->
-                "Device: v${deviceInfo.installedVersion.removePrefix("v")}"
-            else -> stringResource(Res.string.home_app_row_on_device)
-        }
-    } else null
-
-    val checkPart = if (updateInfo == null ||
-        updateInfo.patchCheckIncomplete ||
-        updateInfo.metadataResolution != app.morphe.gui.util.UpdateMetadataResolution.READY ||
-        updateInfo.appSuggestedVersion.isNullOrBlank()) {
-        stringResource(Res.string.home_update_checks_incomplete_short)
-    } else null
-    val subtitle = remember(versionPart, datePart, devicePart, checkPart) {
-        listOfNotNull(versionPart, datePart, devicePart, checkPart).joinToString(" · ")
-    }
-
-    // Patch and APK-version updates are separate facts. A generic newer
-    // repository release must not create an unfiltered "Patch-Update" badge.
+    // Device signer/hash checks belong to technical details, not the
+    // ordinary inventory. A candidate version is shown ONLY after the
+    // source-specific compatible app update was positively confirmed.
     val hasPatchUpdate = hasConfirmedPatchUpdate(updateInfo, state)
     val hasAppUpdate = hasConfirmedAppUpdate(updateInfo)
+    val versionPart = if (hasAppUpdate) {
+        "v${record.apkVersion.removePrefix("v")} → v${updateInfo!!.appSuggestedVersion!!.removePrefix("v")}"
+    } else "v${record.apkVersion.removePrefix("v")}"
+    val datePart = relativeOrShortDate(record.patchedAt)
+    val subtitle = remember(versionPart, datePart) {
+        listOf(versionPart, datePart).joinToString(" · ")
+    }
 
     val cardColors = appCardColors()
 
@@ -132,23 +114,6 @@ fun YourAppRow(
                         text = stringResource(Res.string.home_your_apps_app_update_status),
                         tone = MorpheBadgeTone.Primary,
                     )
-                }
-                if (deviceInfo?.installPending == true) {
-                    if (cardColors.isMonochrome) {
-                        MorpheBadge(
-                            text = stringResource(Res.string.home_your_apps_install_ready),
-                            tone = MorpheBadgeTone.Primary,
-                        )
-                    } else {
-                        MorpheBadge(
-                            text = stringResource(Res.string.home_your_apps_install_ready),
-                            containerColor = cardColors.chipInk,
-                            onGradient = true,
-                        )
-                    }
-                }
-                if (state == PatchedAppState.APK_MISSING || state == PatchedAppState.MODIFIED_EXTERNALLY) {
-                    PatchedStateBadge(state)
                 }
             }
         }

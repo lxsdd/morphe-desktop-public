@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.morphe.engine.model.PatchedAppRecord
+import app.morphe.engine.model.PatchMetadata
 import app.morphe.gui.ui.screens.home.HomeUiState
 
 @Composable
@@ -21,6 +22,7 @@ internal fun HomeSplitLayout(
     uiState: HomeUiState,
     padding: Dp,
     sourceNamesByPackage: Map<String, List<String>>,
+    patchesBySource: Map<String, List<PatchMetadata>>,
     patchSourcesForSelectedApk: List<String>,
     patchesLoaded: Boolean,
     onSortModeChange: (HomeAppSortMode) -> Unit,
@@ -61,6 +63,7 @@ internal fun HomeSplitLayout(
                 patchedStates = uiState.patchedStates,
                 patchedRecords = uiState.patchedRecords,
                 deviceAppInfo = uiState.deviceAppInfo,
+                deviceInstalledAppInfo = uiState.deviceInstalledAppInfo,
                 deviceInstalledPackages = uiState.deviceInstalledPackages,
                 deviceAppLabels = uiState.deviceAppLabels,
                 deviceLabelIndexState = uiState.deviceLabelIndexState,
@@ -76,6 +79,7 @@ internal fun HomeSplitLayout(
                 filter = uiState.appListFilter,
                 onFilterChange = onFilterChange,
                 sourceNamesByPackage = sourceNamesByPackage,
+                patchesBySource = patchesBySource,
                 isLoading = uiState.isLoadingPatches,
                 loadError = uiState.patchLoadError,
                 onRetry = onRetry,

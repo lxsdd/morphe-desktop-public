@@ -144,4 +144,31 @@ class HomeUpdateCategoriesTest {
         assertFalse(hasConfirmedAppUpdate(missing))
         assertFalse(hasConfirmedPatchUpdate(missing))
     }
+
+    @Test
+    fun `incomplete source details preserve source attribution and reject false updates`() {
+        val missing = RecallUpdateInfo.SourceUpdate(
+            name = "Synthetic source A", usedVersion = "1.0",
+            resolvedVersion = null, latestAvailableVersion = null,
+            outdated = false, hasRelevantChanges = false, checkIncomplete = true,
+        )
+        val changelog = RecallUpdateInfo.SourceUpdate(
+            name = "Synthetic source B", usedVersion = "1.0",
+            resolvedVersion = "1.3", latestAvailableVersion = "1.3",
+            outdated = true, hasRelevantChanges = false, checkIncomplete = true,
+        )
+        val ready = RecallUpdateInfo.SourceUpdate(
+            name = "Ready", usedVersion = "1.0",
+            resolvedVersion = "1.1", latestAvailableVersion = "1.1",
+            outdated = true, hasRelevantChanges = true, checkIncomplete = false,
+        )
+        val evidence = info(sources = listOf(missing, changelog, ready))
+        assertEquals(listOf(
+            IncompleteUpdateSource("Synthetic source A", false),
+            IncompleteUpdateSource("Synthetic source B", true),
+        ), incompleteUpdateSources(evidence))
+        assertTrue(incompleteUpdateSources(null).isEmpty())
+        // An unavailable changelog is not proof of a newer app-scoped patch.
+        assertFalse(hasConfirmedPatchUpdate(info(sources = listOf(changelog))))
+    }
 }

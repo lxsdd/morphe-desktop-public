@@ -3,7 +3,9 @@ package app.morphe.gui.ui.screens.home.components
 /** An assessment is not evidence of an exact installed APK SHA-256 match. */
 internal enum class DeviceOverviewStatus {
     APP_UPDATE, PATCH_UPDATE, LOCAL_BUILD_REVIEW, PATCH_CANDIDATE,
-    VERSION_MATCH_UNVERIFIED, EXACT_BUILD_VERIFIED, SIGNER_CONFLICT, REVIEW_REQUIRED, OUTSIDE_PATCH_CATALOG
+    VERSION_MATCH_UNVERIFIED, EXACT_BUILD_VERIFIED, EXACT_BUILD_OTHER_KEY,
+    SIGNER_CONFLICT, REVIEW_REQUIRED, OUTSIDE_PATCH_CATALOG,
+    ORIGINAL_WITH_SEPARATE_INSTALL, PATCH_VERSION_INCOMPATIBLE, PATCH_SOURCE_UNVERIFIED
 }
 
 internal data class DeviceOverviewEvidence(
@@ -17,26 +19,39 @@ internal data class DeviceOverviewEvidence(
     val localBuildVersionNewer: Boolean,
     /** Verified SHA of the installed single APK equals the recorded, freshly hashed local output. */
     val exactBuildVerified: Boolean? = null,
+    val sourceCompatibility: DevicePatchCompatibility = DevicePatchCompatibility.UNKNOWN_VERSION,
+    val separateLocalPackageInstalled: Boolean = false,
 )
 
 /** Read-only classification; no status claims exact APK identity without a hash proof. */
 internal fun classifyDeviceOverview(e: DeviceOverviewEvidence): DeviceOverviewStatus = when {
     !e.patchSupported && !e.hasLocalPatchHistory -> DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG
+    // SHA-256 matching the entire signed APK is stronger than a mismatch with
+    // the CURRENT signing key. This is read-only identity, not install authorization.
+    e.hasLocalPatchHistory && e.exactBuildVerified == true &&
+        !e.installedVersion.isNullOrBlank() &&
+        e.installedVersion == e.locallyPatchedVersion -> when {
+        e.relevantPatchChange -> DeviceOverviewStatus.PATCH_UPDATE
+        e.newerCompatibleAppVersion -> DeviceOverviewStatus.APP_UPDATE
+        e.signerMatchesMorphe == false -> DeviceOverviewStatus.EXACT_BUILD_OTHER_KEY
+        else -> DeviceOverviewStatus.EXACT_BUILD_VERIFIED
+    }
     e.hasLocalPatchHistory && e.signerMatchesMorphe == false -> DeviceOverviewStatus.SIGNER_CONFLICT
     e.hasLocalPatchHistory && e.installedVersion.isNullOrBlank() -> DeviceOverviewStatus.REVIEW_REQUIRED
     e.newerCompatibleAppVersion -> DeviceOverviewStatus.APP_UPDATE
-    // A local patch snapshot is only the installed patch state after APK bytes match.
-    e.hasLocalPatchHistory && e.relevantPatchChange && e.exactBuildVerified == true ->
-        DeviceOverviewStatus.PATCH_UPDATE
     e.hasLocalPatchHistory && e.localBuildVersionNewer -> DeviceOverviewStatus.LOCAL_BUILD_REVIEW
     // A Morphe-signed device build without local history could have been patched
     // elsewhere; do not silently classify it as an unpatched candidate.
     !e.hasLocalPatchHistory && e.patchSupported && e.signerMatchesMorphe == true ->
         DeviceOverviewStatus.REVIEW_REQUIRED
-    !e.hasLocalPatchHistory && e.patchSupported -> DeviceOverviewStatus.PATCH_CANDIDATE
-    e.hasLocalPatchHistory && e.exactBuildVerified == true &&
-        e.signerMatchesMorphe == true && e.installedVersion != null &&
-        e.installedVersion == e.locallyPatchedVersion -> DeviceOverviewStatus.EXACT_BUILD_VERIFIED
+    !e.hasLocalPatchHistory && e.patchSupported && e.separateLocalPackageInstalled ->
+        DeviceOverviewStatus.ORIGINAL_WITH_SEPARATE_INSTALL
+    !e.hasLocalPatchHistory && e.patchSupported -> when (e.sourceCompatibility) {
+        DevicePatchCompatibility.COMPATIBLE -> DeviceOverviewStatus.PATCH_CANDIDATE
+        DevicePatchCompatibility.INCOMPATIBLE -> DeviceOverviewStatus.PATCH_VERSION_INCOMPATIBLE
+        DevicePatchCompatibility.UNKNOWN_VERSION, DevicePatchCompatibility.NO_SOURCE ->
+            DeviceOverviewStatus.PATCH_SOURCE_UNVERIFIED
+    }
     e.hasLocalPatchHistory && e.installedVersion != null &&
         e.installedVersion == e.locallyPatchedVersion &&
         e.signerMatchesMorphe == true -> DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED
@@ -52,5 +67,30 @@ internal fun deviceOverviewPriority(status: DeviceOverviewStatus): Int = when (s
     DeviceOverviewStatus.REVIEW_REQUIRED -> 5
     DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED -> 6
     DeviceOverviewStatus.EXACT_BUILD_VERIFIED -> 7
-    DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG -> 8
+    DeviceOverviewStatus.EXACT_BUILD_OTHER_KEY -> 6
+    DeviceOverviewStatus.ORIGINAL_WITH_SEPARATE_INSTALL -> 6
+    DeviceOverviewStatus.PATCH_VERSION_INCOMPATIBLE -> 8
+    DeviceOverviewStatus.PATCH_SOURCE_UNVERIFIED -> 5
+    DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG -> 9
+}
+
+/** Only confirmed, patch-compatible changes count as user-facing updates. */
+internal data class DeviceUpdateFacts(
+    val confirmedAppVersionUpdate: Boolean = false,
+    val confirmedPatchUpdate: Boolean = false,
+) {
+    val hasConfirmedUpdate: Boolean get() = confirmedAppVersionUpdate || confirmedPatchUpdate
+}
+
+internal fun confirmedDeviceUpdateCount(facts: Iterable<DeviceUpdateFacts>): Int =
+    facts.count { it.hasConfirmedUpdate }
+
+/** Technical identity uncertainty is NOT an update or user action. */
+internal fun deviceTechnicalReview(status: DeviceOverviewStatus): Boolean = when (status) {
+    DeviceOverviewStatus.SIGNER_CONFLICT,
+    DeviceOverviewStatus.REVIEW_REQUIRED,
+    DeviceOverviewStatus.LOCAL_BUILD_REVIEW,
+    DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED,
+    DeviceOverviewStatus.PATCH_SOURCE_UNVERIFIED -> true
+    else -> false
 }

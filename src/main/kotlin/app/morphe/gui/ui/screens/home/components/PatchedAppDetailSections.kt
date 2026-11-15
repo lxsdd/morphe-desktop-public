@@ -78,6 +78,7 @@ internal fun IdentityBand(
     displayName: String = record.displayName,
 ) {
     val accents = MorpheTheme.colors
+    var diagnosticsExpanded by remember(record.packageName) { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -113,19 +114,36 @@ internal fun IdentityBand(
                 PatchedStateBadge(state, onGradient = false)
             }
         }
-        deviceInfo?.let {
-            DeviceLine(it, MaterialTheme.colorScheme.onSurfaceVariant, accents.primary)
-        }
         val advice = updateInfo?.let { appAdvice(it) }
         if (advice != null) {
             UpdateHint(advice.first, recommended = advice.second)
         } else if (hasConfirmedPatchUpdate(updateInfo)) {
             InfoNote(stringResource(Res.string.home_your_apps_patch_review_hint))
         }
-        if (updateInfo == null || updateInfo.patchCheckIncomplete ||
-            updateInfo.metadataResolution != app.morphe.gui.util.UpdateMetadataResolution.READY ||
-            updateInfo.appSuggestedVersion.isNullOrBlank()) {
-            InfoNote(stringResource(Res.string.home_update_checks_incomplete_short))
+        MorpheChoiceChip(
+            text = stringResource(if (diagnosticsExpanded) Res.string.device_diagnostics_hide
+                else Res.string.device_diagnostics_show),
+            active = diagnosticsExpanded,
+            onClick = { diagnosticsExpanded = !diagnosticsExpanded },
+        )
+        if (diagnosticsExpanded) {
+            deviceInfo?.let {
+                DeviceLine(it, MaterialTheme.colorScheme.onSurfaceVariant, accents.primary)
+            }
+            if (updateInfo == null || updateInfo.patchCheckIncomplete ||
+                updateInfo.metadataResolution != app.morphe.gui.util.UpdateMetadataResolution.READY ||
+                updateInfo.appSuggestedVersion.isNullOrBlank()) {
+                InfoNote(stringResource(Res.string.home_update_checks_incomplete_short))
+            }
+            val unfinished = incompleteUpdateSources(updateInfo)
+            if (unfinished.isNotEmpty()) {
+                val sourceMissing = stringResource(Res.string.home_update_source_not_loaded)
+                val changeProofMissing = stringResource(Res.string.home_update_source_proof_missing)
+                val descriptions = unfinished.joinToString(" · ") { source ->
+                    source.name + ": " + if (source.sourceLoaded) changeProofMissing else sourceMissing
+                }
+                InfoNote(stringResource(Res.string.home_update_unverified_sources, descriptions))
+            }
         }
     }
 }

@@ -843,6 +843,9 @@
     <string name="home_device_inventory_empty">No apps reported by the selected device</string>
     <string name="home_device_inventory_unavailable">Select an online device to see its installed apps</string>
     <string name="home_device_inventory_title">Installed on selected device (read-only)</string>
+    <string name="home_update_unverified_sources">Sources not fully verified: %1$s</string>
+    <string name="home_update_source_not_loaded">source metadata unavailable</string>
+    <string name="home_update_source_proof_missing">app-scoped changelog not verified</string>
     <string name="home_update_unknown">Only confirmed updates to your patched apps are listed here.</string>
     <string name="home_update_checks_incomplete">Update check incomplete for %1$d patched apps. The counts show confirmed, patch-compatible updates only.</string>
     <string name="home_update_checks_incomplete_short">Update check incomplete</string>
@@ -860,18 +863,26 @@
     <string name="home_your_apps_patched_date_label">Patched on</string>
 
     <!-- Device-first read-only overview -->
+    <string name="device_updates_filter">Confirmed updates</string>
+    <string name="device_updates_count">Updates %1$d</string>
+    <string name="device_updates_both">App and patch updates available</string>
+    <string name="device_updates_none">No confirmed compatible updates</string>
+    <string name="device_updates_none_explain">Only newer supported versions and confirmed app-scoped patch changes appear here. Incomplete checks are reported separately above; zero confirmed updates does not mean all checks succeeded.</string>
+    <string name="device_diagnostics_show">Technical diagnostics</string>
+    <string name="device_diagnostics_hide">Hide diagnostics</string>
+    <string name="device_diagnostics_cases_count">Technical review %1$d</string>
     <string name="device_overview_app_update">Update app version</string>
     <string name="device_overview_patch_update">Update patches</string>
     <string name="device_overview_local_build">Check local APK</string>
-    <string name="device_overview_patchable">Patch source available · review state</string>
+    <string name="device_overview_patchable">Compatible source · installed patches unverified</string>
     <string name="device_overview_version_match">Version matches – build unverified</string>
-    <string name="device_overview_signer_conflict">Different signer – review</string>
+    <string name="device_overview_signer_conflict">Signer differs from current key · review</string>
     <string name="device_overview_review">Review needed</string>
     <string name="device_overview_other">Outside patch catalog</string>
-    <string name="device_overview_summary">%1$d installed · %2$d in patch catalog · %3$d need action/review</string>
+    <string name="device_overview_summary">%1$d installed · %2$d in patch catalog · %3$d confirmed compatible updates</string>
     <string name="device_overview_disclaimer">Device data is read only. Equal version and signer do not prove identical APK bytes.</string>
     <string name="device_overview_all">All %1$d</string>
-    <string name="device_overview_needs">Action/review %1$d</string>
+    <string name="device_overview_needs">Technical review %1$d</string>
     <string name="device_overview_patchable_count">No local history %1$d</string>
     <string name="device_overview_version_count">Matching version %1$d</string>
     <string name="device_overview_other_count">Other %1$d</string>
@@ -880,7 +891,15 @@
     <string name="device_overview_local_version">Patched locally: %1$s</string>
     <string name="device_overview_target_version">Compatible target: %1$s</string>
     <string name="device_overview_refresh">Refresh device</string>
-    <string name="device_overview_exact_build">Installed APK build verified</string>
+    <string name="device_overview_exact_other_key">Exact APK confirmed · current signing key differs</string>
+    <string name="device_overview_original_separate">Stock app · separate Morphe package detected</string>
+    <string name="device_overview_separate_package">Separate installed package: %1$s</string>
+    <string name="device_overview_patch_version_incompatible">No patches compatible with installed version</string>
+    <string name="device_overview_patch_source_unverified">Patch source · compatibility unverified</string>
+    <string name="device_overview_patch_version_not_supported">Catalog source exists, installed version unsupported</string>
+    <string name="device_overview_patch_version_unknown">Device version unknown · compatibility unverified</string>
+    <string name="device_overview_patch_source_missing">No loaded source for this package</string>
+    <string name="device_overview_exact_build">Exact installed APK confirmed</string>
     <string name="device_overview_verified_count">Verified builds %1$d</string>
     <!-- Guided app updates and device-oriented status -->
     <string name="home_guided_find_app_version">Find newer app version v%1$s online</string>
@@ -890,7 +909,7 @@
     <string name="device_overview_patches_to_update">Patch updates %1$d</string>
     <string name="device_overview_installed_patches">Installed patches: %1$s</string>
     <string name="device_overview_patch_unverified">Installed patch state unverified</string>
-    <string name="device_overview_patch_candidate_count">Patchable · %1$d sources</string>
+    <string name="device_overview_patch_candidate_count">Compatible patches · %1$d sources</string>
     <string name="device_overview_outside_source">No patch source assigned</string>
     <string name="device_overview_installed_app_version">Device: %1$s</string>
     <string name="device_overview_patch_change">Newer patches: %1$s</string>
@@ -904,6 +923,8 @@
     <string name="device_details_no_local_history">No local patch history for this app. Patches shown below are available from the current catalog only.</string>
     <string name="device_details_compatibility">Compatible app versions</string>
     <string name="device_details_stable_versions">Stable: %1$s</string>
+    <string name="device_details_find_experimental_version">Find experimental app version v%1$s online</string>
+    <string name="device_details_experimental_lookup_hint">Optional search for explicitly supported experimental builds. This does not change the stable update recommendation or install anything.</string>
     <string name="device_details_experimental_versions">Experimental: %1$s</string>
     <string name="device_details_not_in_catalog">No patch support for this package in the loaded catalog.</string>
     <string name="device_details_available_patches">Available patch sources and patches</string>
@@ -924,7 +945,7 @@
     <string name="device_filter_relevant">Relevant apps</string>
     <string name="device_filter_app_updates">App updates</string>
     <string name="device_filter_patch_updates">Patch updates</string>
-    <string name="device_filter_attention">Action or review needed</string>
+    <string name="device_filter_attention">Technical review</string>
     <string name="device_filter_patchable">No local history</string>
     <string name="device_filter_verified">Verified build</string>
     <string name="device_filter_version_match">Version match · unverified</string>
