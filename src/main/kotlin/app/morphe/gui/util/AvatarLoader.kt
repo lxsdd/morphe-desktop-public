@@ -26,6 +26,11 @@ import org.jetbrains.skia.Image
 object AvatarLoader {
     private val memoryCache = ConcurrentHashMap<String, ImageBitmap>()
 
+    /** Called only after the owner explicitly clears the remote avatar cache. */
+    fun clearMemoryCache() {
+        memoryCache.clear()
+    }
+
     /** Resolves avatar URL for a given patch source. */
     fun resolveAvatarUrl(source: PatchSource): String? {
         val endpoint = source.url?.trim()?.takeIf { it.isNotEmpty() } ?: return null

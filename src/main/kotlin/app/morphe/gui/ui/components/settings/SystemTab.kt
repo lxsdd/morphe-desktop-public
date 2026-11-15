@@ -84,6 +84,13 @@ internal fun SystemTab(
 
     SettingsDivider(borderColor)
 
+    StorageOverview(
+        enabled = !isPatching,
+        borderColor = borderColor,
+    )
+
+    SettingsDivider(borderColor)
+
     SectionLabel(stringResource(Res.string.settings_section_about), icon = MorpheIcons.Info)
     Spacer(Modifier.height(16.dp))
 

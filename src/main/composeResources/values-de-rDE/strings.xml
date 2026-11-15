@@ -1047,4 +1047,21 @@
     <string name="ui_direct_apk_inspection_error">Die APK-Prüfung ist fehlgeschlagen.</string>
     <string name="ui_direct_apk_verify_error">Die APK-Verifizierung ist fehlgeschlagen.</string>
     <string name="ui_direct_apk_install_error">Die APK-Installation ist fehlgeschlagen.</string>
+
+    <!-- Granulare Cache-Verwaltung in den bestehenden Custom-Einstellungen. -->
+    <string name="settings_cache_category_patches">Heruntergeladene Patches</string>
+    <string name="settings_cache_category_logs">App-Protokolle</string>
+    <string name="settings_cache_category_temp">Temporäre Dateien</string>
+    <string name="settings_cache_category_avatars">Repository-Avatare</string>
+    <string name="settings_storage_category_summary">%1$s · %2$d Dateien</string>
+    <string name="settings_cache_confirm_patches_title">Heruntergeladene Patches löschen?</string>
+    <string name="settings_cache_confirm_patches_message">Nur heruntergeladene .mpp- und .jar-Pakete werden gelöscht. Vertrauensschlüssel und Quelleneinstellungen bleiben erhalten. Benötigte Patches werden erneut geladen.</string>
+    <string name="settings_cache_confirm_logs_title">App-Protokolle löschen?</string>
+    <string name="settings_cache_confirm_logs_message">Lokal gespeicherte App-Protokolle löschen. Geräteprotokolle bleiben unverändert.</string>
+    <string name="settings_cache_confirm_temp_title">Temporäre Dateien löschen?</string>
+    <string name="settings_cache_confirm_temp_message">Temporäre Morphe-Arbeitsdateien löschen. Es darf kein Patchvorgang laufen.</string>
+    <string name="settings_cache_confirm_avatars_title">Repository-Avatare löschen?</string>
+    <string name="settings_cache_confirm_avatars_message">Nur zwischengespeicherte Repository-Avatare löschen. Lokale App-Icons und eigene Kartenfarben bleiben erhalten.</string>
+    <string name="settings_cache_category_cleared">%1$s geleert</string>
+    <string name="settings_cache_category_clear_failed">%1$s konnte nicht geleert werden</string>
 </resources>

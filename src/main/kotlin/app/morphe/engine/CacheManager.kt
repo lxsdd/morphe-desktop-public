@@ -11,6 +11,33 @@ import java.io.File
 
 /** Manages cache sizing and deletion across patches, logs, and workspace scratch. */
 object CacheManager {
+    data class DirStats(val bytes: Long, val fileCount: Int)
+
+    fun getDirectoryStats(dir: File): DirStats = try {
+        var bytes = 0L
+        var count = 0
+        if (dir.isDirectory) dir.walkTopDown().filter { it.isFile }.forEach { f -> bytes += f.length(); count++ }
+        DirStats(bytes, count)
+    } catch (_: Exception) { DirStats(0L, 0) }
+
+
+    /** Read-only size/count of downloads; trust pins and refusal metadata are never counted. */
+    fun getPatchDownloadStats(dir: File): DirStats = try {
+        var bytes = 0L
+        var count = 0
+        if (dir.isDirectory) {
+            dir.walkTopDown().filter { file ->
+                file.isFile && (file.extension.equals("mpp", ignoreCase = true) ||
+                    file.extension.equals("jar", ignoreCase = true))
+            }.forEach { file ->
+                bytes += file.length()
+                count++
+            }
+        }
+        DirStats(bytes, count)
+    } catch (_: Exception) {
+        DirStats(0L, 0)
+    }
 
     /** Summary of files and bytes cleared from a single directory. */
     data class DirResult(

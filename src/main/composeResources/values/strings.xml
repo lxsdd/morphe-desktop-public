@@ -1225,4 +1225,21 @@
     <string name="ui_direct_apk_inspection_error">APK inspection failed.</string>
     <string name="ui_direct_apk_verify_error">APK verification failed.</string>
     <string name="ui_direct_apk_install_error">APK installation failed.</string>
+
+    <!-- Granular 2.2-compatible storage management in the existing Custom Settings modal. -->
+    <string name="settings_cache_category_patches">Downloaded patches</string>
+    <string name="settings_cache_category_logs">Application logs</string>
+    <string name="settings_cache_category_temp">Temporary files</string>
+    <string name="settings_cache_category_avatars">Repository avatars</string>
+    <string name="settings_storage_category_summary">%1$s · %2$d files</string>
+    <string name="settings_cache_confirm_patches_title">Clear downloaded patches?</string>
+    <string name="settings_cache_confirm_patches_message">Only downloaded .mpp and .jar bundles are removed. Trusted signer pins and source settings are preserved. Needed patches will be downloaded again.</string>
+    <string name="settings_cache_confirm_logs_title">Clear application logs?</string>
+    <string name="settings_cache_confirm_logs_message">Delete locally cached application logs. Device logs are not changed.</string>
+    <string name="settings_cache_confirm_temp_title">Clear temporary files?</string>
+    <string name="settings_cache_confirm_temp_message">Delete Morphe scratch/workspace files. No patch must be running.</string>
+    <string name="settings_cache_confirm_avatars_title">Clear repository avatars?</string>
+    <string name="settings_cache_confirm_avatars_message">Delete cached repository avatar images only. Local app icons and custom card colors are unchanged.</string>
+    <string name="settings_cache_category_cleared">%1$s cleared</string>
+    <string name="settings_cache_category_clear_failed">Failed to clear %1$s</string>
 </resources>
