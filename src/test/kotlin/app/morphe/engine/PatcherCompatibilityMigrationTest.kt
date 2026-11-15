@@ -31,8 +31,8 @@ class PatcherCompatibilityMigrationTest {
 
     @Test
     fun `previously rejected older major is allowed into the real loader`() {
-        assertFalse(PatcherCompatibility.isIncompatiblePatcherVersion("1.8.0", "2.3.0"))
-        assertFalse(PatcherCompatibility.isIncompatiblePatcherVersion("v1.15.1", "2.3.0"))
+        assertFalse(PatcherCompatibility.isIncompatiblePatcherVersion("1.8.0", "2.4.0"))
+        assertFalse(PatcherCompatibility.isIncompatiblePatcherVersion("v1.15.1", "2.4.0"))
         val source = bundle("1.8.0")
         assertEquals("1.8.0", PatcherCompatibility.requiredPatcherVersion(source))
         assertNull(PatcherCompatibility.incompatibilityMessage(source))
@@ -42,17 +42,17 @@ class PatcherCompatibilityMigrationTest {
 
     @Test
     fun `same major earlier and equal requirements stay allowed`() {
-        assertFalse(PatcherCompatibility.isIncompatiblePatcherVersion("2.0.0", "2.3.0"))
-        assertFalse(PatcherCompatibility.isIncompatiblePatcherVersion("2.3.0", "2.3.0"))
+        assertFalse(PatcherCompatibility.isIncompatiblePatcherVersion("2.0.0", "2.4.0"))
+        assertFalse(PatcherCompatibility.isIncompatiblePatcherVersion("2.4.0", "2.4.0"))
         assertNull(PatcherCompatibility.incompatibilityMessage(bundle("2.0.0")))
     }
 
     @Test
     fun `newer major and newer minor require an engine update`() {
-        assertTrue(PatcherCompatibility.isIncompatiblePatcherVersion("3.0.0", "2.3.0"))
-        assertTrue(PatcherCompatibility.isIncompatiblePatcherVersion("2.4.0", "2.3.0"))
-        val file = bundle("2.4.0")
-        assertTrue(PatcherCompatibility.incompatibilityMessage(file)?.contains("2.4.0") == true)
+        assertTrue(PatcherCompatibility.isIncompatiblePatcherVersion("3.0.0", "2.4.0"))
+        assertTrue(PatcherCompatibility.isIncompatiblePatcherVersion("2.5.0", "2.4.0"))
+        val file = bundle("2.5.0")
+        assertTrue(PatcherCompatibility.incompatibilityMessage(file)?.contains("2.5.0") == true)
         // The production direct PatchEngine/CLI path must refuse before loading.
         assertFailsWith<PatchBundleIncompatibleException> {
             PatchBundleLoader.loadEach(listOf(file))
@@ -80,7 +80,7 @@ class PatcherCompatibilityMigrationTest {
 
     @Test
     fun `missing or malformed requirement does not invent a major mismatch`() {
-        assertFalse(PatcherCompatibility.isIncompatiblePatcherVersion("unknown", "2.3.0"))
+        assertFalse(PatcherCompatibility.isIncompatiblePatcherVersion("unknown", "2.4.0"))
         assertFalse(PatcherCompatibility.isIncompatiblePatcherVersion("1.8.0", "unknown"))
         assertNull(PatcherCompatibility.incompatibilityMessage(bundle(null)))
         assertNull(PatcherCompatibility.incompatibilityMessage(bundle("unknown")))
@@ -88,12 +88,12 @@ class PatcherCompatibilityMigrationTest {
 
     @Test
     fun `diagnostics still identify legacy actual linkage failures`() {
-        assertEquals(PatcherRequirementDirection.LEGACY_MAJOR, patcherRequirementDirection("1.8.0", "2.3.0"))
-        assertEquals(PatcherRequirementDirection.LEGACY_MAJOR, patcherRequirementDirection("v1.5.0", "2.3.0"))
-        assertEquals(PatcherRequirementDirection.NEWER_REQUIRED, patcherRequirementDirection("3.0.0", "2.3.0"))
-        assertEquals(PatcherRequirementDirection.NEWER_REQUIRED, patcherRequirementDirection("2.4.0", "2.3.0"))
-        assertEquals(PatcherRequirementDirection.UNKNOWN, patcherRequirementDirection("2.0.0", "2.3.0"))
-        assertEquals(PatcherRequirementDirection.UNKNOWN, patcherRequirementDirection(null, "2.3.0"))
-        assertEquals(PatcherRequirementDirection.UNKNOWN, patcherRequirementDirection("unknown", "2.3.0"))
+        assertEquals(PatcherRequirementDirection.LEGACY_MAJOR, patcherRequirementDirection("1.8.0", "2.4.0"))
+        assertEquals(PatcherRequirementDirection.LEGACY_MAJOR, patcherRequirementDirection("v1.5.0", "2.4.0"))
+        assertEquals(PatcherRequirementDirection.NEWER_REQUIRED, patcherRequirementDirection("3.0.0", "2.4.0"))
+        assertEquals(PatcherRequirementDirection.NEWER_REQUIRED, patcherRequirementDirection("2.5.0", "2.4.0"))
+        assertEquals(PatcherRequirementDirection.UNKNOWN, patcherRequirementDirection("2.0.0", "2.4.0"))
+        assertEquals(PatcherRequirementDirection.UNKNOWN, patcherRequirementDirection(null, "2.4.0"))
+        assertEquals(PatcherRequirementDirection.UNKNOWN, patcherRequirementDirection("unknown", "2.4.0"))
     }
 }

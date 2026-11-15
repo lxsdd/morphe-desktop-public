@@ -667,11 +667,11 @@ class InstalledAppLabelResolver(
 
         private fun resolvedString(entry: Entry, depth: Int = 0): String? {
             if (depth > 8) return null
-            entry.valueAsReference?.let { referenced ->
+            entry.dataAsReference?.let { referenced ->
                 val candidate = referenced.get(entry.resConfig) ?: return null
                 return resolvedString(candidate, depth + 1)
             }
-            return entry.valueAsString
+            return entry.dataAsString
         }
     }
 }

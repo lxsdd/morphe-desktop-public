@@ -26,7 +26,7 @@ class OfficialStablePatchBundleSmokeTest {
             ?.takeIf { it.isNotBlank() } ?: return@runBlocking
         val file = File(path)
         assertTrue(file.isFile && file.length() > 1024)
-        assertEquals("2.3.0", PatcherCompatibility.currentPatcherVersion)
+        assertEquals("2.4.0", PatcherCompatibility.currentPatcherVersion)
         assertEquals(
             RemotePatchSourceFactory.OFFICIAL_PATCHES_SIGNING_KEY,
             PatchBundleSignature.verify(file),
@@ -56,7 +56,7 @@ class OfficialStablePatchBundleSmokeTest {
         assertEquals(mixed.perSource[1].patches.toSet(), mixed.allPatches)
     }
 
-    /** Verify actual Patcher-1.8.0 community MPP releases against the current 2.3.0 loader. */
+    /** Verify actual Patcher-1.8.0 community MPP releases against the current 2.4.0 loader. */
     @Test
     fun legacyCommunityBundlesLoadAlongsideOfficialAndRemainPerSource() = runBlocking {
         val officialPath = System.getenv("MORPHE_OFFICIAL_PATCHES_TEST_FILE")
@@ -74,7 +74,7 @@ class OfficialStablePatchBundleSmokeTest {
             MultiSourceLoader.SourceInput("official", "Morphe Patches", official),
         )
         assertTrue(fixtures.all { it.patchFile.isFile && it.patchFile.length() > 1024 })
-        assertEquals("2.3.0", PatcherCompatibility.currentPatcherVersion)
+        assertEquals("2.4.0", PatcherCompatibility.currentPatcherVersion)
         assertNull(PatchBundleSignature.verify(amazon), "Unexpected signer change requires trust review")
         assertEquals("1.8.0", PatcherCompatibility.requiredPatcherVersion(amazon))
         riky?.let { assertEquals("1.8.0", PatcherCompatibility.requiredPatcherVersion(it)) }
