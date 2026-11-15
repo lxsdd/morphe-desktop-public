@@ -71,3 +71,25 @@ internal class ReadOnlyDeviceBuildVerifier(
                 .find(output.trim())?.groupValues?.get(1)?.lowercase()
     }
 }
+
+/**
+ * Regression-testable proof gate used by production read-only scan.
+ * Current signer selection is intentionally NOT an input: identical signed APK
+ * bytes are stronger proof than a match with the currently configured key.
+ * Missing, ambiguous or malformed inputs fail closed.
+ */
+internal fun canCheckRecordedDeviceApk(
+    installed: Boolean,
+    deviceVersion: String?,
+    recordedVersion: String,
+    recordedOutputSha256: String?,
+): Boolean {
+    if (!installed) return false
+    val device = deviceVersion?.removePrefix("v")?.takeUnless {
+        it.isBlank() || it.equals("unknown", ignoreCase = true)
+    } ?: return false
+    val historical = recordedVersion.removePrefix("v")
+    if (historical.isBlank() || historical.equals("unknown", ignoreCase = true)) return false
+    return device.equals(historical, ignoreCase = true) &&
+        recordedOutputSha256?.matches(Regex("[0-9a-fA-F]{64}")) == true
+}

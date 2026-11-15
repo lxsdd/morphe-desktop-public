@@ -4,10 +4,23 @@ import app.morphe.engine.installation.AdbCommandResult
 import app.morphe.engine.installation.AdbCommandRunner
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ReadOnlyDeviceBuildVerifierTest {
+    @Test
+    fun `recorded APK read-only verifier accepts historic key while rejecting weak evidence`() {
+        val sha = "a".repeat(64)
+        assertTrue(canCheckRecordedDeviceApk(true, "v21.45.82", "21.45.82", sha))
+        assertFalse(canCheckRecordedDeviceApk(false, "21.45.82", "21.45.82", sha))
+        assertFalse(canCheckRecordedDeviceApk(true, "21.45.83", "21.45.82", sha))
+        assertFalse(canCheckRecordedDeviceApk(true, null, "21.45.82", sha))
+        assertFalse(canCheckRecordedDeviceApk(true, "unknown", "unknown", sha))
+        assertFalse(canCheckRecordedDeviceApk(true, "21.45.82", "21.45.82", null))
+        assertFalse(canCheckRecordedDeviceApk(true, "21.45.82", "21.45.82", "bad"))
+    }
+
     private val digest = "a".repeat(64)
     private val path = "/data/app/~~SYNTHETIC/com.example.test-ABCD==/base.apk"
 

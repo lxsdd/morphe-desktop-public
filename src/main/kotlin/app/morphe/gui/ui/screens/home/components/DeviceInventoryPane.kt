@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.morphe.engine.model.PatchedAppRecord
+import app.morphe.engine.model.PatchMetadata
 import app.morphe.engine.model.SupportedApp
 import app.morphe.engine.util.isNewerVersion
 import app.morphe.gui.ui.components.MorpheChoiceChip
@@ -37,13 +38,14 @@ import app.morphe.gui.ui.screens.home.DeviceInventoryRefreshStage
 import app.morphe.gui.util.AppLabelIndexState
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.util.selectSupportedAppTarget
 import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 private enum class DeviceViewFilter {
-    RELEVANT, APP_UPDATES, PATCH_UPDATES, NEEDS_ATTENTION, PATCHABLE, VERIFIED,
+    UPDATES, RELEVANT, APP_UPDATES, PATCH_UPDATES, NEEDS_ATTENTION, PATCHABLE, VERIFIED,
     VERSION_MATCH, SIGNER_CONFLICT, LOCAL_BUILD_REVIEW, REVIEW_REQUIRED,
     OUTSIDE_CATALOG, OTHER, ALL
 }
@@ -51,6 +53,7 @@ private enum class DeviceViewFilter {
 /** All statuses remain filterable even when they are not present in a shortcut chip. */
 @Composable
 private fun deviceFilterLabel(filter: DeviceViewFilter): String = when (filter) {
+    DeviceViewFilter.UPDATES -> stringResource(Res.string.device_updates_filter)
     DeviceViewFilter.RELEVANT -> stringResource(Res.string.device_filter_relevant)
     DeviceViewFilter.APP_UPDATES -> stringResource(Res.string.device_filter_app_updates)
     DeviceViewFilter.PATCH_UPDATES -> stringResource(Res.string.device_filter_patch_updates)
@@ -81,6 +84,8 @@ private data class DeviceOverviewRow(
     val targetVersion: String?,
     val record: PatchedAppRecord?,
     val sourceCount: Int,
+    val sourceCompatibility: DevicePatchCompatibility,
+    val separateLocalPackage: String?,
     val appUpdateAvailable: Boolean,
     val confirmedPatchUpdate: Boolean,
     val status: DeviceOverviewStatus,
@@ -91,8 +96,12 @@ private fun deviceLabel(status: DeviceOverviewStatus): StringResource = when (st
     DeviceOverviewStatus.PATCH_UPDATE -> Res.string.device_overview_patch_update
     DeviceOverviewStatus.LOCAL_BUILD_REVIEW -> Res.string.device_overview_local_build
     DeviceOverviewStatus.PATCH_CANDIDATE -> Res.string.device_overview_patchable
+    DeviceOverviewStatus.PATCH_VERSION_INCOMPATIBLE -> Res.string.device_overview_patch_version_incompatible
+    DeviceOverviewStatus.PATCH_SOURCE_UNVERIFIED -> Res.string.device_overview_patch_source_unverified
+    DeviceOverviewStatus.ORIGINAL_WITH_SEPARATE_INSTALL -> Res.string.device_overview_original_separate
     DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED -> Res.string.device_overview_version_match
     DeviceOverviewStatus.EXACT_BUILD_VERIFIED -> Res.string.device_overview_exact_build
+    DeviceOverviewStatus.EXACT_BUILD_OTHER_KEY -> Res.string.device_overview_exact_other_key
     DeviceOverviewStatus.SIGNER_CONFLICT -> Res.string.device_overview_signer_conflict
     DeviceOverviewStatus.REVIEW_REQUIRED -> Res.string.device_overview_review
     DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG -> Res.string.device_overview_other
@@ -110,9 +119,10 @@ internal fun DeviceInventoryPane(
     refreshStage: DeviceInventoryRefreshStage,
     supportedApps: List<SupportedApp>,
     patchedRecords: List<PatchedAppRecord>,
-    deviceAppInfo: Map<String, DeviceAppInfo>,
+    deviceInstalledAppInfo: Map<String, DeviceAppInfo>,
     updateInfoByPackage: Map<String, RecallUpdateInfo>,
     sourceNamesByPackage: Map<String, List<String>>,
+    patchesBySource: Map<String, List<PatchMetadata>>,
     searchQuery: String,
     paneMaxHeight: Dp,
     onShowDetail: (PatchedAppRecord) -> Unit,
@@ -170,19 +180,33 @@ internal fun DeviceInventoryPane(
         return
     }
     val uriHandler = LocalUriHandler.current
+    // The loaded patch metadata is the same source snapshot as patching/details.
+    val catalogPatches = remember(patchesBySource) { patchesBySource.values.flatten() }
     val rows = remember(selectedDeviceSerial, installedPackages, supportedApps,
-        patchedRecords, deviceAppInfo, deviceAppLabels, updateInfoByPackage, sourceNamesByPackage) {
+        patchedRecords, deviceInstalledAppInfo, deviceAppLabels, updateInfoByPackage, sourceNamesByPackage, catalogPatches) {
         val supported = supportedApps.associateBy { it.packageName }
         val history = patchedRecords.associateBy { it.installedPackageName }
         installedPackages.map { pkg ->
             val record = history[pkg]
             val app = supported[pkg]
-            val metadata = deviceAppInfo[record?.packageName ?: pkg]
+            // Read the exact installed package, never the original historical key.
+            val metadata = deviceInstalledAppInfo[pkg]
             val installedVersion = metadata?.installedVersion?.takeIf { it.isNotBlank() }
+            val compatibility = devicePatchCompatibility(catalogPatches, pkg, installedVersion)
+            val separatePackage = if (record == null) {
+                installedSeparateHistoryPackage(pkg, installedPackages, patchedRecords)
+            } else null
             val update = record?.let { updateInfoByPackage[it.packageName] }
-            val target = if (record != null && hasConfirmedAppUpdate(update)) {
-                update?.appSuggestedVersion
-            } else app?.recommendedVersion
+            // A target must come from proven compatible patch metadata.
+            // For already patched apps use the validated, channel-aware recall;
+            // otherwise respect the installed app's stable/experimental channel.
+            val target = if (record != null) {
+                update?.appSuggestedVersion?.takeIf { hasConfirmedAppUpdate(update) }
+            } else app?.let { catalog ->
+                selectSupportedAppTarget(
+                    catalog.recommendedVersion, catalog.experimentalVersions,
+                    installedVersion.orEmpty()).version
+            }
             val newerVersion = installedVersion != null &&
                 !target.isNullOrBlank() && isNewerVersion(target, installedVersion)
             val status = classifyDeviceOverview(DeviceOverviewEvidence(
@@ -195,6 +219,8 @@ internal fun DeviceInventoryPane(
                 relevantPatchChange = hasConfirmedPatchUpdate(update),
                 localBuildVersionNewer = metadata?.installPending == true,
                 exactBuildVerified = metadata?.exactBuildVerified,
+                sourceCompatibility = compatibility,
+                separateLocalPackageInstalled = separatePackage != null,
             ))
             DeviceOverviewRow(
                 packageName = pkg,
@@ -210,6 +236,8 @@ internal fun DeviceInventoryPane(
                 targetVersion = target?.takeIf { newerVersion },
                 record = record,
                 sourceCount = sourceNamesByPackage[pkg]?.size ?: 0,
+                sourceCompatibility = compatibility,
+                separateLocalPackage = separatePackage,
                 appUpdateAvailable = newerVersion,
                 confirmedPatchUpdate = metadata?.exactBuildVerified == true &&
                     hasConfirmedPatchUpdate(update),
@@ -217,8 +245,10 @@ internal fun DeviceInventoryPane(
             )
         }
     }
-    var filter by remember(selectedDeviceSerial) { mutableStateOf(DeviceViewFilter.RELEVANT) }
-    var sort by remember(selectedDeviceSerial) { mutableStateOf(DeviceInventorySort.STATUS_FIRST) }
+    // Default means actionable updates, NOT forensic signing/hash checks.
+    var filter by remember(selectedDeviceSerial) { mutableStateOf(DeviceViewFilter.UPDATES) }
+    var diagnosticsVisible by remember(selectedDeviceSerial) { mutableStateOf(false) }
+    var sort by remember(selectedDeviceSerial) { mutableStateOf(DeviceInventorySort.NAME_ASC) }
     val supportedPackages = remember(supportedApps) { supportedApps.map { it.packageName }.toSet() }
     val relevantCount = rows.count { it.packageName in supportedPackages || it.record != null }
     val supportedCount = rows.count { it.packageName in supportedPackages }
@@ -226,8 +256,16 @@ internal fun DeviceInventoryPane(
     // is counted independently, even when app upgrade takes visual priority.
     val appUpdateCount = rows.count { it.appUpdateAvailable }
     val patchUpdateCount = rows.count { it.confirmedPatchUpdate }
-    val needsCount = rows.count { deviceOverviewPriority(it.status) <= 3 }
-    val verifiedCount = rows.count { it.status == DeviceOverviewStatus.EXACT_BUILD_VERIFIED }
+    val updateCount = confirmedDeviceUpdateCount(rows.map {
+        DeviceUpdateFacts(it.appUpdateAvailable, it.confirmedPatchUpdate)
+    })
+    val technicalReviewCount = rows.count { deviceTechnicalReview(it.status) }
+    val verifiedCount = rows.count { row ->
+        row.record?.let { record ->
+            deviceInstalledAppInfo[row.packageName]?.exactBuildVerified == true &&
+                row.installedVersion?.removePrefix("v") == record.apkVersion.removePrefix("v")
+        } == true
+    }
     val visible = remember(rows, searchQuery, filter, sort, supportedPackages) {
         val matching = 
         rows.filter { row ->
@@ -235,25 +273,32 @@ internal fun DeviceInventoryPane(
                 row.packageName.contains(searchQuery, ignoreCase = true) ||
                 row.displayName.contains(searchQuery, ignoreCase = true)) &&
                 when (filter) {
+                    DeviceViewFilter.UPDATES ->
+                        DeviceUpdateFacts(row.appUpdateAvailable, row.confirmedPatchUpdate).hasConfirmedUpdate
                     DeviceViewFilter.RELEVANT ->
                         row.packageName in supportedPackages || row.record != null
                     DeviceViewFilter.APP_UPDATES -> row.appUpdateAvailable
                     DeviceViewFilter.PATCH_UPDATES -> row.confirmedPatchUpdate
                     DeviceViewFilter.ALL -> true
-                    DeviceViewFilter.NEEDS_ATTENTION -> deviceOverviewPriority(row.status) <= 3
+                    DeviceViewFilter.NEEDS_ATTENTION -> deviceTechnicalReview(row.status)
                     DeviceViewFilter.PATCHABLE -> row.status == DeviceOverviewStatus.PATCH_CANDIDATE
-                    DeviceViewFilter.VERIFIED -> row.status == DeviceOverviewStatus.EXACT_BUILD_VERIFIED
+                    DeviceViewFilter.VERIFIED -> row.record?.let { record ->
+                        deviceInstalledAppInfo[row.packageName]?.exactBuildVerified == true &&
+                            row.installedVersion?.removePrefix("v") == record.apkVersion.removePrefix("v")
+                    } == true
                     DeviceViewFilter.VERSION_MATCH -> row.status == DeviceOverviewStatus.VERSION_MATCH_UNVERIFIED
                     DeviceViewFilter.SIGNER_CONFLICT ->
                         row.status == DeviceOverviewStatus.SIGNER_CONFLICT
                     DeviceViewFilter.LOCAL_BUILD_REVIEW ->
                         row.status == DeviceOverviewStatus.LOCAL_BUILD_REVIEW
                     DeviceViewFilter.REVIEW_REQUIRED ->
-                        row.status == DeviceOverviewStatus.REVIEW_REQUIRED
+                        row.status == DeviceOverviewStatus.REVIEW_REQUIRED ||
+                            row.status == DeviceOverviewStatus.PATCH_SOURCE_UNVERIFIED
                     DeviceViewFilter.OUTSIDE_CATALOG ->
                         row.status == DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG
                     DeviceViewFilter.OTHER ->
                         row.status == DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG ||
+                        row.status == DeviceOverviewStatus.PATCH_VERSION_INCOMPATIBLE ||
                         row.status == DeviceOverviewStatus.REVIEW_REQUIRED
                 }
         }
@@ -268,7 +313,7 @@ internal fun DeviceInventoryPane(
         ) {
             Text(
                 text = stringResource(Res.string.device_overview_summary,
-                    installedPackages.size, supportedCount, needsCount),
+                    installedPackages.size, supportedCount, updateCount),
                 style = MorpheTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
@@ -311,14 +356,15 @@ internal fun DeviceInventoryPane(
             }
             AppLabelIndexState.NOT_STARTED -> Unit
         }
-        Text(
-            text = stringResource(Res.string.device_overview_disclaimer),
-            style = MorpheTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        // Status selection and order are independent of search and available on
-        // every device. Reuse the same filter state as the quick-access chips.
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        // Diagnostic warnings and sorting never compete with confirmed updates.
+        if (diagnosticsVisible) {
+            Text(
+                text = stringResource(Res.string.device_overview_disclaimer),
+                style = MorpheTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            // Advanced filters and technical sorting remain available on demand.
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val compact = maxWidth < 600.dp
             if (compact) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -356,32 +402,51 @@ internal fun DeviceInventoryPane(
                 }
             }
         }
+        }
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            MorpheChoiceChip(text = stringResource(Res.string.device_updates_count, updateCount),
+                active = filter == DeviceViewFilter.UPDATES,
+                onClick = { filter = DeviceViewFilter.UPDATES })
             MorpheChoiceChip(text = stringResource(Res.string.device_overview_relevant, relevantCount),
                 active = filter == DeviceViewFilter.RELEVANT,
                 onClick = { filter = DeviceViewFilter.RELEVANT })
-            MorpheChoiceChip(text = stringResource(Res.string.device_overview_apps_to_update, appUpdateCount),
-                active = filter == DeviceViewFilter.APP_UPDATES,
-                onClick = { filter = DeviceViewFilter.APP_UPDATES })
-            MorpheChoiceChip(text = stringResource(Res.string.device_overview_patches_to_update, patchUpdateCount),
-                active = filter == DeviceViewFilter.PATCH_UPDATES,
-                onClick = { filter = DeviceViewFilter.PATCH_UPDATES })
             MorpheChoiceChip(text = stringResource(Res.string.device_overview_all, rows.size),
-                active = filter == DeviceViewFilter.ALL, onClick = { filter = DeviceViewFilter.ALL })
-            MorpheChoiceChip(text = stringResource(Res.string.device_overview_needs, needsCount),
-                active = filter == DeviceViewFilter.NEEDS_ATTENTION,
-                onClick = { filter = DeviceViewFilter.NEEDS_ATTENTION })
-            MorpheChoiceChip(text = stringResource(Res.string.device_overview_verified_count, verifiedCount),
-                active = filter == DeviceViewFilter.VERIFIED,
-                onClick = { filter = DeviceViewFilter.VERIFIED })
+                active = filter == DeviceViewFilter.ALL,
+                onClick = { filter = DeviceViewFilter.ALL })
+            MorpheChoiceChip(text = stringResource(
+                    if (diagnosticsVisible) Res.string.device_diagnostics_hide
+                    else Res.string.device_diagnostics_show),
+                active = diagnosticsVisible,
+                onClick = {
+                    diagnosticsVisible = !diagnosticsVisible
+                    filter = if (diagnosticsVisible) DeviceViewFilter.RELEVANT
+                        else DeviceViewFilter.UPDATES
+                })
+            if (diagnosticsVisible) {
+                MorpheChoiceChip(text = stringResource(Res.string.device_overview_apps_to_update, appUpdateCount),
+                    active = filter == DeviceViewFilter.APP_UPDATES,
+                    onClick = { filter = DeviceViewFilter.APP_UPDATES })
+                MorpheChoiceChip(text = stringResource(Res.string.device_overview_patches_to_update, patchUpdateCount),
+                    active = filter == DeviceViewFilter.PATCH_UPDATES,
+                    onClick = { filter = DeviceViewFilter.PATCH_UPDATES })
+                MorpheChoiceChip(text = stringResource(Res.string.device_diagnostics_cases_count, technicalReviewCount),
+                    active = filter == DeviceViewFilter.NEEDS_ATTENTION,
+                    onClick = { filter = DeviceViewFilter.NEEDS_ATTENTION })
+                MorpheChoiceChip(text = stringResource(Res.string.device_overview_verified_count, verifiedCount),
+                    active = filter == DeviceViewFilter.VERIFIED,
+                    onClick = { filter = DeviceViewFilter.VERIFIED })
+            }
         }
         if (visible.isEmpty()) {
+            val noUpdates = filter == DeviceViewFilter.UPDATES && searchQuery.isBlank()
             YourAppsEmptyHint(
-                title = stringResource(Res.string.no_matches),
-                subtitle = stringResource(Res.string.device_overview_no_results),
+                title = stringResource(if (noUpdates) Res.string.device_updates_none
+                    else Res.string.no_matches),
+                subtitle = stringResource(if (noUpdates) Res.string.device_updates_none_explain
+                    else Res.string.device_overview_no_results),
             )
         } else {
             val listState = rememberLazyListState()
@@ -393,6 +458,8 @@ internal fun DeviceInventoryPane(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     items(visible, key = { it.packageName }) { row ->
+                        val confirmedUpdate = DeviceUpdateFacts(
+                            row.appUpdateAvailable, row.confirmedPatchUpdate).hasConfirmedUpdate
                         // Every installed app has details. Existing local-history
                         // entries keep their full patched-app editor; other entries
                         // open a read-only catalog/device dialog instead.
@@ -424,15 +491,27 @@ internal fun DeviceInventoryPane(
                                             style = MorpheTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
+                                    if (diagnosticsVisible) {
                                     // Only an exact installed APK hash match proves the local
                                     // patch-source snapshot is also installed on this device.
                                     val patchInfo = when {
                                         row.status == DeviceOverviewStatus.OUTSIDE_PATCH_CATALOG ->
                                             stringResource(Res.string.device_overview_outside_source)
-                                        row.record == null ->
-                                            stringResource(Res.string.device_overview_patch_candidate_count,
-                                                row.sourceCount)
-                                        deviceAppInfo[row.record.packageName]?.exactBuildVerified == true -> {
+                                        row.separateLocalPackage != null ->
+                                            stringResource(Res.string.device_overview_separate_package,
+                                                row.separateLocalPackage)
+                                        row.record == null -> when (row.sourceCompatibility) {
+                                            DevicePatchCompatibility.COMPATIBLE ->
+                                                stringResource(Res.string.device_overview_patch_candidate_count,
+                                                    row.sourceCount)
+                                            DevicePatchCompatibility.INCOMPATIBLE ->
+                                                stringResource(Res.string.device_overview_patch_version_not_supported)
+                                            DevicePatchCompatibility.UNKNOWN_VERSION ->
+                                                stringResource(Res.string.device_overview_patch_version_unknown)
+                                            DevicePatchCompatibility.NO_SOURCE ->
+                                                stringResource(Res.string.device_overview_patch_source_missing)
+                                        }
+                                        deviceInstalledAppInfo[row.packageName]?.exactBuildVerified == true -> {
                                             val relevantUpdates = updateInfoByPackage[row.record.packageName]
                                                 ?.sources.orEmpty()
                                                 .filter { src -> src.hasRelevantChanges &&
@@ -462,14 +541,27 @@ internal fun DeviceInventoryPane(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
+                                    }
                                 }
                                 Column(
                                     horizontalAlignment = Alignment.End,
                                     verticalArrangement = Arrangement.spacedBy(3.dp),
                                 ) {
-                                    Text(stringResource(deviceLabel(row.status)),
-                                        style = MorpheTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary)
+                                    if (diagnosticsVisible || confirmedUpdate) {
+                                        val statusText = if (diagnosticsVisible) {
+                                            stringResource(deviceLabel(row.status))
+                                        } else when {
+                                            row.appUpdateAvailable && row.confirmedPatchUpdate ->
+                                                stringResource(Res.string.device_updates_both)
+                                            row.appUpdateAvailable ->
+                                                stringResource(Res.string.device_overview_app_update)
+                                            else -> stringResource(Res.string.device_overview_patch_update)
+                                        }
+                                        Text(statusText,
+                                            style = MorpheTheme.typography.bodySmall,
+                                            color = if (confirmedUpdate) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                     Text(stringResource(
                                             Res.string.device_overview_installed_app_version,
                                             row.installedVersion?.let { "v" + it.removePrefix("v") }

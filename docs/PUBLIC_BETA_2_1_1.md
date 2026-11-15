@@ -1,4 +1,4 @@
-# Morphe Desktop Custom 2.1.1-beta.3 — Unofficial public update
+# Morphe Desktop Custom 2.1.1-beta.4 — Unofficial public update
 
 **Unofficial community-maintained derivative. Not associated with, endorsed by or
 published on behalf of the original Morphe project.** The upstream name and
@@ -7,10 +7,16 @@ trademarks remain with their owners. See [NOTICE](../NOTICE) and
 
 ## Scope
 
-This public update contains the prior beta.2 legacy-MPP backward-compatibility
-fix plus consistent historical app-name presentation and patch-scoped update
-evidence across the Home UI. Source, resources
-and regressions are integrity-pinned at this commit. Previously accepted Windows
+This public update retains the beta.2/beta.3 legacy-MPP loader, historical
+app-name presentation and per-app source update rules. It adds read-only
+exact signed-APK identification independent of the *currently configured*
+keystore, separate original/renamed Android package device facts, patch
+compatibility by installed version, and an update-first UI which does not
+claim signer/forensic checks as new app or patch updates. Each catalog-supported
+experimental app version can be searched separately online without changing
+stable update suggestions or downloading an APK. Missing German update-check
+translations and positive/negative regressions are included. All source,
+resources and regressions are integrity-pinned at this public commit. Previously accepted Windows
 UI behavior is not automatically accepted for this new binary. The
 [`public_beta_source_manifest.tsv`](../tools/public_beta_source_manifest.tsv)
 lists the exact Git blob hash of every relevant product/build/resource file.

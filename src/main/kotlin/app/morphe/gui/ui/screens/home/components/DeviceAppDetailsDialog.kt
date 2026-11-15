@@ -48,6 +48,29 @@ internal fun deviceAppDetailsTitle(
     androidResolvedName = androidDisplayName,
 )
 
+
+/**
+ * A lookup action is ONLY a web search. It neither downloads nor installs an APK,
+ * and experimental support never promotes an app to a stable update.
+ * Resolve from currently loaded patch metadata rather than guessed versions.
+ */
+internal data class ExperimentalVersionSearchLink(val version: String, val url: String)
+
+internal fun experimentalVersionSearchLinks(app: SupportedApp?): List<ExperimentalVersionSearchLink> {
+    if (app == null || app.packageName.isBlank()) return emptyList()
+    val stable = app.supportedVersions.map { it.removePrefix("v") }.toSet()
+    return app.experimentalVersions.asSequence()
+        .map { it.removePrefix("v").trim() }
+        .filter { it.isNotEmpty() && it !in stable }
+        .distinct()
+        .mapNotNull { version ->
+            SupportedApp.getDownloadUrl(app.packageName, version)
+                ?.takeIf { it.isNotBlank() }
+                ?.let { ExperimentalVersionSearchLink(version, it) }
+        }
+        .toList()
+}
+
 /** Source patches available for one package. Never interpreted as applied patches. */
 internal data class DevicePatchSourceDetails(
     val sourceName: String,
@@ -74,6 +97,7 @@ internal fun DeviceAppDetailsDialog(
     deviceInfo: DeviceAppInfo?,
     patchSources: List<DevicePatchSourceDetails>,
     onDismiss: () -> Unit,
+    separateLocalPackage: String? = null,
     resolvedDisplayName: String? = null,
 ) {
     val uriHandler = LocalUriHandler.current
@@ -81,6 +105,7 @@ internal fun DeviceAppDetailsDialog(
     val installed = deviceInfo?.installedVersion?.takeIf(String::isNotBlank)
     val target = app?.recommendedVersion?.takeIf(String::isNotBlank)
     val url = target?.let { SupportedApp.getDownloadUrl(packageName, it) }
+    val experimentalLookups = experimentalVersionSearchLinks(app)
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -178,6 +203,13 @@ internal fun DeviceAppDetailsDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    separateLocalPackage?.let { other ->
+                        Text(
+                            stringResource(Res.string.device_overview_separate_package, other),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                     HorizontalDivider()
                     Text(
                         stringResource(Res.string.device_details_compatibility),
@@ -202,6 +234,23 @@ internal fun DeviceAppDetailsDialog(
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
                             )
+                            if (experimentalLookups.isNotEmpty()) {
+                                Text(
+                                    stringResource(Res.string.device_details_experimental_lookup_hint),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                experimentalLookups.forEach { lookup ->
+                                    OutlinedButton(
+                                        onClick = { uriHandler.openUri(lookup.url) },
+                                    ) {
+                                        Text(stringResource(
+                                            Res.string.device_details_find_experimental_version,
+                                            lookup.version,
+                                        ))
+                                    }
+                                }
+                            }
                         }
                         if (target != null) {
                             Text(
