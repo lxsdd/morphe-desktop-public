@@ -37,6 +37,14 @@ class PublicPreviewDeliveryContractTest(unittest.TestCase):
             self.assertIn(name, self.source)
         self.assertIn("./gradlew build --no-daemon --console=plain", self.source)
 
+    def test_expected_absent_preview_release_tag_does_not_raise_on_404(self):
+        # Regression: gh api GET /releases/tags/<new tag> returns 404 before
+        # the first publication and PowerShell -ErrorActionPreference Stop
+        # can terminate the job even with stderr redirected to null.
+        self.assertIn('gh api "repos/$repo/releases?per_page=100"', self.source)
+        self.assertIn("releaseInventory | Where-Object", self.source)
+        self.assertNotIn('gh api "repos/$repo/releases/tags/$tag"', self.source)
+
     def test_zip_checksum_readback_and_rollbacks_retained(self):
         self.assertIn("gh release create", self.source)
         self.assertIn("--prerelease", self.source)

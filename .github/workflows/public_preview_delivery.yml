@@ -89,8 +89,13 @@ jobs:
           if (-not $qualified) { throw 'No complete exact SHA 3-OS and JAR qualification' }
           $short = $sha.Substring(0,12)
           $tag = "custom-v2.2-core-preview-$short"
-          $prior = & gh api "repos/$repo/releases/tags/$tag" 2>$null
-          if ($LASTEXITCODE -eq 0) { throw "Refusing to replace existing release $tag" }
+          # An absent release/tag is normal. Avoid a 404 gh api call: PowerShell
+          # treats redirected native stderr as terminating with Stop preference.
+          $releaseInventory = & gh api "repos/$repo/releases?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot enumerate existing public releases' }
+          if (@($releaseInventory | Where-Object { $_.tag_name -eq $tag }).Count -ne 0) {
+            throw "Refusing to replace existing release $tag"
+          }
           "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
           "SHORT_SHA=$short" >> $env:GITHUB_ENV
       - name: Setup pinned JDK 21
