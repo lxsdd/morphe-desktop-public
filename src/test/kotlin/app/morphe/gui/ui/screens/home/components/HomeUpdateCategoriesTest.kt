@@ -194,7 +194,7 @@ class HomeUpdateCategoriesTest {
         val ready = RecallUpdateInfo.SourceUpdate(
             name = "Ready", usedVersion = "1.0",
             resolvedVersion = "1.1", latestAvailableVersion = "1.1",
-            outdated = true, hasRelevantChanges = true, checkIncomplete = false,
+            outdated = true, hasRelevantChanges = true, checkIncomplete = false, metadataKnown = true,
         )
         val evidence = info(sources = listOf(missing, changelog, ready))
         assertEquals(listOf(

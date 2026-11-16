@@ -597,7 +597,7 @@ c5298a4484bd2f784968ae902b510fdcd8ab9c36	src/test/kotlin/app/morphe/gui/ui/scree
 a190838d3982c28b5f84017069e5efa26b94d961	src/test/kotlin/app/morphe/gui/ui/screens/home/components/DeviceUpdateAssessmentTest.kt
 eb4a9272529be9e19621a832d454957d98c60760	src/test/kotlin/app/morphe/gui/ui/screens/home/components/DeviceVersionCodeUpdateWarningTest.kt
 50ab2c6344b74b50d60621ee23f361a9d04836aa	src/test/kotlin/app/morphe/gui/ui/screens/home/components/ExperimentalVersionSearchLinksTest.kt
-e84930a8b9b0d71848cccaf966180d4c7cbb34a2	src/test/kotlin/app/morphe/gui/ui/screens/home/components/HomeUpdateCategoriesTest.kt
+37ad054438d50cb77e5e4e7a10cab337b6974f7e	src/test/kotlin/app/morphe/gui/ui/screens/home/components/HomeUpdateCategoriesTest.kt
 4059347e359d93396701491b99ab7a43b02b2663	src/test/kotlin/app/morphe/gui/ui/screens/home/components/PatchedAppDetailActionTest.kt
 f1713884a2d2e648e96276bc1ebf02613c5fd36a	src/test/kotlin/app/morphe/gui/ui/screens/home/components/PatchedAppReinstallActionTest.kt
 ac636792f51680e0107f87d94950ed317f6cb379	src/test/kotlin/app/morphe/gui/ui/screens/home/components/VerifiedLocalIconSourceTest.kt
