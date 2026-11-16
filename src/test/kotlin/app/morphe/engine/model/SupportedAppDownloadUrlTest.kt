@@ -43,6 +43,15 @@ class SupportedAppDownloadUrlTest {
     }
 
     @Test
+    fun aUniqueRequiredBuildCodeSurvivesWhenAbiMappingIsMissing() {
+        val catalog = app().copy(versionBuildCodes = mapOf("1.2.3" to setOf(120)))
+        assertEquals(url("com.example~1.2.3~all~120"), catalog.downloadUrl("1.2.3"))
+        assertEquals(setOf(120), catalog.requiredBuildCodes("v1.2.3"))
+        val ambiguous = app().copy(versionBuildCodes = mapOf("1.2.3" to setOf(122, 120)))
+        assertEquals(url("com.example~1.2.3~all"), ambiguous.downloadUrl("1.2.3"))
+    }
+
+    @Test
     fun anotherFormFactorIsNamedLast() {
         val codes = mapOf("1.2.3" to mapOf(SupportedAbi.ARM64_V8A to 45))
         assertEquals(url("com.example~1.2.3~all~45~tv"), app(codes, FormFactor.TV).downloadUrl("1.2.3"))

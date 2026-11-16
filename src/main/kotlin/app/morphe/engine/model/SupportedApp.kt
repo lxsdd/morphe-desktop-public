@@ -27,7 +27,10 @@ data class SupportedApp(
     /** Select the supported ABI build and form factor for this version only, never promote experimental to stable. */
     fun downloadUrl(version: String?): String? {
         val codes = version?.let { versionAbiBuildCodes[it.removePrefix("v")] ?: versionAbiBuildCodes[it] }
+        // A unique build restriction is useful even when the ABI mapping is absent.
+        // Multiple unqualified codes are ambiguous: never choose one arbitrarily.
         val buildCode = codes?.let { it[SupportedAbi.ARM64_V8A] ?: it.values.firstOrNull() }
+            ?: version?.let { requiredBuildCodes(it).singleOrNull() }
         return getDownloadUrl(packageName, version, buildCode, formFactor)
     }
 

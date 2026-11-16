@@ -56,3 +56,28 @@ The existing 2.2 local APK icon renderer is now controllable with an Appearance 
 The Custom device inventory may reuse **only existing local patched history** launcher icons, and only when the selected installed package matches the recorded installed package, its version matches, an explicit 64-digit output SHA-256 exists, and the inventory's *exactBuildVerified* attestation is true. Unknown, stale, changed, renamed, other-device or unverified packages always use the initial, never a misleading historical icon. No ADB icon reads/pulls, device mutations, private keystores, persistent icon caches or new privileged calls are introduced.
 
 Pure regressions cover positive exact-match, negative null/changed version/package/hash and unset attestation, unchanged package fallback, old config default, and serialization round-trip. This is a source-only Draft requiring full exact-commit Windows/Linux/macOS native tests and JAR validation, not owner hardware GUI acceptance or publication.
+
+## Supported build-code visibility and qualified searches
+
+The Custom supported-app overview, expanded stable/experimental version chips,
+patched-app source details, and read-only installed-device detail now print **every
+catalog-required Android build code** for that version in stable numeric order.
+A version with no build-code restrictions retains its previous label. The
+existing source-specific stable/experimental division and confirmed update
+counts are unchanged; a version name alone is not claimed to match every APK
+build. Long chip labels can reveal their full contents via the existing tooltip.
+
+Optional web-search actions in expanded source and device details now use the
+same per-version, ABI-aware and form-factor-aware query builder as the main
+supported-app catalog. If patch metadata supplies just one build code but no
+ABI mapping, that exact code is kept; ambiguous unqualified multiple build
+codes are never reduced to an invented primary build. Experimental web lookup
+remains explicitly optional and never changes stable update eligibility,
+downloads, installed APK metadata, signer or ownership facts.
+
+Native positive/negative tests exercise unqualified/single/multiple build
+metadata, deterministic formatting, stable-versus-experimental isolation,
+duplicate experimental suggestions, and version/build/form-factor query
+construction. No user device, local file, keystore, private source or public
+binary is modified. Source-only Draft, awaiting exact public 3-OS and JAR CI;
+not an owner-tested new version.
