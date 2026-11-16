@@ -91,7 +91,7 @@ jobs:
           gh release download "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$CURRENT_ZIP" --dir "$d"
           gh release download "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS.txt --dir "$d"
           printf '%s  %s\n' "$ZIP_SHA256" "$d/$CURRENT_ZIP" | sha256sum -c -
-          grep -Fx "$ZIP_SHA256  $CURRENT_ZIP" "$d/SHA256SUMS.txt"
+          tr -d '\r' < "$d/SHA256SUMS.txt" | grep -Fx "$ZIP_SHA256  $CURRENT_ZIP"
           echo 'NEW_RELEASE_READBACK=PASS'
       - name: Delete only approved older public release IDs, preserve all Git tags and source
         shell: bash
