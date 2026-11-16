@@ -171,4 +171,53 @@ class HomeUpdateCategoriesTest {
         // An unavailable changelog is not proof of a newer app-scoped patch.
         assertFalse(hasConfirmedPatchUpdate(info(sources = listOf(changelog))))
     }
+    @Test
+    fun `experimental app updates do not masquerade as stable updates`() {
+        val stable = info(appOutdated = true)
+        val experimental = stable.copy(appChannel = RecallUpdateInfo.AppChannel.EXPERIMENTAL)
+        assertTrue(hasConfirmedAppUpdate(stable))
+        assertFalse(isExperimentalAppUpdate(stable))
+        assertTrue(hasConfirmedAppUpdate(experimental))
+        assertTrue(isExperimentalAppUpdate(experimental))
+        assertFalse(isExperimentalAppUpdate(
+            experimental.copy(metadataResolution = UpdateMetadataResolution.UNAVAILABLE)
+        ))
+        assertFalse(isExperimentalAppUpdate(null))
+    }
+
+    @Test
+    fun `incomplete checks reveal exact app names without suggesting unavailable updates`() {
+        fun history(pkg: String, name: String) = PatchedAppRecord(
+            packageName = pkg,
+            displayName = name,
+            apkVersion = "1.0",
+            inputApkPath = "/in/not-read",
+            outputApkPath = "/out/not-read",
+            patchedAt = 0L,
+            patchedWithMorpheVersion = "synthetic",
+        )
+        val records = listOf(
+            history("pkg.third", "Third record"),
+            history("pkg.first", "First record"),
+            history("pkg.good", "Proven record"),
+        )
+        val source = RecallUpdateInfo.SourceUpdate(
+            name = "Unavailable community source", usedVersion = "1.0",
+            resolvedVersion = null, latestAvailableVersion = null,
+            outdated = false, checkIncomplete = true,
+        )
+        val infoByPackage = mapOf(
+            "pkg.first" to info(suggested = null, resolution = UpdateMetadataResolution.UNAVAILABLE),
+            "pkg.third" to info(sources = listOf(source)),
+            "pkg.good" to info(appOutdated = false, suggested = "1.0"),
+        )
+        val names = incompleteUpdateRecordNames(
+            records, infoByPackage, mapOf("pkg.third" to "A display name"),
+        )
+        assertEquals(listOf("A display name", "First record"), names)
+        assertEquals(2, incompleteUpdateChecks(records, infoByPackage))
+        assertFalse(hasConfirmedAppUpdate(infoByPackage["pkg.first"]))
+        assertFalse(hasConfirmedPatchUpdate(infoByPackage["pkg.third"]))
+    }
+
 }

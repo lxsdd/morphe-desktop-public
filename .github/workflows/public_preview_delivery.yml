@@ -88,7 +88,15 @@ jobs:
           }
           if (-not $qualified) { throw 'No complete exact SHA 3-OS and JAR qualification' }
           $short = $sha.Substring(0,12)
-          $tag = "custom-v2.2-core-preview-$short"
+          $versionLine = @(Get-Content -LiteralPath 'gradle.properties' | Where-Object {
+            $_ -match '^\s*version\s*=\s*\S+\s*$'
+          })
+          if ($versionLine.Count -ne 1) { throw 'Expected exactly one Gradle version declaration' }
+          $releaseVersion = ($versionLine[0] -split '=', 2)[1].Trim()
+          if ($releaseVersion -notmatch '^\d+\.\d+\.\d+-core-preview\.\d+$') {
+            throw "Refusing release without a specifically versioned Custom core preview: $releaseVersion"
+          }
+          $tag = "custom-v$releaseVersion-$short"
           # An absent release/tag is normal. Avoid a 404 gh api call: PowerShell
           # treats redirected native stderr as terminating with Stop preference.
           $releaseInventory = & gh api "repos/$repo/releases?per_page=100" | ConvertFrom-Json
@@ -97,6 +105,7 @@ jobs:
             throw "Refusing to replace existing release $tag"
           }
           "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
+          "RELEASE_VERSION=$releaseVersion" >> $env:GITHUB_ENV
           "SHORT_SHA=$short" >> $env:GITHUB_ENV
       - name: Setup pinned JDK 21
         uses: actions/setup-java@v6.0.1
@@ -165,10 +174,10 @@ jobs:
             "SOURCE_GIT_SHA=$env:EXACT_SHA", "JAR_SHA256=$jarHash",
             'OFFICIAL_DESKTOP_BASE=v2.2.0', 'OFFICIAL_PATCHER_BASE=v2.4.0',
             'This preview is not the private canonical full build or Desktop 2.3 prerelease.',
-            'The internal app version may still show 2.1.1 until full 2.2 integration.',
+            "Internal version: $env:RELEASE_VERSION (public core preview, not private full 2.2).",
             'No private credentials, user APKs or signing keys are distributed.'
           ) | Set-Content -LiteralPath (Join-Path $stage 'SOURCE_PROVENANCE.txt') -Encoding utf8
-          $zipName = "Morphe-Desktop-Custom-2.2-CORE-PREVIEW-$env:SHORT_SHA.zip"
+          $zipName = "Morphe-Desktop-Custom-$env:RELEASE_VERSION-$env:SHORT_SHA.zip"
           $zip = Join-Path $dist $zipName
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
           $z = [System.IO.Compression.ZipFile]::OpenRead($zip)
@@ -193,7 +202,7 @@ jobs:
             'Exact public 3-OS native CI and Windows regression were required before publishing.',
             'Previous public beta.4 and private release drafts were not deleted.'
           ) | Set-Content -LiteralPath $notes -Encoding utf8
-          & gh release create $env:RELEASE_TAG $zip (Join-Path $dist 'SHA256SUMS.txt') --repo $repo --target $env:EXACT_SHA --title "Morphe Desktop Custom - 2.2 core preview ($env:SHORT_SHA)" --notes-file $notes --prerelease
+          & gh release create $env:RELEASE_TAG $zip (Join-Path $dist 'SHA256SUMS.txt') --repo $repo --target $env:EXACT_SHA --title "Morphe Desktop Custom - $env:RELEASE_VERSION ($env:SHORT_SHA)" --notes-file $notes --prerelease
           if ($LASTEXITCODE -ne 0) { throw 'Owner-approved public release creation failed' }
           $readback = Join-Path $dist 'verified-download'
           New-Item -ItemType Directory -Force -Path $readback | Out-Null

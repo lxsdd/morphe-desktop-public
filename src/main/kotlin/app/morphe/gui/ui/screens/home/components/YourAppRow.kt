@@ -115,7 +115,11 @@ fun YourAppRow(
                 }
                 if (hasAppUpdate) {
                     MorpheBadge(
-                        text = stringResource(Res.string.home_your_apps_app_update_status),
+                        text = if (isExperimentalAppUpdate(updateInfo)) {
+                            stringResource(Res.string.home_your_apps_experimental_update_status)
+                        } else {
+                            stringResource(Res.string.home_your_apps_app_update_status)
+                        },
                         tone = MorpheBadgeTone.Primary,
                     )
                 }

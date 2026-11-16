@@ -45,6 +45,21 @@ class PublicPreviewDeliveryContractTest(unittest.TestCase):
         self.assertIn("releaseInventory | Where-Object", self.source)
         self.assertNotIn('gh api "repos/$repo/releases/tags/$tag"', self.source)
 
+    def test_source_bound_custom_version_not_stale_upstream_update(self):
+        # A Custom 2.2 preview must not identify itself as upstream 2.1.1.
+        import re
+        gradle = pathlib.Path("gradle.properties").read_text(encoding="utf-8")
+        self.assertRegex(gradle, r"(?m)^version\s*=\s*\d+\.\d+\.\d+-core-preview\.\d+$")
+        checker = pathlib.Path("src/main/kotlin/app/morphe/engine/UpdateChecker.kt").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("api.github.com/repos/lxsdd/morphe-desktop-public/releases", checker)
+        self.assertNotIn("MorpheApp/morphe-desktop/refs/heads", checker)
+        self.assertIn("RELEASE_VERSION=$releaseVersion", self.source)
+        self.assertIn('custom-v$releaseVersion-$short', self.source)
+        self.assertNotIn('custom-v2.2-core-preview-$short', self.source)
+        self.assertNotIn('The internal app version may still show 2.1.1', self.source)
+
     def test_zip_checksum_readback_and_rollbacks_retained(self):
         self.assertIn("gh release create", self.source)
         self.assertIn("--prerelease", self.source)

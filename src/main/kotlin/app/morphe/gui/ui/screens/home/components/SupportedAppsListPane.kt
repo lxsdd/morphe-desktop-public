@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.model.PatchMetadata
@@ -131,9 +132,10 @@ internal fun SupportedAppsListPane(
     val confirmedAppUpdates = remember(patchedRecords, updateInfoByPackage) {
         patchedRecords.count { hasConfirmedAppUpdate(updateInfoByPackage[it.packageName]) }
     }
-    val uncheckedAppCount = remember(patchedRecords, updateInfoByPackage) {
-        incompleteUpdateChecks(patchedRecords, updateInfoByPackage)
+    val uncheckedNames = remember(patchedRecords, updateInfoByPackage, historyNames) {
+        incompleteUpdateRecordNames(patchedRecords, updateInfoByPackage, historyNames)
     }
+    val uncheckedAppCount = uncheckedNames.size
     val confirmedPatchUpdates = remember(patchedRecords, updateInfoByPackage, patchedStates) {
         patchedRecords.count {
             hasConfirmedPatchUpdate(updateInfoByPackage[it.packageName], patchedStates[it.packageName])
@@ -178,12 +180,26 @@ internal fun SupportedAppsListPane(
         )
         if (!isLoading && uncheckedAppCount > 0) {
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(Res.string.home_update_checks_incomplete, uncheckedAppCount),
-                style = MorpheTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp),
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(
+                        Res.string.home_update_checks_incomplete_named,
+                        uncheckedAppCount,
+                        uncheckedNames.joinToString(", "),
+                    ),
+                    style = MorpheTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onRetry, enabled = !isLoading) {
+                    Text(stringResource(Res.string.home_update_retry_check))
+                }
+            }
         }
         Spacer(modifier = Modifier.height(8.dp))
         val searchVisible = true

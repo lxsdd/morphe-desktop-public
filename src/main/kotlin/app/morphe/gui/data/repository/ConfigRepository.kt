@@ -231,7 +231,7 @@ open class ConfigRepository {
         if (current.userDidChooseUpdateChannel && saved != null) {
             return saved
         }
-        val derived = if (currentVersion.contains("dev")) {
+        val derived = if (currentVersion.contains("-")) {
             UpdateChannelPreference.DEV
         } else {
             UpdateChannelPreference.STABLE

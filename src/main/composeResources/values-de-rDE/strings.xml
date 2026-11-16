@@ -811,6 +811,8 @@
     <string name="home_update_source_not_loaded">Quelldaten fehlen</string>
     <string name="home_update_source_proof_missing">App-bezogener Änderungsnachweis fehlt</string>
     <string name="home_update_checks_incomplete">Update-Prüfung für %1$d gepatchte Apps unvollständig. Die Zähler zeigen nur bestätigte, patchkompatible Updates.</string>
+    <string name="home_update_checks_incomplete_named">Update-Prüfung für %1$d gepatchte Apps unvollständig: %2$s. Die Zähler zeigen nur bestätigte, kompatible Updates.</string>
+    <string name="home_update_retry_check">Erneut prüfen</string>
     <string name="home_update_checks_incomplete_short">Update-Prüfung unvollständig</string>
     <string name="home_your_apps_newer_patch_hint">Ein neuer Patch könnte die App aktualisieren. Unter „Update“ prüfen.</string>
     <string name="home_your_apps_device_version_ready">Gepatchte v%1$s bereit, auf Gerät v%2$s (kein erneutes Patchen nötig)</string>
@@ -820,6 +822,7 @@
     <string name="home_update_view_empty">Keine bestätigten Updates in dieser Kategorie</string>
     <string name="home_your_apps_patch_update_status">Patch-Update</string>
     <string name="home_your_apps_app_update_status">App-Update</string>
+    <string name="home_your_apps_experimental_update_status">Experimentelles App-Update</string>
     <string name="home_your_apps_patch_review_hint">Für diese App liegen relevante Patch-Änderungen vor. Details öffnen.</string>
     <string name="home_device_inventory_patched_record">In Morphe bereits gepatcht</string>
     <string name="home_device_installed_version">Geräteversion: %1$s</string>

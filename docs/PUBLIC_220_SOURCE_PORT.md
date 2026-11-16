@@ -166,3 +166,65 @@ is uploaded or linked as a real download. No private GitHub Actions runner,
 private repository checkout, private credential, key, device access, merge,
 paid resource or user-file mutation occurs. The public Draft remains separate
 from protected public main and published beta.4.
+
+## 2026-11-16 Custom distribution identity and truthful update diagnostics
+
+An owner Windows smoke screenshot of the *published, SHA-verified* public
+`custom-v2.2-core-preview-970ddcf0b271` exposed an actual production/UI
+integration defect: its generated version and executable JAR still identified
+as upstream `2.1.1`, and the inherited `UpdateChecker` compared that number
+to **MorpheApp/morphe-desktop**, thus misleadingly offering the upstream
+`2.2.0` download in a Custom 2.2 core preview. The upstream changelog button
+was similarly scoped to a different product. This is a **new, unpublished**
+public-source correction, not a retroactive change to already released bytes.
+
+- The **distribution** version now uses the precise prerelease identity
+  `2.2.0-core-preview.2` throughout Gradle, embedded CLI resources, JAR
+  metadata and app UI. It explicitly does NOT claim full private canonical
+  2.2 feature parity or silently promote the Core preview to official stable.
+- `UpdateChecker` now considers **only** properly tagged, non-draft releases
+  from `lxsdd/morphe-desktop-public`, with a single verified-shape ZIP asset
+  hosted on the exact same repository/tag. Stable preference never receives
+  prereleases; existing preview users can receive newer previews and stable
+  successors. Unknown tag shapes, wrong hosts, draft and malformed API data,
+  missing ZIPs and offline checks fail closed without inventing an update.
+  The Custom release notes button opens the exact matching GitHub release,
+  while `Herunterladen` opens its actual Custom ZIP; neither opens a different
+  official Morphe Desktop installation or changelog. User-selected update
+  channel preferences remain unchanged, default preview detection includes
+  `-core-preview`, and existing per-version suppression remains exact.
+- The owner-gated public Windows preview delivery workflow now reads the
+  running distribution version **from the immutable source `gradle.properties`**
+  when constructing its unique SHA-tagged release, title and filename;
+  existing release tags/assets cannot be overwritten. The 404-safe tag
+  preflight, complete exact-SHA public four-job CI contract, owner-label-only
+  activation, single executable Windows ZIP and real asset readback all stay
+  mandatory. Previous 2.2-Core preview and beta.4 remain usable fallbacks.
+- The patched-app overview now names which saved records have incomplete
+  app/source checks and offers an explicit **recheck** through the existing
+  source refresh callback. It does not claim a saved app to be fully current
+  merely because the confirmed-update count is zero. An available newer
+  experimental app version is labelled **Experimental app update** instead
+  of being visually mistaken for a stable patch target. Existing per-source
+  signer, APK version/build-code, package identity, device boundary, and
+  change-log provenance gates remain authoritative; no new sources are
+  auto-enabled or trusted and no user files/devices are modified by source
+  staging.
+- Native synthetic tests cover custom version ordering (including historic
+  public preview/beta tags), stable/experimental isolation, spoofed ZIP URLs,
+  absent/duplicated assets, invalid metadata, exact release URL and snapshot
+  versions, plus positive/negative experimental app badges and named unknown
+  source checks. Public CI independently pins the full executable source,
+  tests, resources and owner release workflow using SHA-identical manifest.
+
+Current official Morphe Patches stable release reached **v2.3.0** on Nov 16,
+with Android app-specific target compatibility distinct from a source release
+version. Existing patch source configuration determines whether the new bundle
+is actually loaded and whether the user's recorded per-app patches have
+relevant supported updates. A public repository build cannot attest to the
+owner's complete configured source list, its persisted trust, or their
+private device/patch receipt history: unresolved entries must remain unknown.
+
+This is a **Draft-only source block** until a new exact-SHA three-OS CI and
+independent JAR gate succeed. No new public ZIP, private CI, merge, tag,
+release or device action is authorized by implementing these corrections.
