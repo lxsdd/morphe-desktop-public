@@ -228,3 +228,41 @@ private device/patch receipt history: unresolved entries must remain unknown.
 This is a **Draft-only source block** until a new exact-SHA three-OS CI and
 independent JAR gate succeed. No new public ZIP, private CI, merge, tag,
 release or device action is authorized by implementing these corrections.
+
+## 2026-11-16 owner GUI observation: bounded scrolling and actual patch eligibility
+
+The owner's Windows screenshot of the 2.2-core preview exposed scrollable
+history rows painting into the fixed toolbar and stale list offsets when the
+filter/search/sort state changes. The fix adds `Modifier.clipToBounds()` to
+both supported-app and patched-history lazy list viewports, and resets each
+list's scroll index when the search, filter or sort mode changes. It does not
+alter file, APK, patch, device, signer, source or update eligibility state.
+Five source guard regressions plus the exact public native build are required.
+
+An independent audit of official Morphe Patches `v2.3.0` (released on
+2026-11-16 13:10:51 UTC) shows the newest supported targets per *official*
+app-specific compatibility catalog:
+- Reddit: newest stable `2026.40.0`; experimental `2026.46.0`.
+  Owner's `2026.45.0 → 2026.46.0` therefore remains **experimental**.
+- YouTube: newest stable `21.30.216`; experimental `21.45.82`,
+  matching the owner's installed version. This does not preclude new
+  **patch features** in the just-released bundle.
+- YouTube Music: newest stable `9.30.53` (matches owner version);
+  experimental `9.46.51`. New patches exist in the bundle.
+
+The other nine apps in the owner's twelve-item history (Amazon Shopping,
+CapCut, Facebook, Flightradar24, Kleinanzeigen, MEGA, Messenger, SoundCloud,
+Telegram Web) have **no app-specific target in this official three-app
+catalog**. Their actual status depends on configured *third-party* patch
+sources and exact released bundle metadata, neither available in this audit.
+It is not safe to declare these nine apps up-to-date or unsupported
+globally. This is a source-level audit and must not be represented as a
+successful live scan of the user's local patch source configuration.
+
+The public Draft already has independent source changes for Custom-only
+application release identity, the new `2.2.0-core-preview.2` version,
+Custom release URLs, experiment-specific app-update badges, and named
+incomplete checks with retry. This block leaves them intact. The previous
+public ZIP remains at its original older SHA; no release, merge or private
+runner is triggered by this source development.
+

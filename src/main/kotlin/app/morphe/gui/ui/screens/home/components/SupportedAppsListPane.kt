@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -264,6 +265,7 @@ internal fun SupportedAppsListPane(
                 onShowDetail = onShowDetail,
                 paneMaxHeight = paneMaxHeight,
                 showSearch = searchVisible,
+                scrollResetKey = Triple(filter, searchQuery, sortMode),
                 updateCategory = filter == AppListFilter.APP_UPDATES || filter == AppListFilter.PATCH_UPDATES,
             )
         } else when {
@@ -329,6 +331,11 @@ internal fun SupportedAppsListPane(
             }
             else -> {
                 val listState = rememberLazyListState()
+                // A different filter/search/sort is a new result list; never retain a
+                // scrolled index from the previously visible result category.
+                LaunchedEffect(filter, searchQuery, sortMode) {
+                    listState.scrollToItem(0)
+                }
                 val headerSearchAllowance = 150.dp
                 Box(
                     modifier = Modifier
@@ -336,7 +343,9 @@ internal fun SupportedAppsListPane(
                         .heightIn(
                             max = (paneMaxHeight - headerSearchAllowance)
                                 .coerceAtLeast(120.dp)
-                        ),
+                        )
+                        // The scrolled list must never paint over its fixed toolbar.
+                        .clipToBounds(),
                 ) {
                     LazyColumn(
                         state = listState,
