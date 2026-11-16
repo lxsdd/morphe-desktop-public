@@ -2052,12 +2052,18 @@ data class RecallUpdateInfo(
 ) {
     /** Preserve separate app and patch knowledge; unknown inputs never mean up-to-date. */
     fun classification(installedVersion: String?, installedPatchUpdateAvailable: Boolean? = null): AppUpdateClassification {
-        val knownHistory = sources.takeIf {
-            it.isNotEmpty() && it.all { src ->
-                !src.latestAvailableVersion.isNullOrBlank() || !src.resolvedVersion.isNullOrBlank()
-            }
+        // A newer repository release is not evidence that this application's patches changed.
+        // Prefer positive scoped proof even when another source is temporarily unavailable.
+        // Only a complete negative assessment may become "no patch update".
+        val patchFact: Boolean? = when {
+            sources.any { it.hasRelevantChanges && !it.checkIncomplete } -> true
+            sources.isNotEmpty() && sources.all { source ->
+                !source.checkIncomplete &&
+                    (!source.latestAvailableVersion.isNullOrBlank() ||
+                        !source.resolvedVersion.isNullOrBlank())
+            } -> false
+            else -> null
         }
-        val patchFact = knownHistory?.any { it.outdated || it.hasRelevantChanges }
         val liveVersion = installedVersion?.takeUnless { it.isBlank() || it.equals("unknown", ignoreCase = true) }
         return classifyAppUpdate(
             patchUpdateAvailable = if (liveVersion != null) installedPatchUpdateAvailable else patchFact,
