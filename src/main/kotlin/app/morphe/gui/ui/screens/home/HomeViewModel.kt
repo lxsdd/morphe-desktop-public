@@ -818,6 +818,7 @@ class HomeViewModel(
         val identities = current.map { it.source.id to it.source.name }
         val changedSources = relevantSourceUpdates[record.packageName].orEmpty()
         val incompleteSources = incompleteSourceChecks[record.packageName].orEmpty()
+        val checkedSources = checkedSourceChecks[record.packageName].orEmpty()
         val allSources = patchSourceManager.allSources.value
         val sources = record.sourcesSnapshot
             // Include only sources that provided patches for this record.
@@ -832,6 +833,15 @@ class HomeViewModel(
                 val cleanName = resolved?.source?.name ?: matchingSrc?.name
                     ?: PatchSourceNaming.sanitize(snap.sourceName, allSources)
                 val latest = resolved?.latestAvailableVersion ?: resolved?.resolvedVersion
+                // A source being loaded does not prove that this particular app was checked.
+                val scoped = resolved != null && snap.sourceId in checkedSources &&
+                    snap.sourceId !in incompleteSources
+                val sourceChannel = when (resolved?.channel) {
+                    PatchResolver.Channel.STABLE -> HomePatchBundleChannel.STABLE
+                    PatchResolver.Channel.PRERELEASE -> HomePatchBundleChannel.DEV
+                    PatchResolver.Channel.LOCAL -> HomePatchBundleChannel.LOCAL
+                    else -> HomePatchBundleChannel.UNKNOWN
+                }
                 RecallUpdateInfo.SourceUpdate(
                     name = cleanName,
                     usedVersion = snap.version,
@@ -840,7 +850,9 @@ class HomeViewModel(
                     outdated = isNewerVersion(latest, snap.version),
                     hasRelevantChanges = snap.sourceId in changedSources,
                     sourceId = snap.sourceId,
-                    checkIncomplete = snap.sourceId in incompleteSources || resolved == null,
+                    checkIncomplete = !scoped,
+                    channel = sourceChannel,
+                    metadataKnown = scoped && sourceChannel != HomePatchBundleChannel.UNKNOWN,
                 )
             }
         val app = apps.find { it.packageName == record.packageName }
@@ -953,6 +965,7 @@ class HomeViewModel(
         // Compare stable source IDs instead of mutable source display names.
         val relevant = mutableMapOf<String, Set<String>>()
         val incomplete = mutableMapOf<String, Set<String>>()
+        val checked = mutableMapOf<String, Set<String>>()
         val states = apps.associate { app ->
             val record = records[app.packageName]
             val output = record?.let { File(it.outputApkPath) }
@@ -960,6 +973,7 @@ class HomeViewModel(
                 else relevantUpdatedSources(record, app)
             if (proof.changed.isNotEmpty()) relevant[app.packageName] = proof.changed
             if (proof.unknown.isNotEmpty()) incomplete[app.packageName] = proof.unknown
+            if (proof.checked.isNotEmpty()) checked[app.packageName] = proof.checked
             val sourceUpdate = proof.changed.isNotEmpty()
             app.packageName to when {
                 record == null -> PatchedAppState.NEVER_PATCHED
@@ -973,6 +987,7 @@ class HomeViewModel(
         }
         relevantSourceUpdates = relevant
         incompleteSourceChecks = incomplete
+        checkedSourceChecks = checked
         states
     } catch (e: CancellationException) {
         throw e
@@ -1243,6 +1258,7 @@ class HomeViewModel(
 
     private var relevantSourceUpdates: Map<String, Set<String>> = emptyMap()
     private var incompleteSourceChecks: Map<String, Set<String>> = emptyMap()
+    private var checkedSourceChecks: Map<String, Set<String>> = emptyMap()
 
     private suspend fun relevantUpdatedSources(
         record: PatchedAppRecord,
@@ -1253,6 +1269,7 @@ class HomeViewModel(
         val names = appNameCandidates(app)
         val changed = mutableSetOf<String>()
         val unknown = mutableSetOf<String>()
+        val checked = mutableSetOf<String>()
         for (snapshot in record.sourcesSnapshot) {
             val sourceId = matchHistoricalSourceId(snapshot, identities)
             val resolved = usable.firstOrNull { it.source.id == sourceId }
@@ -1272,12 +1289,15 @@ class HomeViewModel(
                 unavailable = resolved == null || !hasCompatiblePatches || resolved.isOffline ||
                     resolved.source.type == PatchSourceType.LOCAL,
             )) {
-                ScopedSourceChange.CHANGED -> changed += snapshot.sourceId
+                ScopedSourceChange.CHANGED -> {
+                    changed += snapshot.sourceId
+                    checked += snapshot.sourceId
+                }
                 ScopedSourceChange.UNKNOWN -> unknown += snapshot.sourceId
-                ScopedSourceChange.NO_CHANGE -> Unit
+                ScopedSourceChange.NO_CHANGE -> checked += snapshot.sourceId
             }
         }
-        return PatchSourceAssessment(changed, unknown)
+        return PatchSourceAssessment(changed, unknown, checked)
     }
 
     private fun appNameCandidates(app: SupportedApp): Set<String> = buildSet {
@@ -1999,6 +2019,8 @@ internal enum class ScopedSourceChange { CHANGED, NO_CHANGE, UNKNOWN }
 internal data class PatchSourceAssessment(
     val changed: Set<String> = emptySet(),
     val unknown: Set<String> = emptySet(),
+    /** App-scoped source checks with a definitive positive or negative outcome. */
+    val checked: Set<String> = emptySet(),
 )
 
 /** Stable identity survives renaming; legacy name-only IDs require a unique match. */
@@ -2088,6 +2110,10 @@ data class RecallUpdateInfo(
         val sourceId: String = name,
         /** Offline, missing release info or changelog; never a confirmed no-update. */
         val checkIncomplete: Boolean = false,
+        /** Verified release channel, not inferred from a display name. */
+        val channel: HomePatchBundleChannel = HomePatchBundleChannel.UNKNOWN,
+        /** True only after a definitive check for this app/source. */
+        val metadataKnown: Boolean = false,
     )
 
     val patchesChanged: Boolean get() = sources.any { it.hasRelevantChanges }
