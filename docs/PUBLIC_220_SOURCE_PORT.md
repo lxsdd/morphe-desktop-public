@@ -266,3 +266,24 @@ incomplete checks with retry. This block leaves them intact. The previous
 public ZIP remains at its original older SHA; no release, merge or private
 runner is triggered by this source development.
 
+
+## 2026-11-16 current patch-source runtime gate (new public source, no release)
+
+The existing Patcher 2.4.0 Ubuntu smoke test pinned official 2.1.0,
+rushiranpise 1.23.1 and riky 2.3.2. It did not cover the November 16
+official **2.3.0** release nor five other configured remote sources.
+An additional native regression now fetches SHA-256-pinned *published MPP*
+assets for official 2.3.0, Piko 3.11.1, Froggo GitHub-latest 1.2.4,
+Hoodles 1.47.0, Patched-Up 1.10.0 and AliExpress 1.0.7.
+Each must load with the production multi-source classloader and expose
+specific version targets in its actual runtime metadata; a missing or
+partially provided set fails rather than pretending the source was checked.
+Historical smoke fixtures remain unchanged. A public source CI result is
+**not** proof of successful APK patching, hardware installation, user config,
+or trust of a newly signed bundle.
+
+Froggo latest is intentionally pinned to GitHub's latest marker 1.2.4
+(five Facebook 573 patch definitions) despite the earlier-published,
+higher-numbered 1.3.0 (eleven definitions). No automatic channel switch.
+The owner's local riky 1.4.1 MPP cannot be checked in public CI.
+No binaries, tags, merges, user files, devices or private runners are changed.

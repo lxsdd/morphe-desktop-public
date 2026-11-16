@@ -1,4 +1,4 @@
-f339954b75b7803447233160e07f66903408e0c4	.github/workflows/build_pull_request.yml
+f44beeab0cb57bc8623ecf0316c4577b1c3e756c	.github/workflows/build_pull_request.yml
 d1855fa10b99fd5287ac7c2e39f8683fab1f1fca	.github/workflows/public_preview_delivery.yml
 f288702d2fa16d3cdf0035b15a9fcbc552cd88e7	LICENSE
 6a18e7616904c3394b2cd99afa05f79716899e9c	NOTICE
@@ -548,7 +548,7 @@ cfd0622f284e6dad38dd48ee4714ac86aed281d6	src/test/kotlin/app/morphe/engine/Cache
 988706d2373ad38d64081f76c5e1943acb950ba2	src/test/kotlin/app/morphe/engine/CustomDesktopReleaseCatalogTest.kt
 7b24ad643d4d5abc13ec2ae5f7db548e30edcd9d	src/test/kotlin/app/morphe/engine/DevicePatchDeploymentStorePortTest.kt
 393c73064579fc43a5752d62e7cf6ac41e748d91	src/test/kotlin/app/morphe/engine/DevicePatchDeploymentStoreTest.kt
-4ff95d87ec0fc5a5a68d01fb70ebb275cc3e5711	src/test/kotlin/app/morphe/engine/OfficialStablePatchBundleSmokeTest.kt
+b07c104e9dcb0d37b0fb785165b95648844f0645	src/test/kotlin/app/morphe/engine/OfficialStablePatchBundleSmokeTest.kt
 1b659fdbc1ce21603250e128d62c9ebb8ded0fb8	src/test/kotlin/app/morphe/engine/PatchCacheTrustPreservationTest.kt
 472e6c87fa24ceaf315ee3a1ad0d2c04f4d8036f	src/test/kotlin/app/morphe/engine/PatchedAppStoreTest.kt
 545193d262b72703bd96f0c0ad2880c0a64059f3	src/test/kotlin/app/morphe/engine/PatcherCompatibilityMigrationTest.kt

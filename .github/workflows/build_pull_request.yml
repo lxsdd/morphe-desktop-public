@@ -70,6 +70,37 @@ jobs:
             'https://github.com/riky-dev/morphe-patches/releases/download/v2.3.2/patches-2.3.2.mpp' -o "$riky"
           echo "6c257bcae4023a73c92e9cb9d00589baeef4dbc6997f7137f6dead27bb35e764  $riky" | sha256sum -c -
           echo "MORPHE_RIKY_PATCHES_TEST_FILE=$riky" >> "$GITHUB_ENV"
+          # Additional remote release fixtures: exact SHA-256 bound, read-only.
+          official23="$RUNNER_TEMP/official23-patches-2.3.0.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/MorpheApp/morphe-patches/releases/download/v2.3.0/patches-2.3.0.mpp' -o "$official23"
+          echo "1c37549274a2b6cf7f2e3e099d9b8cb641880b8a7dac323a95638a06bb4509a9  $official23" | sha256sum -c -
+          echo "MORPHE_OFFICIAL_LATEST_PATCHES_TEST_FILE=$official23" >> "$GITHUB_ENV"
+          piko="$RUNNER_TEMP/piko-patches-3.11.1.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/crimera/piko/releases/download/v3.11.1/patches-3.11.1.mpp' -o "$piko"
+          echo "dde8e119e2ab0d13f8245a63385581fc1a5eb8016d66f63c31ddd75f2729953b  $piko" | sha256sum -c -
+          echo "MORPHE_PIKO_PATCHES_TEST_FILE=$piko" >> "$GITHUB_ENV"
+          froggo="$RUNNER_TEMP/froggo-patches-1.2.4.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/SapitoSucio/FroggoMorphePatches/releases/download/v1.2.4/patches-1.2.4.mpp' -o "$froggo"
+          echo "826590e366b197ba703692595aa5754fdb25d739c001abcd9f6456c2b7eb3b06  $froggo" | sha256sum -c -
+          echo "MORPHE_FROGGO_PATCHES_TEST_FILE=$froggo" >> "$GITHUB_ENV"
+          hoodles="$RUNNER_TEMP/hoodles-patches-1.47.0.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/hoo-dles/morphe-patches/releases/download/v1.47.0/patches-1.47.0.mpp' -o "$hoodles"
+          echo "eac6c34b93d09cefba65c0944b681268c9a40fea1d5c25931272641ec7ff481b  $hoodles" | sha256sum -c -
+          echo "MORPHE_HOODLES_PATCHES_TEST_FILE=$hoodles" >> "$GITHUB_ENV"
+          patchedup="$RUNNER_TEMP/patchedup-patches-1.10.0.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/docbt/patched-up/releases/download/v1.10.0/patches-1.10.0.mpp' -o "$patchedup"
+          echo "58d9ba04c70f65bc0e6af3f58ac0b632d9fe7afa7e821c6a851c9ca37558123a  $patchedup" | sha256sum -c -
+          echo "MORPHE_PATCHEDUP_PATCHES_TEST_FILE=$patchedup" >> "$GITHUB_ENV"
+          aliexpress="$RUNNER_TEMP/aliexpress-patches-1.0.7.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/Quantro100/Morphe-patches/releases/download/v1.0.7/patches-1.0.7.mpp' -o "$aliexpress"
+          echo "ebd450b758c9bd4bb3d841c6e3bb2932518151e001ae9d7d46fe1ec2304dfcf8  $aliexpress" | sha256sum -c -
+          echo "MORPHE_ALIEXPRESS_PATCHES_TEST_FILE=$aliexpress" >> "$GITHUB_ENV"
       - name: Build and run tests; do not upload artifacts
         shell: bash
         env:
