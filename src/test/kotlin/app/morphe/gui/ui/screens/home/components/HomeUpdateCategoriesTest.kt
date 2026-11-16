@@ -209,7 +209,15 @@ class HomeUpdateCategoriesTest {
         val infoByPackage = mapOf(
             "pkg.first" to info(suggested = null, resolution = UpdateMetadataResolution.UNAVAILABLE),
             "pkg.third" to info(sources = listOf(source)),
-            "pkg.good" to info(appOutdated = false, suggested = "1.0"),
+            // A truly checked app has usable, resolved source metadata; an empty
+            // source list must remain UNKNOWN rather than imply no patches changed.
+            "pkg.good" to info(appOutdated = false, suggested = "1.0", sources = listOf(
+                RecallUpdateInfo.SourceUpdate(
+                    name = "Verified source", usedVersion = "1.0",
+                    resolvedVersion = "1.0", latestAvailableVersion = "1.0",
+                    outdated = false, hasRelevantChanges = false, checkIncomplete = false,
+                )
+            )),
         )
         val names = incompleteUpdateRecordNames(
             records, infoByPackage, mapOf("pkg.third" to "A display name"),
