@@ -20,8 +20,13 @@ class AppUpdateStatusPortTest {
             appSuggestedVersion = "1.1",
             appOutdated = true,
         )
-        assertEquals(AppUpdateStatus.APP_AND_PATCH_UPDATE, info.classification(null).status)
+        // An unrelated newer source cannot create a patch update for this app.
+        assertEquals(AppUpdateStatus.NEWER_APP_VERSION, info.classification(null).status)
         assertEquals(AppUpdateStatus.NEWER_APP_VERSION, info.classification("1.0").status)
+        // A separately verified app-scoped patch change is actionable.
+        assertEquals(AppUpdateStatus.APP_AND_PATCH_UPDATE,
+            info.copy(sources = info.sources.map { it.copy(hasRelevantChanges = true) })
+                .classification(null).status)
         assertEquals(AppUpdateStatus.APP_AND_PATCH_UPDATE, info.classification("1.0", true).status)
         assertEquals(AppUpdateStatus.UNKNOWN,
             info.copy(metadataResolution = UpdateMetadataResolution.CHECKING).classification(null).status)

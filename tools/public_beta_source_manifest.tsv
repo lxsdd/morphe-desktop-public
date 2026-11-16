@@ -612,7 +612,7 @@ ac636792f51680e0107f87d94950ed317f6cb379	src/test/kotlin/app/morphe/gui/ui/scree
 b5ebcd87cca93cb934f41f411b8bc2ead08f21d0	src/test/kotlin/app/morphe/gui/ui/theme/OutlinePolicyTest.kt
 4d3ce35c242ce12187540baeb4b9f9affd0be2f4	src/test/kotlin/app/morphe/gui/ui/theme/backgrounds/AnimationSpecsTest.kt
 90b3bb585b9fd83967c8cae7b6b12cc378068731	src/test/kotlin/app/morphe/gui/util/AdbInstalledApkHashTest.kt
-ede1886e9a42891e7c119d41b8bb9b65ffff9aad	src/test/kotlin/app/morphe/gui/util/AppUpdateStatusPortTest.kt
+7c42dadb67b689bd35eb6b06058a75b3c587ab15	src/test/kotlin/app/morphe/gui/util/AppUpdateStatusPortTest.kt
 fd10a3c1a7c898d8ddedd590aae5b01564272df3	src/test/kotlin/app/morphe/gui/util/AppUpdateStatusTest.kt
 588e79287410ae4afb46f7d924794865ad214f74	src/test/kotlin/app/morphe/gui/util/BackgroundWorkTest.kt
 97bfda7faf2b6978e22a6c58b7296a42431fd32a	src/test/kotlin/app/morphe/gui/util/BuildCodeSupportTest.kt
