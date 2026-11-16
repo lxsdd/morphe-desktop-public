@@ -46,10 +46,10 @@ class PublicPreviewDeliveryContractTest(unittest.TestCase):
         self.assertNotIn('gh api "repos/$repo/releases/tags/$tag"', self.source)
 
     def test_source_bound_custom_version_not_stale_upstream_update(self):
-        # A Custom 2.2 preview must not identify itself as upstream 2.1.1.
+        # A complete Custom 2.2 beta must not identify itself as upstream 2.1.1.
         import re
         gradle = pathlib.Path("gradle.properties").read_text(encoding="utf-8")
-        self.assertRegex(gradle, r"(?m)^version\s*=\s*\d+\.\d+\.\d+-core-preview\.\d+$")
+        self.assertRegex(gradle, r"(?m)^version\s*=\s*\d+\.\d+\.\d+-(?:beta|rc)\.\d+$")
         checker = pathlib.Path("src/main/kotlin/app/morphe/engine/UpdateChecker.kt").read_text(
             encoding="utf-8"
         )

@@ -1260,4 +1260,6 @@
     <string name="community_patches_open_button">Open community site</string>
     <string name="settings_toggle_local_icons_label">Show local APK icons</string>
     <string name="settings_toggle_local_icons_desc">Display icons from existing local APK files. Device rows require a verified matching build; disabling never reads APKs</string>
+    <string name="settings_cache_category_app_icons">Local app-icon cache</string>
+    <string name="settings_storage_scan_pending">Reading…</string>
 </resources>

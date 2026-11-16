@@ -1,5 +1,38 @@
 # Morphe Desktop 2.2.0 / Patcher 2.4.0 — public-source compatibility candidate
 
+## 2026-11-16 — full Custom source reunification / public CI candidate (not yet qualified)
+
+Owner requirement: the public repo is **only a source-identical public CI and distribution
+mirror** of the complete Morphe Desktop Custom. It is NOT a second product or a
+reduced Core edition. The public 2.2 Core Preview releases are historical,
+superseded, and must not be treated as the newest complete Custom build.
+
+Audited original 2.1.1 baseline: all shared `src/` files on private
+`a304e4af8a37691c3550ee80e222df1ad2558082` and public
+`200e810bd5220ba292f85c9381781661320183b9` had identical Git blobs.
+The 2.2 parallel branch divergence must be repaired without dropping either
+the complete Custom device/signature/ownership/Quick/Expert features or the
+new public community, settings, icon and update fixes.
+
+This public candidate keeps the full existing 2.2 UI/patcher build and brings
+the private-only CLI background update-check behavior, cache safeguarding,
+five-category cache accounting, historic app-icons cache readout (read-only),
+outline configuration regression, and original data directories into the
+same distributable source. The newer memory-only launcher icon implementation
+supersedes the earlier scratch-writing private implementation. This is a
+behavior-preserving consolidation; no user files are read, written or deleted
+in source integration. Owner-only release gate and exact four-job public CI
+remain fail-closed, with no private CI charge.
+
+The version identity is now `2.2.0-beta.5`, denoting a **complete Custom beta**
+rather than the earlier `2.2.0-core-preview.2`. Real Windows UI acceptance,
+complete 12-app source-specific update proof and exact cross-repository src
+parity are **not yet established** until the private PR is also synchronized.
+No release has been authorized for this new SHA.
+
+---
+
+
 This **unreleased** public branch preserves the existing public Custom 2.1.1 beta.4 and its safety behavior. It does **not** declare a completed Desktop 2.2.0 migration, a Windows UI acceptance, or authorization to publish any executable.
 
 ## Fixed upstream pins

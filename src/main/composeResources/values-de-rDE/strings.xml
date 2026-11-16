@@ -1082,4 +1082,6 @@
     <string name="community_patches_open_button">Community-Seite öffnen</string>
     <string name="settings_toggle_local_icons_label">Lokale App-Symbole anzeigen</string>
     <string name="settings_toggle_local_icons_desc">Symbole aus vorhandenen APK-Dateien anzeigen. Gerätezeilen erfordern eine verifizierte identische Version; deaktiviert werden keine APKs gelesen</string>
+    <string name="settings_cache_category_app_icons">Lokaler App-Symbol-Cache</string>
+    <string name="settings_storage_scan_pending">Wird ermittelt…</string>
 </resources>

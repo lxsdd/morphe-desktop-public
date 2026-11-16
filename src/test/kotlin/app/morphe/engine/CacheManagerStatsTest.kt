@@ -34,6 +34,16 @@ class CacheManagerStatsTest {
         assertEquals(3, CacheManager.getDirectoryStats(dir).fileCount)
     }
 
+    @Test fun historicalAppIconCacheRemainsAnIndependentReadOnlyCategory() {
+        val icons = File(dir, "app-icons")
+        assertEquals(CacheManager.DirStats(0L, 0), CacheManager.getDirectoryStats(icons))
+        assertFalse(icons.exists(), "A read-only inspection must not create old cache directories")
+        icons.mkdir()
+        val cachedIcon = File(icons, "cached.png").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
+        assertEquals(CacheManager.DirStats(4L, 1), CacheManager.getDirectoryStats(icons))
+        assertTrue(cachedIcon.isFile)
+    }
+
     @Test fun readOnlyDirectoryStatisticsCountNestedCacheFilesWithoutChangingThem() {
         val child = File(dir, "nested").apply { mkdirs() }
         val avatar = File(child, "avatar.png").apply { writeBytes(byteArrayOf(1, 2, 3)) }

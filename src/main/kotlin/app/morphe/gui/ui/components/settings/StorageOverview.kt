@@ -25,6 +25,7 @@ import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.gui.util.AvatarLoader
 import app.morphe.gui.util.FormatUtils
 import app.morphe.gui.util.currentLocale
+import java.io.File
 import app.morphe.morphe_desktop.generated.resources.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -49,19 +50,25 @@ internal fun StorageOverview(
     val scope = rememberCoroutineScope()
     val locale = currentLocale()
     var stats by remember { mutableStateOf<Map<StorageKind, CacheManager.DirStats>>(emptyMap()) }
+    var legacyIconStats by remember { mutableStateOf<CacheManager.DirStats?>(null) }
     var confirm by remember { mutableStateOf<StorageKind?>(null) }
     var busy by remember { mutableStateOf(false) }
     var lastResult by remember { mutableStateOf<Pair<StorageKind, Boolean>?>(null) }
 
     suspend fun refresh() {
-        stats = withContext(Dispatchers.IO) {
-            mapOf(
+        val (categories, iconCache) = withContext(Dispatchers.IO) {
+            val categories = mapOf(
                 StorageKind.PATCHES to CacheManager.getPatchDownloadStats(MorpheData.patchesDir),
                 StorageKind.LOGS to CacheManager.getDirectoryStats(MorpheData.logsDir),
                 StorageKind.SCRATCH to CacheManager.getDirectoryStats(WorkspaceManager.scratchDir),
                 StorageKind.AVATARS to CacheManager.getDirectoryStats(MorpheData.avatarsDir),
             )
+            // Legacy full-Custom app-icon cache is diagnostic only. Do not create its directory
+            // or expose a deletion action. The newer launcher renderer uses memory-only icons.
+            categories to CacheManager.getDirectoryStats(File(MorpheData.root, "app-icons"))
         }
+        stats = categories
+        legacyIconStats = iconCache
     }
 
     LaunchedEffect(Unit) { refresh() }
@@ -111,6 +118,33 @@ internal fun StorageOverview(
                 )
             }
             if (kind != StorageKind.AVATARS) SettingsDivider(borderColor)
+        }
+        // Preserve the previous full-Custom fifth read-only cache category.
+        // It must never be sent to clearDirectoryContents or other deletion functions.
+        SettingsDivider(borderColor)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(Res.string.settings_cache_category_app_icons),
+                    style = MorpheTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = legacyIconStats?.let { value ->
+                        stringResource(
+                            Res.string.settings_storage_category_summary,
+                            FormatUtils.formatFileSize(value.bytes, locale),
+                            value.fileCount,
+                        )
+                    } ?: stringResource(Res.string.settings_storage_scan_pending),
+                    style = MorpheTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         lastResult?.let { (kind, ok) ->
             val title = when (kind) {
