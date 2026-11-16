@@ -237,8 +237,8 @@
 
     <!-- Home Screen - YourAppsPane -->
     <string name="home_your_apps_status_patched">Patched</string>
-    <string name="home_filter_all_apps">All apps</string>
-    <string name="home_filter_your_apps">Your apps</string>
+    <string name="home_filter_all_apps">Patch catalog</string>
+    <string name="home_filter_your_apps">Patch history</string>
     <string name="home_banner_view">View</string>
     <string name="home_your_apps_install_ready">Install ready</string>
     <string name="home_action_install_to_device">Install to device</string>
@@ -835,8 +835,8 @@
     <string name="changelog_show_less">Show less</string>
     <string name="changelog_view_on_github_button">View on GitHub</string>
     <string name="home_detail_relink_verified_output">Relink verified patched APK</string>
-    <string name="home_filter_app_updates">App updates</string>
-    <string name="home_filter_patch_updates">Patch updates</string>
+    <string name="home_filter_app_updates">App updates (history)</string>
+    <string name="home_filter_patch_updates">Patch updates (history)</string>
     <string name="home_filter_device_apps">On device</string>
     <string name="home_version_patched">Patched app: %1$s</string>
     <string name="home_version_patch_source">Patch source: %1$s</string>
@@ -850,7 +850,7 @@
     <string name="home_update_source_proof_missing">app-scoped changelog not verified</string>
     <string name="home_update_unknown">Only confirmed updates to your patched apps are listed here.</string>
     <string name="home_update_checks_incomplete">Update check incomplete for %1$d patched apps. The counts show confirmed, patch-compatible updates only.</string>
-    <string name="home_update_checks_incomplete_named">Update check incomplete for %1$d patched apps: %2$s. The counts show only confirmed compatible updates.</string>
+    <string name="home_update_checks_incomplete_named">%1$d patch-history entries not fully checked: %2$s. Only confirmed updates are counted.</string>
     <string name="home_update_retry_check">Recheck</string>
     <string name="home_update_checks_incomplete_short">Update check incomplete</string>
     <string name="home_version_patch_only">Patch source used: %1$s</string>
@@ -873,8 +873,8 @@
     <string name="device_updates_both">App and patch updates available</string>
     <string name="device_updates_none">No confirmed compatible updates</string>
     <string name="device_updates_none_explain">Only newer supported versions and confirmed app-scoped patch changes appear here. Incomplete checks are reported separately above; zero confirmed updates does not mean all checks succeeded.</string>
-    <string name="device_diagnostics_show">Technical diagnostics</string>
-    <string name="device_diagnostics_hide">Hide diagnostics</string>
+    <string name="device_diagnostics_show">Show technical details</string>
+    <string name="device_diagnostics_hide">Hide technical details</string>
     <string name="device_diagnostics_cases_count">Technical review %1$d</string>
     <string name="device_overview_app_update">Update app version</string>
     <string name="device_overview_patch_update">Update patches</string>
@@ -884,7 +884,7 @@
     <string name="device_overview_signer_conflict">Signer differs from current key · review</string>
     <string name="device_overview_review">Review needed</string>
     <string name="device_overview_other">Outside patch catalog</string>
-    <string name="device_overview_summary">%1$d installed · %2$d in patch catalog · %3$d confirmed compatible updates</string>
+    <string name="device_overview_summary">%1$d installed · %2$d with catalog entries · %3$d confirmed device updates</string>
     <string name="device_overview_disclaimer">Device data is read only. Equal version and signer do not prove identical APK bytes.</string>
     <string name="device_overview_all">All %1$d</string>
     <string name="device_overview_needs">Technical review %1$d</string>
@@ -1262,4 +1262,9 @@
     <string name="settings_toggle_local_icons_desc">Display icons from existing local APK files. Device rows require a verified matching build; disabling never reads APKs</string>
     <string name="settings_cache_category_app_icons">Local app-icon cache</string>
     <string name="settings_storage_scan_pending">Reading…</string>
+    <string name="home_update_reason_metadata_unavailable">No complete metadata result yet</string>
+    <string name="home_update_reason_no_source">Patch sources for this record are unresolved</string>
+    <string name="home_update_reason_source_unavailable">Patch source not loaded</string>
+    <string name="home_update_reason_change_unverified">Changes for this app not verified</string>
+    <string name="device_update_counts_scope">Update counts use different sets of apps: device updates count each installed app once; app and patch updates may overlap. Signing and build diagnostics are not updates.</string>
 </resources>

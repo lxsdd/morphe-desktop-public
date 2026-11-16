@@ -2077,14 +2077,10 @@ data class RecallUpdateInfo(
         // A newer repository release is not evidence that this application's patches changed.
         // Prefer positive scoped proof even when another source is temporarily unavailable.
         // Only a complete negative assessment may become "no patch update".
-        val patchFact: Boolean? = when {
-            sources.any { it.hasRelevantChanges && !it.checkIncomplete } -> true
-            sources.isNotEmpty() && sources.all { source ->
-                !source.checkIncomplete &&
-                    (!source.latestAvailableVersion.isNullOrBlank() ||
-                        !source.resolvedVersion.isNullOrBlank())
-            } -> false
-            else -> null
+        val patchFact: Boolean? = when (verifiedAppUpdates(this).patch) {
+            VerifiedUpdateFact.AVAILABLE -> true
+            VerifiedUpdateFact.CURRENT -> false
+            VerifiedUpdateFact.UNCHECKED -> null
         }
         val liveVersion = installedVersion?.takeUnless { it.isBlank() || it.equals("unknown", ignoreCase = true) }
         return classifyAppUpdate(

@@ -224,8 +224,8 @@
     <string name="home_sort_recently_patched_desc">Zuletzt gepatchte zuerst</string>
     <!-- Home Screen - YourAppsPane -->
     <string name="home_your_apps_status_patched">Gepatcht</string>
-    <string name="home_filter_all_apps">Alle Apps</string>
-    <string name="home_filter_your_apps">Deine Apps</string>
+    <string name="home_filter_all_apps">Patchkatalog</string>
+    <string name="home_filter_your_apps">Patchverlauf</string>
     <string name="home_banner_view">Ansehen</string>
     <string name="home_your_apps_install_ready">Bereit zur Installation</string>
     <string name="home_action_install_to_device">Auf Gerät installieren</string>
@@ -797,8 +797,8 @@
     <string name="changelog_show_less">Weniger anzeigen</string>
     <string name="changelog_view_on_github_button">Auf GitHub ansehen</string>
     <string name="home_detail_relink_verified_output">Gepatchte APK sicher neu zuordnen</string>
-    <string name="home_filter_app_updates">App-Updates</string>
-    <string name="home_filter_patch_updates">Patch-Updates</string>
+    <string name="home_filter_app_updates">App-Updates (Verlauf)</string>
+    <string name="home_filter_patch_updates">Patch-Updates (Verlauf)</string>
     <string name="home_filter_device_apps">Auf Gerät</string>
     <string name="home_version_patched">Gepatchte App: %1$s</string>
     <string name="home_version_patch_source">Patchquelle: %1$s</string>
@@ -811,7 +811,7 @@
     <string name="home_update_source_not_loaded">Quelldaten fehlen</string>
     <string name="home_update_source_proof_missing">App-bezogener Änderungsnachweis fehlt</string>
     <string name="home_update_checks_incomplete">Update-Prüfung für %1$d gepatchte Apps unvollständig. Die Zähler zeigen nur bestätigte, patchkompatible Updates.</string>
-    <string name="home_update_checks_incomplete_named">Update-Prüfung für %1$d gepatchte Apps unvollständig: %2$s. Die Zähler zeigen nur bestätigte, kompatible Updates.</string>
+    <string name="home_update_checks_incomplete_named">%1$d Einträge im Patchverlauf noch nicht vollständig geprüft: %2$s. Gezählt werden nur bestätigte Updates.</string>
     <string name="home_update_retry_check">Erneut prüfen</string>
     <string name="home_update_checks_incomplete_short">Update-Prüfung unvollständig</string>
     <string name="home_your_apps_newer_patch_hint">Ein neuer Patch könnte die App aktualisieren. Unter „Update“ prüfen.</string>
@@ -838,8 +838,8 @@
     <string name="device_updates_both">App- und Patch-Update verfügbar</string>
     <string name="device_updates_none">Keine bestätigten kompatiblen Updates</string>
     <string name="device_updates_none_explain">Hier erscheinen nur neuere unterstützte Versionen und bestätigte, appbezogene Patchänderungen. Unvollständige Prüfungen stehen separat oben. Null bestätigte Updates bedeutet nicht, dass alle Prüfungen erfolgreich waren.</string>
-    <string name="device_diagnostics_show">Technische Diagnose</string>
-    <string name="device_diagnostics_hide">Diagnose schließen</string>
+    <string name="device_diagnostics_show">Technikdetails anzeigen</string>
+    <string name="device_diagnostics_hide">Technikdetails ausblenden</string>
     <string name="device_diagnostics_cases_count">Technische Prüffälle %1$d</string>
     <string name="device_overview_app_update">App-Version aktualisieren</string>
     <string name="device_overview_patch_update">Patch-Aktualisierung</string>
@@ -849,7 +849,7 @@
     <string name="device_overview_signer_conflict">Signatur weicht vom aktuellen Schlüssel ab</string>
     <string name="device_overview_review">Prüfung erforderlich</string>
     <string name="device_overview_other">Außerhalb Patchkatalog</string>
-    <string name="device_overview_summary">%1$d installiert · %2$d im Patchkatalog · %3$d bestätigte kompatible Updates</string>
+    <string name="device_overview_summary">%1$d installiert · %2$d mit Katalogeintrag · %3$d bestätigte Geräte-Updates</string>
     <string name="device_overview_disclaimer">Gerätedaten werden nur gelesen. Gleiche Version und Signatur beweisen noch keinen identischen APK-Build.</string>
     <string name="device_overview_all">Alle %1$d</string>
     <string name="device_overview_needs">Technische Prüffälle %1$d</string>
@@ -1084,4 +1084,9 @@
     <string name="settings_toggle_local_icons_desc">Symbole aus vorhandenen APK-Dateien anzeigen. Gerätezeilen erfordern eine verifizierte identische Version; deaktiviert werden keine APKs gelesen</string>
     <string name="settings_cache_category_app_icons">Lokaler App-Symbol-Cache</string>
     <string name="settings_storage_scan_pending">Wird ermittelt…</string>
+    <string name="home_update_reason_metadata_unavailable">Noch kein vollständiges Prüfergebnis</string>
+    <string name="home_update_reason_no_source">Patchquellen für diesen Eintrag ungeklärt</string>
+    <string name="home_update_reason_source_unavailable">Patchquelle nicht geladen</string>
+    <string name="home_update_reason_change_unverified">Änderungen für diese App nicht geprüft</string>
+    <string name="device_update_counts_scope">Updatezahlen beziehen sich auf unterschiedliche App-Mengen: Geräte-Updates zählen jede installierte App nur einmal; App- und Patch-Updates können sich überschneiden. Signatur- und Build-Prüfungen sind keine Updates.</string>
 </resources>

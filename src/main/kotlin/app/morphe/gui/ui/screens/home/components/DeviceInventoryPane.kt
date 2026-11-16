@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.model.PatchMetadata
 import app.morphe.engine.model.SupportedApp
-import app.morphe.engine.util.isNewerVersion
 import app.morphe.gui.ui.components.MorpheAppAvatar
 import app.morphe.gui.ui.components.MorpheAvatarSize
 import app.morphe.gui.ui.components.MorpheChoiceChip
@@ -41,7 +40,6 @@ import app.morphe.gui.ui.screens.home.DeviceInventoryRefreshStage
 import app.morphe.gui.util.AppLabelIndexState
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
-import app.morphe.gui.util.selectSupportedAppTarget
 import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
@@ -192,6 +190,10 @@ internal fun DeviceInventoryPane(
         installedPackages.map { pkg ->
             val record = history[pkg]
             val app = supported[pkg]
+            // A separately installed Morphe package is NOT the original on-device
+            // app. Its historical source package is only used to locate compatible
+            // patch metadata; installed version/identity still come from pkg.
+            val catalogApp = app ?: record?.let { supported[it.packageName] }
             // Read the exact installed package, never the original historical key.
             val metadata = deviceInstalledAppInfo[pkg]
             val installedVersion = metadata?.installedVersion?.takeIf { it.isNotBlank() }
@@ -200,26 +202,26 @@ internal fun DeviceInventoryPane(
                 installedSeparateHistoryPackage(pkg, installedPackages, patchedRecords)
             } else null
             val update = record?.let { updateInfoByPackage[it.packageName] }
-            // A target must come from proven compatible patch metadata.
-            // For already patched apps use the validated, channel-aware recall;
-            // otherwise respect the installed app's stable/experimental channel.
-            val target = if (record != null) {
-                update?.appSuggestedVersion?.takeIf { hasConfirmedAppUpdate(update) }
-            } else app?.let { catalog ->
-                selectSupportedAppTarget(
-                    catalog.recommendedVersion, catalog.experimentalVersions,
-                    installedVersion.orEmpty()).version
-            }
-            val newerVersion = installedVersion != null &&
-                !target.isNullOrBlank() && isNewerVersion(target, installedVersion)
+            // Device recommendations are evaluated against this exact installed
+            // version, never an original APK's or a cached history version.
+            val target = latestCompatibleDeviceAppTarget(catalogApp, installedVersion)
+            val facts = verifiedDeviceUpdateFacts(
+                installedPackageName = pkg,
+                installedVersion = installedVersion,
+                targetVersion = target,
+                history = record,
+                historicalUpdates = update,
+                exactBuildVerified = metadata?.exactBuildVerified,
+            )
+            val newerVersion = facts.confirmedAppVersionUpdate
             val status = classifyDeviceOverview(DeviceOverviewEvidence(
-                patchSupported = app != null,
+                patchSupported = catalogApp != null,
                 hasLocalPatchHistory = record != null,
                 installedVersion = installedVersion?.removePrefix("v"),
                 locallyPatchedVersion = record?.apkVersion?.removePrefix("v"),
                 signerMatchesMorphe = metadata?.signedByMorphe,
                 newerCompatibleAppVersion = newerVersion,
-                relevantPatchChange = hasConfirmedPatchUpdate(update),
+                relevantPatchChange = facts.confirmedPatchUpdate,
                 localBuildVersionNewer = metadata?.installPending == true,
                 exactBuildVerified = metadata?.exactBuildVerified,
                 sourceCompatibility = compatibility,
@@ -242,8 +244,7 @@ internal fun DeviceInventoryPane(
                 sourceCompatibility = compatibility,
                 separateLocalPackage = separatePackage,
                 appUpdateAvailable = newerVersion,
-                confirmedPatchUpdate = metadata?.exactBuildVerified == true &&
-                    hasConfirmedPatchUpdate(update),
+                confirmedPatchUpdate = facts.confirmedPatchUpdate,
                 status = status,
             )
         }
@@ -443,6 +444,13 @@ internal fun DeviceInventoryPane(
                     onClick = { filter = DeviceViewFilter.VERIFIED })
             }
         }
+        if (diagnosticsVisible) {
+            Text(
+                text = stringResource(Res.string.device_update_counts_scope),
+                style = MorpheTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (visible.isEmpty()) {
             val noUpdates = filter == DeviceViewFilter.UPDATES && searchQuery.isBlank()
             YourAppsEmptyHint(
@@ -565,15 +573,25 @@ internal fun DeviceInventoryPane(
                                     horizontalAlignment = Alignment.End,
                                     verticalArrangement = Arrangement.spacedBy(3.dp),
                                 ) {
-                                    if (diagnosticsVisible || confirmedUpdate) {
+                                    val readableStatus = deviceReadableUpdateStatus(
+                                        DeviceUpdateFacts(row.appUpdateAvailable, row.confirmedPatchUpdate),
+                                        diagnostic = row.status,
+                                        historicalUpdates = row.record?.let { updateInfoByPackage[it.packageName] },
+                                        history = row.record,
+                                        installedVersion = row.installedVersion,
+                                        exactBuildVerified = deviceInstalledAppInfo[row.packageName]?.exactBuildVerified,
+                                    )
+                                    if (diagnosticsVisible || readableStatus != DeviceReadableUpdateStatus.NONE) {
                                         val statusText = if (diagnosticsVisible) {
                                             stringResource(deviceLabel(row.status))
-                                        } else when {
-                                            row.appUpdateAvailable && row.confirmedPatchUpdate ->
-                                                stringResource(Res.string.device_updates_both)
-                                            row.appUpdateAvailable ->
-                                                stringResource(Res.string.device_overview_app_update)
-                                            else -> stringResource(Res.string.device_overview_patch_update)
+                                        } else when (readableStatus) {
+                                            DeviceReadableUpdateStatus.APP_AND_PATCH -> stringResource(Res.string.device_updates_both)
+                                            DeviceReadableUpdateStatus.APP -> stringResource(Res.string.device_overview_app_update)
+                                            DeviceReadableUpdateStatus.PATCH -> stringResource(Res.string.device_overview_patch_update)
+                                            DeviceReadableUpdateStatus.CURRENT -> stringResource(Res.string.home_state_current)
+                                            DeviceReadableUpdateStatus.CHECKING -> stringResource(Res.string.home_update_checks_incomplete_short)
+                                            DeviceReadableUpdateStatus.UNSUPPORTED -> stringResource(Res.string.device_overview_patch_version_incompatible)
+                                            DeviceReadableUpdateStatus.NONE -> ""
                                         }
                                         Text(statusText,
                                             style = MorpheTheme.typography.bodySmall,
@@ -594,7 +612,7 @@ internal fun DeviceInventoryPane(
                                         val searchUrl = remember(row.packageName, target) {
                                             SupportedApp.getDownloadUrl(row.packageName, target)
                                         }
-                                        if (row.status == DeviceOverviewStatus.APP_UPDATE &&
+                                        if (row.appUpdateAvailable &&
                                             !searchUrl.isNullOrBlank()) {
                                             OutlinedButton(onClick = { uriHandler.openUri(searchUrl) }) {
                                                 Text(stringResource(

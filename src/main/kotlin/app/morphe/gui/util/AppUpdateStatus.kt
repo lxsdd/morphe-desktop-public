@@ -95,6 +95,8 @@ fun classifyAppUpdate(
         metadataResolution != UpdateMetadataResolution.READY -> AppUpdateStatus.UNKNOWN
         patchUpdateAvailable == true && appUpdate == true -> AppUpdateStatus.APP_AND_PATCH_UPDATE
         patchUpdateAvailable == null && appUpdate == true -> AppUpdateStatus.NEWER_APP_VERSION
+        // A completed positive patch proof survives an unknown app-version target.
+        patchUpdateAvailable == true && appUpdate == null -> AppUpdateStatus.PATCH_UPDATE
         patchUpdateAvailable == null || appUpdate == null -> AppUpdateStatus.UNKNOWN
         patchUpdateAvailable == true -> AppUpdateStatus.PATCH_UPDATE
         appUpdate == true -> AppUpdateStatus.NEWER_APP_VERSION

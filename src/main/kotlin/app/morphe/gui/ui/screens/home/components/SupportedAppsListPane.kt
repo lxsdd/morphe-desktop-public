@@ -133,10 +133,10 @@ internal fun SupportedAppsListPane(
     val confirmedAppUpdates = remember(patchedRecords, updateInfoByPackage) {
         patchedRecords.count { hasConfirmedAppUpdate(updateInfoByPackage[it.packageName]) }
     }
-    val uncheckedNames = remember(patchedRecords, updateInfoByPackage, historyNames) {
-        incompleteUpdateRecordNames(patchedRecords, updateInfoByPackage, historyNames)
+    val uncheckedEntries = remember(patchedRecords, updateInfoByPackage, historyNames) {
+        incompleteAppChecks(patchedRecords, updateInfoByPackage, historyNames)
     }
-    val uncheckedAppCount = uncheckedNames.size
+    val uncheckedAppCount = uncheckedEntries.size
     val confirmedPatchUpdates = remember(patchedRecords, updateInfoByPackage, patchedStates) {
         patchedRecords.count {
             hasConfirmedPatchUpdate(updateInfoByPackage[it.packageName], patchedStates[it.packageName])
@@ -180,6 +180,22 @@ internal fun SupportedAppsListPane(
             modifier = Modifier.fillMaxWidth(),
         )
         if (!isLoading && uncheckedAppCount > 0) {
+            // Explain the first missing proof for each app, not just a list of
+            // names suggesting that a pending check is itself a new update.
+            val uncheckedDescriptions = uncheckedEntries.map { item ->
+                val reason = when (item.reason) {
+                    IncompleteUpdateReason.METADATA_UNAVAILABLE ->
+                        stringResource(Res.string.home_update_reason_metadata_unavailable)
+                    IncompleteUpdateReason.NO_SOURCE_PROOF ->
+                        stringResource(Res.string.home_update_reason_no_source)
+                    IncompleteUpdateReason.SOURCE_UNAVAILABLE ->
+                        stringResource(Res.string.home_update_reason_source_unavailable)
+                    IncompleteUpdateReason.CHANGE_PROOF_UNAVAILABLE ->
+                        stringResource(Res.string.home_update_reason_change_unverified)
+                }
+                val source = item.sourceName?.let { "$it: " } ?: ""
+                "${item.appName} ($source$reason)"
+            }
             Spacer(modifier = Modifier.height(4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 12.dp),
@@ -189,11 +205,11 @@ internal fun SupportedAppsListPane(
                     text = stringResource(
                         Res.string.home_update_checks_incomplete_named,
                         uncheckedAppCount,
-                        uncheckedNames.joinToString(", "),
+                        uncheckedDescriptions.joinToString(", "),
                     ),
                     style = MorpheTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )

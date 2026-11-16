@@ -38,9 +38,9 @@ class AppUpdateStatusTest {
     }
 
     @Test
-    fun `incomplete dimensions only claim the independently proven app update`() {
+    fun `incomplete dimensions retain independently confirmed updates`() {
         assertEquals(
-            AppUpdateStatus.UNKNOWN,
+            AppUpdateStatus.PATCH_UPDATE,
             classifyAppUpdate(true, null, "1.0", null).status,
         )
         assertEquals(
@@ -150,7 +150,7 @@ class AppUpdateStatusTest {
             sourceId = "source", name = "Community Patches",
             usedVersion = "1.0", resolvedVersion = "2.0",
             latestAvailableVersion = "2.0", outdated = true,
-            hasRelevantChanges = false, checkIncomplete = false,
+            hasRelevantChanges = false, checkIncomplete = false, metadataKnown = true,
         )
         val noNewApk = RecallUpdateInfo(
             sources = listOf(source),
@@ -179,7 +179,7 @@ class AppUpdateStatusTest {
             hasRelevantChanges = false, checkIncomplete = true,
         )
         val clean = unknown.copy(
-            sourceId = "clean", name = "Checked Patches", checkIncomplete = false,
+            sourceId = "clean", name = "Checked Patches", checkIncomplete = false, metadataKnown = true,
             outdated = false, latestAvailableVersion = "1.0",
         )
         val baseline = RecallUpdateInfo(

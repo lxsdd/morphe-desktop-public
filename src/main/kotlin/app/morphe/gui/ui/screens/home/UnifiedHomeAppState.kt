@@ -205,7 +205,9 @@ fun resolveUnifiedHomeAppState(input: UnifiedHomeAppInput): UnifiedHomeAppState 
     }
     val anyRelevant = verifiedSources.any { it.newerReleaseAvailable && it.hasRelevantAppChanges }
     val anyIrrelevantNewer = verifiedSources.any { it.newerReleaseAvailable && !it.hasRelevantAppChanges }
-    val anyUnknown = input.patchSources.isEmpty() || input.patchSources.any { !it.metadataKnown }
+    val anyUnknown = verifiedPatchUpdateFact(input.patchSources.map {
+        SourceChangeProof(it.hasRelevantAppChanges, it.metadataKnown)
+    }) == VerifiedUpdateFact.UNCHECKED
     val patchStatus = when {
         relevantStable && relevantDev -> HomePatchBundleStatus.RELEVANT_STABLE_AND_DEV_PATCH_AVAILABLE
         relevantStable -> HomePatchBundleStatus.RELEVANT_STABLE_PATCH_AVAILABLE

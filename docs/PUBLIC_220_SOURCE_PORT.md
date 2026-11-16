@@ -1,5 +1,45 @@
 # Morphe Desktop 2.2.0 / Patcher 2.4.0 — public-source compatibility candidate
 
+## 2026-11-16 — complete Custom beta.6: unified update proofs and readable status UX
+
+Owner-approved source implementation only; release NOT approved. Public remains
+the byte-identical **full Custom application** build/CI mirror, not a smaller
+Core product. The historical full-beta.5 user screenshot exposed misleading
+update counters and raw diagnostic labels.
+
+Changes in this candidate:
+- One three-valued per-app update proof (AVAILABLE / CURRENT / UNCHECKED),
+  combining completed app-scoped source changelog checks with channel-specific
+  supported app version metadata. An old PATCHED_WITH_UPDATES history marker
+  or a new unrelated repository tag alone cannot create a confirmed update.
+- Full positive proof survives unrelated incomplete sources, but the unchecked
+  sources remain explicitly visible. Missing supported target after a
+  completed compatible-catalog check is not incorrectly considered an
+  uncompleted app check.
+- Device updates are resolved against exact installed package/version,
+  currently loaded supported targets and exact APK identity for patch
+  provenance. Separately installed YouTube/Messenger-style renamed packages
+  cannot inherit the stock app's update. Different current signing keys
+  remain diagnostics, not updates or proof of incompatible installation.
+- App-history counters now identify their scope. Device update counters use
+  unique installed package IDs; combined app+patch updates count once.
+  Unresolved source reasons appear with their app/source names and the normal
+  device list shows Current / Check pending / Compatible update / Unsupported
+  without promoting hash/signer state to an update.
+- Positive/negative tests for both channels, source tag drift, incomplete
+  metadata, signed-build identity, renamed originals, unsupported versions,
+  simultaneous app+patch updates, stale historical flags, and detail decisions.
+- New beta version `2.2.0-beta.6` is deliberately above already released
+  beta.5. No private CI, merge, release or physical device/user file activity.
+
+Qualification: Run the public exact-SHA 3-OS source tests and separate
+desktop JAR integrity job, repair any regressions and mirror all `src/`
+Git blobs + Gradle version to private Draft #13 before seeking a distinct
+owner-controlled beta.6 release. Preserve all signer/owner/source safeguards.
+
+---
+
+
 ## 2026-11-16 — full Custom source reunification / public CI candidate (not yet qualified)
 
 Owner requirement: the public repo is **only a source-identical public CI and distribution

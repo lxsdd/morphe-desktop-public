@@ -7,7 +7,7 @@ package app.morphe.gui.ui.screens.home.components
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
 import app.morphe.gui.ui.screens.home.PatchedAppState
-import app.morphe.gui.util.UpdateMetadataResolution
+import app.morphe.gui.ui.screens.home.verifiedAppUpdates
 
 /**
  * Separate application-version changes from patch-source changes.
@@ -15,8 +15,7 @@ import app.morphe.gui.util.UpdateMetadataResolution
  * silently classified as confirmed per-app patch updates.
  */
 internal fun hasConfirmedAppUpdate(info: RecallUpdateInfo?): Boolean =
-    info != null && info.metadataResolution == UpdateMetadataResolution.READY &&
-        info.appOutdated && !info.appSuggestedVersion.isNullOrBlank()
+    verifiedAppUpdates(info).hasConfirmedAppUpdate
 
 /** Experimental offers remain separately marked and never imply stable eligibility. */
 internal fun isExperimentalAppUpdate(info: RecallUpdateInfo?): Boolean =
@@ -27,10 +26,7 @@ internal fun isExperimentalAppUpdate(info: RecallUpdateInfo?): Boolean =
  */
 /** Unknown check state is never equivalent to zero available updates. */
 private fun updateCheckIncomplete(info: RecallUpdateInfo?): Boolean =
-    info == null ||
-        info.metadataResolution != UpdateMetadataResolution.READY ||
-        info.appSuggestedVersion.isNullOrBlank() ||
-        info.patchCheckIncomplete
+    verifiedAppUpdates(info).checkIncomplete
 
 internal fun incompleteUpdateChecks(
     records: List<PatchedAppRecord>,
@@ -49,13 +45,17 @@ internal fun incompleteUpdateRecordNames(
     .sortedWith(String.CASE_INSENSITIVE_ORDER)
     .toList()
 
+/**
+ * Historical PATCHED_WITH_UPDATES is a cached hint, not a current scoped proof.
+ * Do not let it make the top tabs, card badge and device counters disagree.
+ * Kept as an optional parameter for existing callers, but it cannot override
+ * missing or unverified source metadata.
+ */
+@Suppress("UNUSED_PARAMETER")
 internal fun hasConfirmedPatchUpdate(
     info: RecallUpdateInfo?,
     state: PatchedAppState? = null,
-): Boolean =
-    state == PatchedAppState.PATCHED_WITH_UPDATES ||
-        (info?.metadataResolution == UpdateMetadataResolution.READY &&
-            info.sources.any { it.hasRelevantChanges })
+): Boolean = verifiedAppUpdates(info).hasConfirmedPatchUpdate
 
 internal fun visiblePatchedRecords(
     filter: AppListFilter,
@@ -69,6 +69,41 @@ internal fun visiblePatchedRecords(
     }
     else -> records
 }
+
+/** Explain why a saved record cannot yet be declared current, without inventing an update. */
+internal enum class IncompleteUpdateReason {
+    METADATA_UNAVAILABLE, NO_SOURCE_PROOF, SOURCE_UNAVAILABLE, CHANGE_PROOF_UNAVAILABLE,
+}
+
+internal data class IncompleteAppCheck(
+    val appName: String,
+    val sourceName: String?,
+    val reason: IncompleteUpdateReason,
+)
+
+internal fun incompleteAppChecks(
+    records: List<PatchedAppRecord>,
+    infoByPackage: Map<String, RecallUpdateInfo>,
+    displayNames: Map<String, String> = emptyMap(),
+): List<IncompleteAppCheck> = records.asSequence().mapNotNull { record ->
+    val info = infoByPackage[record.packageName]
+    if (!verifiedAppUpdates(info).checkIncomplete) return@mapNotNull null
+    val unresolved = info?.sources?.firstOrNull { it.checkIncomplete || !it.metadataKnown }
+    val reason = when {
+        info == null || info.metadataResolution != app.morphe.gui.util.UpdateMetadataResolution.READY ->
+            IncompleteUpdateReason.METADATA_UNAVAILABLE
+        info.sources.isEmpty() -> IncompleteUpdateReason.NO_SOURCE_PROOF
+        unresolved == null -> IncompleteUpdateReason.NO_SOURCE_PROOF
+        unresolved.resolvedVersion.isNullOrBlank() && unresolved.latestAvailableVersion.isNullOrBlank() ->
+            IncompleteUpdateReason.SOURCE_UNAVAILABLE
+        else -> IncompleteUpdateReason.CHANGE_PROOF_UNAVAILABLE
+    }
+    IncompleteAppCheck(
+        appName = displayNames[record.packageName]?.takeIf(String::isNotBlank) ?: record.displayName,
+        sourceName = unresolved?.name,
+        reason = reason,
+    )
+}.distinctBy { it.appName }.sortedBy { it.appName.lowercase() }.toList()
 
 /** Only a successfully captured device inventory may display a numeric count. */
 internal fun verifiedDeviceInventoryCount(installedCount: Int, inventorySerial: String?): Int? =
