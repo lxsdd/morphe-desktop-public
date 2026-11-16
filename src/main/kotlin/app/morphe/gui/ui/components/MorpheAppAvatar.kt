@@ -22,6 +22,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.morphe.gui.ui.theme.MorpheTheme
+import app.morphe.gui.ui.theme.outlineBorder
 
 enum class MorpheAvatarSize(val size: Dp) {
     LARGE(44.dp),
@@ -73,7 +74,7 @@ fun MorpheAppAvatar(
         modifier = modifier
             .size(size.size)
             .clip(shapes.small)
-            .border(1.dp, borderColor, shapes.small)
+            .outlineBorder(borderColor, shapes.small)
             .background(bgColor),
         contentAlignment = Alignment.Center,
     ) {

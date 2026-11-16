@@ -81,3 +81,33 @@ duplicate experimental suggestions, and version/build/form-factor query
 construction. No user device, local file, keystore, private source or public
 binary is modified. Source-only Draft, awaiting exact public 3-OS and JAR CI;
 not an owner-tested new version.
+
+## 2.2 appearance outlines: preserved Custom navigation and semantic indicators
+
+The official Desktop 2.2.0 optional *Outlines* control has been adapted to the
+existing Custom **Appearance tab in its established Settings modal**, with
+persistent `AppConfig.useOutlines`, root Compose state, English/German text and
+search/deep-link targeting. The default remains `true` so existing user
+configurations retain their current look without migration or value loss.
+Turning it off is purely visual; it changes no APK, app version, patch source,
+trust, signer, ADB, owner or installation operation.
+
+Shared design-system `MorpheTheme.outlines`, `outlineStroke` and
+`Modifier.outlineBorder` drive the live appearance for Custom application
+cards (monochrome and gradient), buttons, badges, interactive chips, avatars,
+device controls, navigation pills, dropdowns, text/search fields, panels,
+tooltips and color-picker decoration. Critical semantic indicators override
+the decorative preference: explicit OUTLINED/DANGER actions, text input error
+and focus states, expanded dropdowns, active navigation and the device-offline
+retry indicator retain their outlines. Error bars, selected swatch rings and
+existing confirmations remain visible. Default normal borders and the
+unchanged modal close controls are retained when enabled.
+
+No wholesale upstream settings-page route was copied over the private Custom
+modal: the existing search, explicit dismiss button, ADB identity, sources and
+signing panels are preserved. Native tests cover absence/default-on schema
+migration, persisted default-off settings round-trip, static searchable
+localized outlines terms, and positive/negative mandatory-border policy.
+Generated resource keys and complete Gradle/JAR qualification are required
+on the **exact public SHA**. This is a source-only Draft, not a 2.2 release or
+Windows GUI owner acceptance.

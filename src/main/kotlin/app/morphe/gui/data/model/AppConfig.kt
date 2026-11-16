@@ -66,6 +66,8 @@ data class AppConfig(
     val cardFills: Map<String, MorpheFill> = emptyMap(),
     val globalCardFill: MorpheFill? = null,
     val useSharpCorners: Boolean = false,
+    /** Cosmetic outlines only. Selected, focused and invalid controls retain their indicators. */
+    val useOutlines: Boolean = true,
     val homeAppSortMode: String = "RECOMMENDED",
     val preferredPatchChannel: String = "STABLE",
     val useSimpleMode: Boolean = true,

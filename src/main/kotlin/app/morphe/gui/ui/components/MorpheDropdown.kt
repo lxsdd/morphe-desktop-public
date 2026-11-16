@@ -58,6 +58,9 @@ import androidx.compose.ui.window.PopupProperties
 import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.theme.MorpheMotion
 import app.morphe.gui.ui.theme.MorpheTheme
+import app.morphe.gui.ui.theme.outlineBorder
+import app.morphe.gui.ui.theme.outlineStroke
+import app.morphe.gui.ui.theme.shouldDrawOutline
 import app.morphe.gui.ui.theme.panelFill
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
@@ -89,7 +92,8 @@ fun MorpheDropdown(
                 .defaultMinSize(minHeight = MorpheTheme.dimens.controlHeight)
                 .clip(corner)
                 .background(backgroundColor)
-                .border(1.dp, accents.primary.copy(alpha = if (expanded) 0.6f else 0.3f), corner)
+                .outlineBorder(accents.primary.copy(alpha = if (expanded) 0.6f else 0.3f), corner,
+                    enabled = shouldDrawOutline(MorpheTheme.outlines, required = expanded))
                 .onGloballyPositioned { triggerWidth = it.size.width; triggerHeight = it.size.height }
                 .clickable(enabled = enabled) { expanded = !expanded; query = "" }
                 .handCursor()
@@ -159,7 +163,8 @@ fun MorpheEditableDropdown(
             Modifier.fillMaxWidth()
                 .height(MorpheTheme.dimens.controlHeight)
                 .clip(corner)
-                .border(1.dp, fieldBorder, corner)
+                .outlineBorder(fieldBorder, corner,
+                    enabled = shouldDrawOutline(MorpheTheme.outlines, required = expanded || isFocused))
                 .onGloballyPositioned { triggerWidth = it.size.width; triggerHeight = it.size.height }
                 .padding(start = 10.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -291,7 +296,7 @@ internal fun DropdownMenuPopup(
         Surface(
             shape = corner,
             color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, accents.primary.copy(alpha = 0.35f)),
+            border = outlineStroke(accents.primary.copy(alpha = 0.35f)),
             shadowElevation = 8.dp,
             modifier = Modifier.width(with(density) { triggerWidth.toDp() }),
         ) {
@@ -357,7 +362,7 @@ internal fun DropdownMenuPopup(
 @Composable
 private fun SearchField(query: String, accent: Color, onChange: (String) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().border(1.dp, accent.copy(alpha = 0.15f)).padding(horizontal = 10.dp, vertical = 7.dp),
+        Modifier.fillMaxWidth().outlineBorder(accent.copy(alpha = 0.15f)).padding(horizontal = 10.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(MorpheIcons.Search, contentDescription = null, tint = accent.copy(alpha = 0.6f), modifier = Modifier.size(13.dp))

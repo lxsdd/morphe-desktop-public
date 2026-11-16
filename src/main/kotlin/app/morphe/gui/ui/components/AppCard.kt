@@ -48,6 +48,7 @@ import app.morphe.gui.ui.theme.LocalThemeState
 import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.gui.ui.theme.ThemeStyle
 import app.morphe.gui.ui.theme.contrastingForeground
+import app.morphe.gui.ui.theme.outlineBorder
 import app.morphe.gui.ui.theme.shiftLightness
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
@@ -193,6 +194,7 @@ fun AppCard(
 
     val cardColors = appCardColors()
     val isMonochrome = cardColors.isMonochrome
+    val showOutlines = MorpheTheme.outlines
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     val fill = fill.resolveAccent(MorpheTheme.colors.primary)
@@ -220,11 +222,13 @@ fun AppCard(
                         cornerRadius = cr,
                     )
                     drawContent()
-                    drawRoundRect(
-                        color = monoBorder,
-                        cornerRadius = cr,
-                        style = Stroke(width = 1.dp.toPx())
-                    )
+                    if (showOutlines) {
+                        drawRoundRect(
+                            color = monoBorder,
+                            cornerRadius = cr,
+                            style = Stroke(width = 1.dp.toPx())
+                        )
+                    }
                 } else {
                     val userBrush = fill?.toBrush(size)
                     val isFlatFill = fill is MorpheFill.Solid
@@ -244,27 +248,29 @@ fun AppCard(
 
                     drawContent()
 
-                    val borderBrush = if (isFlatFill) {
-                        Brush.linearGradient(
-                            listOf(Color.White.copy(alpha = 0.30f), Color.White.copy(alpha = 0.30f))
-                        )
-                    } else {
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.65f),
-                                midColor.copy(alpha = 0.30f),
-                                endColor.copy(alpha = 0.15f),
-                                Color.White.copy(alpha = 0.20f)
-                            ),
-                            start = Offset(0f, 0f),
-                            end = Offset(w, h)
+                    if (showOutlines) {
+                        val borderBrush = if (isFlatFill) {
+                            Brush.linearGradient(
+                                listOf(Color.White.copy(alpha = 0.30f), Color.White.copy(alpha = 0.30f))
+                            )
+                        } else {
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.65f),
+                                    midColor.copy(alpha = 0.30f),
+                                    endColor.copy(alpha = 0.15f),
+                                    Color.White.copy(alpha = 0.20f)
+                                ),
+                                start = Offset(0f, 0f),
+                                end = Offset(w, h)
+                            )
+                        }
+                        drawRoundRect(
+                            brush = borderBrush,
+                            cornerRadius = cr,
+                            style = Stroke(width = 1.5.dp.toPx())
                         )
                     }
-                    drawRoundRect(
-                        brush = borderBrush,
-                        cornerRadius = cr,
-                        style = Stroke(width = 1.5.dp.toPx())
-                    )
                 }
             }
             .hoverable(hoverInteraction)
@@ -290,7 +296,7 @@ fun AppCard(
                         .size(36.dp)
                         .clip(buttonShape)
                         .background(buttonFill)
-                        .border(1.dp, buttonInk.copy(alpha = 0.25f), buttonShape)
+                        .outlineBorder(buttonInk.copy(alpha = 0.25f), buttonShape)
                         .handCursor()
                         .clickable(onClick = onCustomise),
                     contentAlignment = Alignment.Center,

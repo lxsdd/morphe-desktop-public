@@ -189,6 +189,10 @@ val LocalSharpCorners = compositionLocalOf<MutableState<Boolean>> {
     error("No LocalSharpCorners provided")
 }
 
+val LocalOutlines = compositionLocalOf<MutableState<Boolean>> {
+    error("No LocalOutlines provided")
+}
+
 /** Auto-start ADB preference state. */
 data class AdbPreferenceState(
     val enabled: Boolean,
@@ -248,6 +252,7 @@ private fun appContent(
     var cardFills by remember { mutableStateOf(emptyMap<String, MorpheFill>()) }
     var globalCardFill by remember { mutableStateOf<MorpheFill?>(null) }
     val sharpCornersState = remember { mutableStateOf(false) }
+    val outlinesState = remember { mutableStateOf(true) }
     val showMoreAppsCardState = remember { mutableStateOf(false) }
     val showLocalAppIconsState = remember { mutableStateOf(true) }
     val backgroundSpeedState = remember { mutableFloatStateOf(1f) }
@@ -268,6 +273,7 @@ private fun appContent(
         cardFills = config.cardFills
         globalCardFill = config.globalCardFill
         sharpCornersState.value = config.useSharpCorners
+        outlinesState.value = config.useOutlines
         showMoreAppsCardState.value = config.showMoreAppsCard
         showLocalAppIconsState.value = config.showLocalAppIcons
 
@@ -380,7 +386,8 @@ private fun appContent(
             themePreference = themePreference,
             themeStyle = themeStyle,
             customAccentColorArgb = customAccentColorState.value,
-            useSharpCorners = sharpCornersState.value
+            useSharpCorners = sharpCornersState.value,
+            useOutlines = outlinesState.value
         ) {
             CompositionLocalProvider(
                 LocalThemeState provides themeState,
@@ -394,6 +401,7 @@ private fun appContent(
                 LocalParallaxState provides parallaxState,
                 LocalCustomAccentColor provides customAccentColorState,
                 LocalSharpCorners provides sharpCornersState,
+                LocalOutlines provides outlinesState,
                 LocalBackgroundSpeed provides backgroundSpeedState,
                 LocalPatchingCompleted provides patchingCompletedState,
                 LocalShowMoreAppsCard provides showMoreAppsCardState,

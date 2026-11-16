@@ -7,6 +7,7 @@ import kotlin.test.assertTrue
 class SettingsSearchRoutingTest {
     private val entries = listOf(
         SettingsSearchItem("Appearance", "Darstellung", "App-Karten", "Kartenfarben"),
+        SettingsSearchItem("Appearance", "Darstellung", "Umrandungen", "Dekorative Ränder einblenden"),
         SettingsSearchItem("Advanced", "Erweitert", "Signierung", "Schlüsselverwaltung", expandSection = "Signing"),
         SettingsSearchItem("Advanced", "Erweitert", "GitHub-PAT", "Zugriff auf GitHub", expandSection = "GitHub PAT"),
         SettingsSearchItem("System", "System", "Speicher & Cache", "Heruntergeladene Patchpakete"),
@@ -16,6 +17,11 @@ class SettingsSearchRoutingTest {
         val matches = SettingsSearchRouting.find("  speicher  patchpakete ", entries)
         assertEquals(listOf("Speicher & Cache"), matches.map { it.label })
         assertEquals("System", matches.single().category)
+    }
+
+    @Test fun outlinesAreSearchableOnlyByStaticPublicLabels() {
+        assertEquals("Umrandungen", SettingsSearchRouting.find("ränder", entries).single().label)
+        assertEquals("Appearance", SettingsSearchRouting.find("umrandungen", entries).single().category)
     }
 
     @Test fun accentedNamesAndMixedCaseRemainSearchable() {

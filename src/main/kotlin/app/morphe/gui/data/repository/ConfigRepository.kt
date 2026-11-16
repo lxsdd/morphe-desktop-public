@@ -106,6 +106,11 @@ open class ConfigRepository {
         saveConfig(current.copy(useSharpCorners = enabled))
     }
 
+    suspend fun setUseOutlines(enabled: Boolean) {
+        val current = loadConfig()
+        saveConfig(current.copy(useOutlines = enabled))
+    }
+
     suspend fun setHomeAppSortMode(mode: String) {
         val current = loadConfig()
         saveConfig(current.copy(homeAppSortMode = mode))

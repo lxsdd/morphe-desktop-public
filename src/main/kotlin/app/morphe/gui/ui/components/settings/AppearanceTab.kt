@@ -25,6 +25,7 @@ import androidx.compose.ui.window.PopupProperties
 import app.morphe.gui.LocalBackgroundType
 import app.morphe.gui.LocalEnableParallax
 import app.morphe.gui.LocalSharpCorners
+import app.morphe.gui.LocalOutlines
 import app.morphe.gui.LocalShowLocalAppIcons
 import app.morphe.gui.LocalShowMoreAppsCard
 import app.morphe.gui.data.repository.ConfigRepository
@@ -181,6 +182,20 @@ internal fun AppearanceTab(
             scope.launch { configRepo.setUseSharpCorners(enabled) }
         },
         icon = MorpheIcons.RoundedCorner
+    )
+
+    Spacer(Modifier.height(8.dp))
+
+    val outlinesState = LocalOutlines.current
+    SettingToggleRow(
+        label = stringResource(Res.string.settings_toggle_outlines_label),
+        description = stringResource(Res.string.settings_toggle_outlines_desc),
+        checked = outlinesState.value,
+        onCheckedChange = { enabled ->
+            outlinesState.value = enabled
+            scope.launch { configRepo.setUseOutlines(enabled) }
+        },
+        icon = MorpheIcons.Grid_3x3,
     )
 
     SettingsDivider(borderColor)
