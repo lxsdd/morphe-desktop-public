@@ -60,6 +60,15 @@ class PatcherCompatibilityMigrationTest {
     }
 
     @Test
+    fun `exact current 2_4 bundle requirement is not misreported as newer`() {
+        val source = bundle("2.4.0")
+        assertEquals("2.4.0", PatcherCompatibility.requiredPatcherVersion(source))
+        assertFalse(PatcherCompatibility.isIncompatiblePatcherVersion("2.4.0", "2.4.0"))
+        assertNull(PatcherCompatibility.incompatibilityMessage(source))
+        // This synthetic manifest fixture does not attest signer trust or patch loadability.
+    }
+
+    @Test
     fun `newer bundle fails its own source while others are unaffected`() = runBlocking {
         val newer = bundle("3.0.0")
         val older = bundle("1.8.0")

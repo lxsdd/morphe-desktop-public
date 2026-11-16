@@ -557,10 +557,10 @@ b6098df7d519580d077d559d558a3da977d25e86	src/test/kotlin/app/morphe/engine/insta
 d2c55b07243ecf88cdd2008da70d97889b3cb06a	src/test/kotlin/app/morphe/engine/model/SupportedAppDownloadUrlTest.kt
 b07c104e9dcb0d37b0fb785165b95648844f0645	src/test/kotlin/app/morphe/engine/OfficialStablePatchBundleSmokeTest.kt
 08e9070f202050bec8eca3b904b2aaea41a7956c	src/test/kotlin/app/morphe/engine/options/OptionValueConverterTest.kt
-413f4319c89653f4e93362983052ef5aa013ef4f	src/test/kotlin/app/morphe/engine/options/PatchOptionsFileTest.kt
+98a3376b6cb22452ebb251b10e5d32e9cf734e05	src/test/kotlin/app/morphe/engine/options/PatchOptionsFileTest.kt
 1b659fdbc1ce21603250e128d62c9ebb8ded0fb8	src/test/kotlin/app/morphe/engine/PatchCacheTrustPreservationTest.kt
 472e6c87fa24ceaf315ee3a1ad0d2c04f4d8036f	src/test/kotlin/app/morphe/engine/PatchedAppStoreTest.kt
-545193d262b72703bd96f0c0ad2880c0a64059f3	src/test/kotlin/app/morphe/engine/PatcherCompatibilityMigrationTest.kt
+da1cd91e6c291d892fc44426eebca1132d9b59ea	src/test/kotlin/app/morphe/engine/PatcherCompatibilityMigrationTest.kt
 f58f390d4fda34d06b51f1126a26ad812e72e300	src/test/kotlin/app/morphe/engine/patches/PatchBundleSigningTest.kt
 a7f83161f3646dd10f4df5cde79f8216bde908a2	src/test/kotlin/app/morphe/engine/patches/SupportedAppCatalogTest.kt
 87d0d95059334f9463dee0c2c9ef1a764c1f4ba2	src/test/kotlin/app/morphe/engine/SplitBundleStagingTest.kt
