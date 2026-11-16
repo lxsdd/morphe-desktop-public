@@ -46,8 +46,11 @@ private fun parsedVersion(text: String): CustomVersion? {
     val order = when (phase) {
         "" -> 4
         "dev" -> 0
-        "beta" -> 1
-        "core-preview" -> 2
+        // The historical reduced Core Preview predates a complete Custom beta.
+        // Both have the same numeric 2.2.0 prefix; never trap an installed
+        // Core Preview on an older build when the full beta becomes available.
+        "core-preview" -> 1
+        "beta" -> 2
         "rc" -> 3
         else -> return null
     }

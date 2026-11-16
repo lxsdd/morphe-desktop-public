@@ -208,7 +208,7 @@ ab8c616969deb5ae3fb17993c2a52a110168ee12	src/main/kotlin/app/morphe/engine/apk/B
 d91a43ba9eceae92ec0fbdf6d0e2ef8dd9b38010	src/main/kotlin/app/morphe/engine/CacheManager.kt
 38f39ac04c1f6cd2d0467474ab08a915ab1af11c	src/main/kotlin/app/morphe/engine/config/EngineConfig.kt
 d1d4371db9e5ba4b0ce530d50b5262b60dc8c26a	src/main/kotlin/app/morphe/engine/config/EngineConfigRepository.kt
-06c79c2a6e392e9375b6c5bd90aded2d67355cc8	src/main/kotlin/app/morphe/engine/CustomDesktopReleaseCatalog.kt
+a3d1b526ddece49ab5998945c2da1b689bb1eabc	src/main/kotlin/app/morphe/engine/CustomDesktopReleaseCatalog.kt
 1b6ee34179723aa86b4067758639b348eb4b8633	src/main/kotlin/app/morphe/engine/DevicePatchDeploymentStore.kt
 7749dc835fbf7d131561abfb99dd10658422e686	src/main/kotlin/app/morphe/engine/installation/AdbApkInstaller.kt
 334fdec1d0e0da3cf92b9404c67f207c49a4c57d	src/main/kotlin/app/morphe/engine/installation/AdbAppLinkRouter.kt
@@ -547,7 +547,7 @@ b828c3aef59427e7cf1b7da559825c3a6b145832	src/main/resources/fonts/RobotoMono-Sem
 81539d77a5844cfd47d7e9d11664d9f3b8f72ff1	src/test/kotlin/app/morphe/engine/BootstrapDownloaderVerificationTest.kt
 925a41c904a11064f8d43b1d6335a3409d7f94df	src/test/kotlin/app/morphe/engine/BundleScopeTest.kt
 41697d16c38ffeae6745ec7d88131c84c9dc0a88	src/test/kotlin/app/morphe/engine/CacheManagerStatsTest.kt
-988706d2373ad38d64081f76c5e1943acb950ba2	src/test/kotlin/app/morphe/engine/CustomDesktopReleaseCatalogTest.kt
+73a796dfe41ce08b06fd8ce8c1e7e383325c1be1	src/test/kotlin/app/morphe/engine/CustomDesktopReleaseCatalogTest.kt
 7b24ad643d4d5abc13ec2ae5f7db548e30edcd9d	src/test/kotlin/app/morphe/engine/DevicePatchDeploymentStorePortTest.kt
 393c73064579fc43a5752d62e7cf6ac41e748d91	src/test/kotlin/app/morphe/engine/DevicePatchDeploymentStoreTest.kt
 74e24589aa5b7a102d9cd00ba97ac17d9a0d2542	src/test/kotlin/app/morphe/engine/installation/AdbApkInstallerTest.kt

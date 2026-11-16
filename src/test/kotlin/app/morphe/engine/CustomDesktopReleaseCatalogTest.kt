@@ -62,6 +62,25 @@ class CustomDesktopReleaseCatalogTest {
         assertTrue(actual?.prerelease == true)
     }
 
+    @Test fun completeBetaSupersedesEveryHistoricalCorePreviewWithoutAFalseDowngrade() {
+        val fullTag = "custom-v2.2.0-beta.5-aabbccddeeff"
+        val mixed = list(release(oldPreview), release(newPreview), release(fullTag))
+        for (installed in listOf("2.2.0-core-preview.1", "2.2.0-core-preview.2")) {
+            val selected = selectNewerCustomDesktopRelease(mixed, installed, ReleaseChannel.DEV)
+            assertEquals("2.2.0-beta.5", selected?.version)
+            assertEquals("$base/download/$fullTag/Morphe-Desktop-Custom-Windows.zip", selected?.downloadLink)
+        }
+        assertNull(selectNewerCustomDesktopRelease(
+            list(release(oldPreview), release(newPreview)),
+            "2.2.0-beta.5", ReleaseChannel.DEV
+        ))
+        assertNull(selectNewerCustomDesktopRelease(mixed, "2.2.0-beta.5", ReleaseChannel.STABLE))
+        assertEquals("2.2.0", selectNewerCustomDesktopRelease(
+            list(release(fullTag), release("custom-v2.2.0-aabbccddeeff", preview = false)),
+            "2.2.0-beta.5", ReleaseChannel.DEV
+        )?.version)
+    }
+
     @Test fun newPreviewNeverShowsAsStableUpdate() {
         assertNull(selectNewerCustomDesktopRelease(
             list(release(newPreview)), "2.1.1", ReleaseChannel.STABLE
