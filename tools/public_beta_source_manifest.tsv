@@ -373,9 +373,9 @@ f764928cb663660948e0683ae279136869469f4f	src/main/kotlin/app/morphe/gui/ui/compo
 ef3b6be7781c793c5652d584f71f1ab3c6cdbfd6	src/main/kotlin/app/morphe/gui/ui/screens/home/DeviceInventoryRefreshStage.kt
 c00006a85417bb65fd72abcc1704eda2b12a5d27	src/main/kotlin/app/morphe/gui/ui/screens/home/HomePrimaryModal.kt
 b8767f71c900528ea10051e85c3a9abc56c44ff8	src/main/kotlin/app/morphe/gui/ui/screens/home/HomeScreen.kt
-b55ec253098168cb9d79d53cf811a8ea24e3ee4a	src/main/kotlin/app/morphe/gui/ui/screens/home/HomeViewModel.kt
+ffdac789bfd4bb07c151e73d33c3caa7682c871f	src/main/kotlin/app/morphe/gui/ui/screens/home/HomeViewModel.kt
 33ab08b8e714fb22fe2680e2fc3a80b0db983a3a	src/main/kotlin/app/morphe/gui/ui/screens/home/RepatchInputValidation.kt
-d98e5fcc62d6377f54dba7776e3a0183bc0790f2	src/main/kotlin/app/morphe/gui/ui/screens/home/UnifiedHomeAppState.kt
+abc294ab6c846ac8ce913062dfc57b4a259a305a	src/main/kotlin/app/morphe/gui/ui/screens/home/UnifiedHomeAppState.kt
 5dda8e01a5c65a1f039e92c02469546f1f71fed9	src/main/kotlin/app/morphe/gui/ui/screens/home/components/ApkInfoCard.kt
 21d97bc1f1bbe7d2380df59e237b94df7a62eece	src/main/kotlin/app/morphe/gui/ui/screens/home/components/ApkStagePane.kt
 7d69b297fc61133dda75321a876d0716cd0e2a80	src/main/kotlin/app/morphe/gui/ui/screens/home/components/AppCard.kt
@@ -591,7 +591,7 @@ ac013ae795f70f357027678a9b8bf90605b7bded	src/test/kotlin/app/morphe/gui/ui/scree
 02db241fc01b83ef7cf0142bdc68a6433cf06995	src/test/kotlin/app/morphe/gui/ui/screens/home/HomeViewModelInitializationOrderTest.kt
 2b6539d3eeba454af4bf82ff3ffd458d306f9a1b	src/test/kotlin/app/morphe/gui/ui/screens/home/RepatchInputValidationTest.kt
 e73c788555664ad14ceba100b2003b1952a94c7e	src/test/kotlin/app/morphe/gui/ui/screens/home/ScopedPatchChangelogProofTest.kt
-30a7fa05ed809369100c1f0618f53f58d3d15aa0	src/test/kotlin/app/morphe/gui/ui/screens/home/UnifiedHomeAppStateTest.kt
+cb888cc2a205257e11e505a4f457c3cee13dd53d	src/test/kotlin/app/morphe/gui/ui/screens/home/UnifiedHomeAppStateTest.kt
 42a9ed08836082817a0156d2980828aad2bd00db	src/test/kotlin/app/morphe/gui/ui/screens/home/components/AppListSortingTest.kt
 253f97d7debdff6ed9a17db20fe6a7a39fe868b1	src/test/kotlin/app/morphe/gui/ui/screens/home/components/CommunityPatchesDiscoveryTest.kt
 c766cff0ba2b54368eb8ef12c15828b4b181cb11	src/test/kotlin/app/morphe/gui/ui/screens/home/components/DeviceAppDetailsDisplayNameTest.kt
@@ -613,7 +613,7 @@ b5ebcd87cca93cb934f41f411b8bc2ead08f21d0	src/test/kotlin/app/morphe/gui/ui/theme
 4d3ce35c242ce12187540baeb4b9f9affd0be2f4	src/test/kotlin/app/morphe/gui/ui/theme/backgrounds/AnimationSpecsTest.kt
 90b3bb585b9fd83967c8cae7b6b12cc378068731	src/test/kotlin/app/morphe/gui/util/AdbInstalledApkHashTest.kt
 ede1886e9a42891e7c119d41b8bb9b65ffff9aad	src/test/kotlin/app/morphe/gui/util/AppUpdateStatusPortTest.kt
-bcd469028f8f4f6bd6ba024c5241f8de54474362	src/test/kotlin/app/morphe/gui/util/AppUpdateStatusTest.kt
+fd10a3c1a7c898d8ddedd590aae5b01564272df3	src/test/kotlin/app/morphe/gui/util/AppUpdateStatusTest.kt
 588e79287410ae4afb46f7d924794865ad214f74	src/test/kotlin/app/morphe/gui/util/BackgroundWorkTest.kt
 97bfda7faf2b6978e22a6c58b7296a42431fd32a	src/test/kotlin/app/morphe/gui/util/BuildCodeSupportTest.kt
 8e02c0ccaa281684478fcd317e9d2525acbd5da0	src/test/kotlin/app/morphe/gui/util/ChangelogParserTest.kt
