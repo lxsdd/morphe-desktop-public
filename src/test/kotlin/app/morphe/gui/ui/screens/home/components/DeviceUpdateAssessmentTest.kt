@@ -3,6 +3,7 @@ package app.morphe.gui.ui.screens.home.components
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.model.SupportedApp
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.util.UpdateMetadataResolution
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -143,4 +144,45 @@ class DeviceUpdateAssessmentTest {
             deviceReadableUpdateStatus(actual, DeviceOverviewStatus.APP_UPDATE,
                 sources(true, appVersion = "1.0"), history, "1.0", true))
     }
+
+    @Test fun `device diagnostic source updates require exact installed APK and recipe`() {
+        val history = record("com.google.android.youtube", "app.morphe.android.youtube", "21.45.82")
+        val verified = sources(true)
+        fun diagnostic(
+            pkg: String = "app.morphe.android.youtube",
+            version: String? = "21.45.82",
+            info: RecallUpdateInfo? = verified,
+            exact: Boolean? = true,
+        ) = verifiedDeviceDiagnosticPatchSources(pkg, version, history, info, exact)
+
+        assertEquals(listOf("Morphe Patches"), diagnostic().map { it.name })
+        assertTrue(diagnostic(pkg = "com.google.android.youtube").isEmpty())
+        assertTrue(diagnostic(version = "21.44.528").isEmpty())
+        assertTrue(diagnostic(exact = null).isEmpty())
+        assertTrue(diagnostic(exact = false).isEmpty())
+        assertTrue(diagnostic(info = null).isEmpty())
+        assertTrue(diagnostic(info = verified.copy(appUsedVersion = "21.44.528")).isEmpty())
+    }
+
+    @Test fun `diagnostic source names exclude unresolved and irrelevant changelog claims`() {
+        val history = record("com.google.android.youtube", "app.morphe.android.youtube", "21.45.82")
+        val verified = sources(true)
+        val confirmed = verified.sources.single()
+        val unchecked = confirmed.copy(sourceId = "offline", name = "Unverified source",
+            metadataKnown = false, checkIncomplete = true)
+        val irrelevant = confirmed.copy(sourceId = "unchanged", name = "Unchanged source",
+            hasRelevantChanges = false)
+        val noRelease = confirmed.copy(sourceId = "no-release", name = "Missing version",
+            latestAvailableVersion = null)
+        val combined = verified.copy(sources = listOf(unchecked, irrelevant, noRelease, confirmed))
+        fun diagnostic(info: RecallUpdateInfo) = verifiedDeviceDiagnosticPatchSources(
+            "app.morphe.android.youtube", "21.45.82", history, info, true,
+        )
+
+        assertEquals(listOf("Morphe Patches"), diagnostic(combined).map { it.name })
+        assertTrue(diagnostic(combined.copy(sources = listOf(unchecked, irrelevant, noRelease))).isEmpty())
+        assertTrue(diagnostic(combined.copy(metadataResolution = UpdateMetadataResolution.UNAVAILABLE)).isEmpty())
+        assertTrue(diagnostic(combined.copy(metadataResolution = UpdateMetadataResolution.CHECKING)).isEmpty())
+    }
+
 }

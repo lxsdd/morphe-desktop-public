@@ -538,11 +538,13 @@ internal fun DeviceInventoryPane(
                                                 stringResource(Res.string.device_overview_patch_source_missing)
                                         }
                                         deviceInstalledAppInfo[row.packageName]?.exactBuildVerified == true -> {
-                                            val relevantUpdates = updateInfoByPackage[row.record.packageName]
-                                                ?.sources.orEmpty()
-                                                .filter { src -> src.hasRelevantChanges &&
-                                                    !src.latestAvailableVersion.isNullOrBlank() }
-                                                .joinToString(" · ") { src ->
+                                            val relevantUpdates = verifiedDeviceDiagnosticPatchSources(
+                                                installedPackageName = row.packageName,
+                                                installedVersion = row.installedVersion,
+                                                history = row.record,
+                                                historicalUpdates = updateInfoByPackage[row.record.packageName],
+                                                exactBuildVerified = deviceInstalledAppInfo[row.packageName]?.exactBuildVerified,
+                                            ).joinToString(" · ") { src ->
                                                     "${src.name} v${src.usedVersion.removePrefix("v")} → " +
                                                         "v${src.latestAvailableVersion!!.removePrefix("v")}"
                                                 }

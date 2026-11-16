@@ -12,6 +12,22 @@ import app.morphe.gui.ui.screens.home.VerifiedUpdateFact
 import app.morphe.gui.ui.screens.home.verifiedAppUpdates
 import app.morphe.gui.util.selectSupportedAppTarget
 
+/** Only this installed identity, version and full signed-APK proof can inherit history. */
+private fun exactInstalledHistoryMatches(
+    installedPackageName: String,
+    installedVersion: String?,
+    history: PatchedAppRecord?,
+    historicalUpdates: RecallUpdateInfo?,
+    exactBuildVerified: Boolean?,
+): Boolean = history != null &&
+    history.installedPackageName == installedPackageName &&
+    !installedVersion.isNullOrBlank() &&
+    installedVersion.removePrefix("v").equals(history.apkVersion.removePrefix("v"), true) &&
+    history.apkVersion.removePrefix("v").equals(
+        historicalUpdates?.appUsedVersion?.removePrefix("v"), true,
+    ) &&
+    exactBuildVerified == true
+
 /** The installed package and version, never the old source APK's version, drive device offers. */
 internal fun latestCompatibleDeviceAppTarget(
     app: SupportedApp?,
@@ -42,17 +58,35 @@ internal fun verifiedDeviceUpdateFacts(
         !targetVersion.isNullOrBlank() && isNewerVersion(targetVersion, installedVersion)
     // A saved patch recipe is not proof that this same recipe is on the device.
     // The exact signed APK hash, installed package identity and version must all match.
-    val currentHistoryInstalled = history != null &&
-        history.installedPackageName == installedPackageName &&
-        !installedVersion.isNullOrBlank() &&
-        installedVersion.removePrefix("v").equals(history.apkVersion.removePrefix("v"), true) &&
-        history.apkVersion.removePrefix("v").equals(
-            historicalUpdates?.appUsedVersion?.removePrefix("v"), true,
-        ) &&
-        exactBuildVerified == true
+    val currentHistoryInstalled = exactInstalledHistoryMatches(
+        installedPackageName, installedVersion, history, historicalUpdates, exactBuildVerified,
+    )
     val installedPatchUpdate = currentHistoryInstalled &&
         verifiedAppUpdates(historicalUpdates).patch == VerifiedUpdateFact.AVAILABLE
     return DeviceUpdateFacts(appVersionUpdate, installedPatchUpdate)
+}
+
+/**
+ * Device diagnostics must never resurrect an incomplete or unrelated changelog
+ * as an installed patch update. The full installed APK and historical recipe
+ * must match before showing any per-source update claim.
+ */
+internal fun verifiedDeviceDiagnosticPatchSources(
+    installedPackageName: String,
+    installedVersion: String?,
+    history: PatchedAppRecord?,
+    historicalUpdates: RecallUpdateInfo?,
+    exactBuildVerified: Boolean?,
+): List<RecallUpdateInfo.SourceUpdate> {
+    if (!exactInstalledHistoryMatches(
+            installedPackageName, installedVersion, history, historicalUpdates, exactBuildVerified,
+        ) || verifiedAppUpdates(historicalUpdates).patch != VerifiedUpdateFact.AVAILABLE) {
+        return emptyList()
+    }
+    return historicalUpdates?.sources.orEmpty().filter {
+        it.metadataKnown && !it.checkIncomplete && it.hasRelevantChanges &&
+            !it.latestAvailableVersion.isNullOrBlank()
+    }
 }
 
 /** Human-facing state is independent from signing-key and hash diagnostics. */
