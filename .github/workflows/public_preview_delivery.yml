@@ -1,0 +1,204 @@
+name: Owner-approved public SHA-bound Windows preview
+
+# Never runs for source pushes, initial PRs or ordinary CI.
+# Public-source-only, no private checkout, no Actions artifact upload.
+on:
+  pull_request:
+    branches: [main]
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-preview-delivery-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  deliver:
+    if: >-
+      github.repository == 'lxsdd/morphe-desktop-public' &&
+      github.event_name == 'pull_request' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'morphe-public-preview-approved' &&
+      github.actor == github.repository_owner &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.base.ref == 'main' &&
+      startsWith(github.event.pull_request.head.ref, 'integration/public-safe-morphe-')
+    name: Verify public 4-job CI, rebuild Windows ZIP, publish only after owner label
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+      GITHUB_ACTOR: ${{ github.actor }}
+      EXACT_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      APPROVAL_LABEL: morphe-public-preview-approved
+    steps:
+      - name: Checkout exact public-source PR head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Confirm current PR head, live owner approval and exact 4-job CI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $repo = $env:GITHUB_REPOSITORY
+          $sha = $env:EXACT_SHA
+          if ($sha -notmatch '^[0-9a-f]{40}$' -or (git rev-parse HEAD) -ne $sha) {
+            throw 'Exact checked-out SHA is not approved PR head'
+          }
+          $pr = & gh api "repos/$repo/pulls/$env:PR_NUMBER" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'PR head lookup failed' }
+          $labels = @($pr.labels | ForEach-Object { $_.name })
+          if ($pr.state -ne 'open' -or $pr.head.sha -ne $sha -or
+              $pr.head.repo.full_name -ne $repo -or $pr.base.ref -ne 'main' -or
+              $labels -notcontains $env:APPROVAL_LABEL) {
+            throw 'Approval label, same-repo identity or exact PR SHA changed'
+          }
+          $responses = & gh api "repos/$repo/actions/runs?head_sha=$sha&per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Exact source CI unavailable' }
+          $required = @('Source and tests (ubuntu-latest)', 'Source and tests (windows-latest)',
+            'Source and tests (macos-latest)', 'PR desktop JAR integrity')
+          $qualified = $false
+          foreach ($run in @($responses.workflow_runs)) {
+            if ($run.head_sha -ne $sha -or $run.event -ne 'pull_request' -or
+                $run.status -ne 'completed' -or $run.conclusion -ne 'success' -or
+                $run.name -ne 'Public source CI (no distribution)') { continue }
+            $response = & gh api "repos/$repo/actions/runs/$($run.id)/jobs?per_page=100" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw 'Exact CI job evidence unavailable' }
+            $jobs = @($response.jobs)
+            $okay = $true
+            foreach ($name in $required) {
+              if (@($jobs | Where-Object { $_.name -eq $name -and $_.conclusion -eq 'success' }).Count -ne 1) {
+                $okay = $false
+                break
+              }
+            }
+            if ($okay) {
+              $qualified = $true
+              Write-Host "EXACT_SOURCE_CI=PASS HEAD=$sha RUN=$($run.id)"
+              break
+            }
+          }
+          if (-not $qualified) { throw 'No complete exact SHA 3-OS and JAR qualification' }
+          $short = $sha.Substring(0,12)
+          $tag = "custom-v2.2-core-preview-$short"
+          $prior = & gh api "repos/$repo/releases/tags/$tag" 2>$null
+          if ($LASTEXITCODE -eq 0) { throw "Refusing to replace existing release $tag" }
+          "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
+          "SHORT_SHA=$short" >> $env:GITHUB_ENV
+      - name: Setup pinned JDK 21
+        uses: actions/setup-java@v6.0.1
+        with:
+          distribution: jetbrains
+          java-version: '21'
+      - name: Verify exact public source manifest, resources, licenses
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python tools/verify_public_beta_source_manifest.py
+          if ($LASTEXITCODE -ne 0) { throw 'Source blob manifest did not qualify' }
+          python tools/verify_compose_resource_keys.py
+          if ($LASTEXITCODE -ne 0) { throw 'Compose resource validation failed' }
+          foreach ($p in @('LICENSE', 'NOTICE', 'docs/PUBLIC_220_SOURCE_PORT.md')) {
+            if (-not (Test-Path -LiteralPath $p)) { throw "Missing license/provenance $p" }
+          }
+      - name: Native Windows build and regression on immutable approved source
+        shell: bash
+        run: ./gradlew build --no-daemon --console=plain
+      - name: Create complete Windows ZIP and publish only when owner approval persists
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $repo = $env:GITHUB_REPOSITORY
+          $pr = & gh api "repos/$repo/pulls/$env:PR_NUMBER" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'PR verification failed' }
+          if ($pr.head.sha -ne $env:EXACT_SHA -or
+              @($pr.labels | ForEach-Object { $_.name }) -notcontains $env:APPROVAL_LABEL) {
+            throw 'Owner approval or immutable source changed; refusing release'
+          }
+          $jars = @(Get-ChildItem -LiteralPath 'build/libs' -Filter 'morphe-desktop-*-all.jar' -File)
+          if ($jars.Count -ne 1) { throw "Expected one executable JAR, got $($jars.Count)" }
+          Add-Type -AssemblyName System.IO.Compression
+          $jarArchive = [System.IO.Compression.ZipFile]::OpenRead($jars[0].FullName)
+          try {
+            if ($jarArchive.Entries.FullName -notcontains 'app/morphe/MorpheLauncherKt.class') {
+              throw 'Launcher missing in JAR'
+            }
+          } finally { $jarArchive.Dispose() }
+          $stage = Join-Path $env:RUNNER_TEMP 'public-preview-stage'
+          $dist = Join-Path $env:RUNNER_TEMP 'public-preview-dist'
+          New-Item -ItemType Directory -Force -Path $stage,$dist | Out-Null
+          $jar = Join-Path $stage $jars[0].Name
+          Copy-Item -LiteralPath $jars[0].FullName -Destination $jar
+          Copy-Item 'LICENSE' (Join-Path $stage 'LICENSE.txt')
+          Copy-Item 'NOTICE' (Join-Path $stage 'NOTICE.txt')
+          Copy-Item 'docs/PUBLIC_220_SOURCE_PORT.md' (Join-Path $stage 'README.txt')
+          @(
+            '@echo off', 'setlocal', 'where java >nul 2>&1',
+            'if errorlevel 1 (',
+            '  echo Java 21 or later is required.', '  exit /b 1', ')',
+            'set "MORPHE_JAR="',
+            'for %%J in ("%~dp0morphe-desktop-*-all.jar") do set "MORPHE_JAR=%%~fJ"',
+            'if not defined MORPHE_JAR (',
+            '  echo Missing Morphe Desktop executable JAR.', '  exit /b 1', ')',
+            'java -jar "%MORPHE_JAR%" %*', 'exit /b %ERRORLEVEL%'
+          ) | Set-Content -LiteralPath (Join-Path $stage 'Start-Morphe-Windows.cmd') -Encoding ascii
+          $jarHash = (Get-FileHash -LiteralPath $jar -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($jarHash -ne (Get-FileHash -LiteralPath $jars[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()) {
+            throw 'JAR bytes changed during staging'
+          }
+          "$jarHash  $($jars[0].Name)" | Set-Content -LiteralPath (Join-Path $stage 'SHA256SUMS.txt') -Encoding ascii
+          @(
+            'Unofficial public-source Morphe Desktop Custom 2.2 core compatibility preview.',
+            "SOURCE_GIT_SHA=$env:EXACT_SHA", "JAR_SHA256=$jarHash",
+            'OFFICIAL_DESKTOP_BASE=v2.2.0', 'OFFICIAL_PATCHER_BASE=v2.4.0',
+            'This preview is not the private canonical full build or Desktop 2.3 prerelease.',
+            'The internal app version may still show 2.1.1 until full 2.2 integration.',
+            'No private credentials, user APKs or signing keys are distributed.'
+          ) | Set-Content -LiteralPath (Join-Path $stage 'SOURCE_PROVENANCE.txt') -Encoding utf8
+          $zipName = "Morphe-Desktop-Custom-2.2-CORE-PREVIEW-$env:SHORT_SHA.zip"
+          $zip = Join-Path $dist $zipName
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
+          $z = [System.IO.Compression.ZipFile]::OpenRead($zip)
+          try {
+            $entries = @($z.Entries | ForEach-Object { $_.FullName })
+            foreach ($required in @($jars[0].Name,'LICENSE.txt','NOTICE.txt','README.txt',
+                'Start-Morphe-Windows.cmd','SHA256SUMS.txt','SOURCE_PROVENANCE.txt')) {
+              if ($entries -notcontains $required) { throw "ZIP entry missing: $required" }
+            }
+            if ($entries.Count -ne 7) { throw 'Unexpected files in ZIP' }
+          } finally { $z.Dispose() }
+          $zipHash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$zipHash  $zipName" | Set-Content -LiteralPath (Join-Path $dist 'SHA256SUMS.txt') -Encoding ascii
+          $notes = Join-Path $dist 'RELEASE_NOTES.md'
+          @(
+            '# Morphe Desktop Custom - public 2.2 core compatibility preview',
+            'Public-source preview only. Not the unreleased private canonical product or an official Morphe release.',
+            'Stable Desktop 2.2 core, Patcher 2.4, source-scoped update guards, supported APK metadata, app-name fixes.',
+            'Experimental patch source releases do not automatically constitute app updates.',
+            'The app may still show internal version 2.1.1 until the full 2.2 UI is integrated.',
+            "Source SHA: $env:EXACT_SHA", "JAR SHA256: $jarHash", "ZIP SHA256: $zipHash",
+            'Exact public 3-OS native CI and Windows regression were required before publishing.',
+            'Previous public beta.4 and private release drafts were not deleted.'
+          ) | Set-Content -LiteralPath $notes -Encoding utf8
+          & gh release create $env:RELEASE_TAG $zip (Join-Path $dist 'SHA256SUMS.txt') --repo $repo --target $env:EXACT_SHA --title "Morphe Desktop Custom - 2.2 core preview ($env:SHORT_SHA)" --notes-file $notes --prerelease
+          if ($LASTEXITCODE -ne 0) { throw 'Owner-approved public release creation failed' }
+          $readback = Join-Path $dist 'verified-download'
+          New-Item -ItemType Directory -Force -Path $readback | Out-Null
+          & gh release download $env:RELEASE_TAG --repo $repo --pattern $zipName --dir $readback
+          if ($LASTEXITCODE -ne 0) { throw 'Published preview ZIP readback failed' }
+          $actual = (Get-FileHash -LiteralPath (Join-Path $readback $zipName) -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $zipHash) { throw 'Published ZIP bytes do not match built bytes' }
+          & gh release download $env:RELEASE_TAG --repo $repo --pattern 'SHA256SUMS.txt' --dir $readback
+          if ($LASTEXITCODE -ne 0) { throw 'Published checksum readback failed' }
+          $sums = Get-Content -LiteralPath (Join-Path $readback 'SHA256SUMS.txt') -Raw
+          if (-not $sums.Contains("$actual  $zipName")) { throw 'Published checksum manifest mismatch' }
+          Write-Host "PUBLIC_PREVIEW=PASS SOURCE_SHA=$env:EXACT_SHA ZIP_SHA256=$actual JAR_SHA256=$jarHash READBACK=PASS"
+          "Download: https://github.com/$repo/releases/download/$env:RELEASE_TAG/$zipName" >> $env:GITHUB_STEP_SUMMARY

@@ -111,3 +111,58 @@ localized outlines terms, and positive/negative mandatory-border policy.
 Generated resource keys and complete Gradle/JAR qualification are required
 on the **exact public SHA**. This is a source-only Draft, not a 2.2 release or
 Windows GUI owner acceptance.
+
+## 2026-11-16 upstream application names and owner-gated public Windows download
+
+The official Morphe Desktop 2.3.0-dev line introduced form-factor display and,
+after dev.1, an upstream repair for applications whose manifest label is an
+Android `@string/...` resource. This Draft imports **only that focused app-name
+repair** from the public upstream commit
+`dc09eb9e0f71dfa156ada236d00d1a4d60ad29c9`, not an unreviewed wholesale
+2.3 development update. A plain APK's `resources.arsc` and an APKM/APKS/XAPK
+bundle's nested base.apk table can now resolve the actual app display name
+without requiring a patch bundle. Existing public bundle base-selection
+logic, exact-version update rules, patch identity and signer guards are not
+replaced. The nested resource table has a 32-MiB **decompressed** read cap;
+missing or corrupted tables retain original manifest inspection safely and
+do **not** invent a friendly name. Synthetic native regressions exercise
+literal names, referenced names, APK and bundled base.apk lookup, absent and
+malformed tables and package identity preservation. No APK/device/user file
+was touched during source development.
+
+The official Patches stable channel is still 2.2.0 as checked on Nov 16,
+while 2.3.0-dev.9 is experimental (YouTube downloads and debug changes).
+Its existence must not be advertised as a stable application update unless
+an actually configured, compatible patch source and its app-specific supported
+versions prove it. Desktop 2.3.0-dev.1 form-factor badges and history
+migration are **not** silently enabled in this build.
+
+**A complete owner-gated release route is staged, not activated.** The new
+`.github/workflows/public_preview_delivery.yml` is restricted to the
+public repository and only a same-repo candidate PR, plus a deliberate
+`pull_request labeled` event with the exact label
+`morphe-public-preview-approved` applied by the GitHub repository owner.
+Source synchronizations, regular CI, unrelated labels and chat continuations
+cannot trigger any distribution. It verifies the *live exact PR HEAD* against
+the approved event SHA, checks all **four** completed public CI jobs on that
+SHA (Ubuntu/Windows/macOS native + JAR integrity), re-verifies the full pinned
+source manifest and Compose resources, independently rebuilds Windows with
+native tests, checks the single executable JAR and packaged ZIP entries,
+creates a complete Java-21-compatible Windows launcher ZIP with LICENSE,
+NOTICE, README, provenance and SHA-256, and then downloads the *actual*
+published GitHub Releases asset to independently verify exact ZIP bytes and
+checksum manifest. It publishes only a uniquely SHA-named **public prerelease
+preview** and refuses to overwrite any existing release. Existing public
+beta.4 and private rollback artifacts are **not removed**. The 2.2 *core*
+preview is explicitly not advertised as the completely ported private app,
+and it may continue showing internal version 2.1.1 until the complete 2.2 UI
+and private-source parity are separately qualified.
+
+The workflow itself, its release contract tests and verifier are pinned by
+the public-source manifest; Ubuntu public CI exercises the negative/positive
+source contract. Until a new exact public CI finishes successfully **and the
+owner explicitly authorizes the preview-release label event**, no new binary
+is uploaded or linked as a real download. No private GitHub Actions runner,
+private repository checkout, private credential, key, device access, merge,
+paid resource or user-file mutation occurs. The public Draft remains separate
+from protected public main and published beta.4.

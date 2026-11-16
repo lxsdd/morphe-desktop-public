@@ -37,6 +37,10 @@ jobs:
         if: github.event_name == 'pull_request'
         shell: bash
         run: python tools/verify_public_beta_source_manifest.py
+      - name: Verify public preview requires an explicit owner event and exact CI
+        if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: python -m unittest discover -s tools -p 'test_public_preview_delivery_contract.py'
       - name: Set up JetBrains JDK 21
         uses: actions/setup-java@v6.0.1
         with:

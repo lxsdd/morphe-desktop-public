@@ -1,0 +1,52 @@
+"""Synthetic, fail-closed checks for owner-approved PUBLIC preview delivery."""
+import pathlib
+import unittest
+
+WORKFLOW = pathlib.Path(".github/workflows/public_preview_delivery.yml")
+
+
+class PublicPreviewDeliveryContractTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.source = WORKFLOW.read_text(encoding="utf-8")
+
+    def test_no_automatic_release(self):
+        self.assertIn("types: [labeled]", self.source)
+        self.assertIn("github.event.action == 'labeled'", self.source)
+        self.assertIn("github.event.label.name == 'morphe-public-preview-approved'", self.source)
+        self.assertIn("github.actor == github.repository_owner", self.source)
+        self.assertNotIn("workflow_dispatch:", self.source)
+
+    def test_public_source_provenance_only(self):
+        self.assertIn("github.repository == 'lxsdd/morphe-desktop-public'", self.source)
+        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", self.source)
+        self.assertIn("github.event.pull_request.base.ref == 'main'", self.source)
+        self.assertIn("python tools/verify_public_beta_source_manifest.py", self.source)
+        self.assertNotIn("morphe-desktop-custom", self.source)
+        self.assertNotIn("actions/upload-artifact", self.source)
+
+    def test_source_SHA_and_four_required_public_jobs(self):
+        self.assertIn("ref: ${{ github.event.pull_request.head.sha }}", self.source)
+        self.assertIn("head_sha=$sha", self.source)
+        for name in (
+            "Source and tests (ubuntu-latest)",
+            "Source and tests (windows-latest)",
+            "Source and tests (macos-latest)",
+            "PR desktop JAR integrity",
+        ):
+            self.assertIn(name, self.source)
+        self.assertIn("./gradlew build --no-daemon --console=plain", self.source)
+
+    def test_zip_checksum_readback_and_rollbacks_retained(self):
+        self.assertIn("gh release create", self.source)
+        self.assertIn("--prerelease", self.source)
+        self.assertIn("gh release download", self.source)
+        self.assertIn("Published ZIP bytes do not match", self.source)
+        self.assertIn("Published checksum manifest mismatch", self.source)
+        self.assertNotIn("gh release delete", self.source)
+        self.assertNotIn("git push", self.source)
+        self.assertNotIn("gh pr merge", self.source)
+
+
+if __name__ == "__main__":
+    unittest.main()
