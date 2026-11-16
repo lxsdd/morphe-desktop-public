@@ -19,9 +19,11 @@ jobs:
   source-build:
     if: github.repository == 'lxsdd/morphe-desktop-public'
     name: Source and tests (${{ matrix.os }})
-    # Keep the exact required macOS check name; use the supported, capacity-stable macOS 15 ARM runner.
-    # macos-latest (macOS 26 ARM) was cancelled after 15 minutes without a runner twice.
-    runs-on: ${{ matrix.os == 'macos-latest' && 'macos-15' || matrix.os }}
+    # Keep the exact required macOS check name; use standard macOS 15 Intel hosted runners.
+    # Nov 16: macos-15 ARM queued ~15 minutes then cancelled with zero steps on exact
+    # source SHA d004220d; macos-latest ARM had the same capacity symptom earlier.
+    # Only the runner assignment changes, never the matrix or native test contract.
+    runs-on: ${{ matrix.os == 'macos-latest' && 'macos-15-intel' || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
