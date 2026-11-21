@@ -1272,4 +1272,17 @@
     <string name="custom_source_loading_title">Checking patch sources</string>
     <string name="custom_source_loaded_title">Patch sources loaded</string>
     <string name="custom_source_progress_count">%1$d of %2$d sources</string>
+    <!-- Source-bound patch versions are not application updates. -->
+    <string name="custom_versions_source_unknown">Patch source</string>
+    <string name="custom_versions_search_hint">Search versions</string>
+    <string name="custom_versions_search_both">Search includes stable and experimental releases</string>
+    <string name="custom_versions_search_no_match">No versions match this search.</string>
+    <string name="custom_versions_tracking_pinned">Tracking: pinned release</string>
+    <string name="custom_versions_tracking_dev">Tracking: latest stable or experimental</string>
+    <string name="custom_versions_tracking_stable">Tracking: latest stable</string>
+    <string name="custom_versions_offline_warning">Offline: only locally cached versions are available. Current source status is not verified.</string>
+    <string name="custom_versions_pinned_missing">The configured release %1$s is not present in the current source results. No replacement was selected automatically.</string>
+    <string name="custom_versions_published">Published: %1$s</string>
+    <string name="custom_versions_release_notes">Release notes</string>
+    <string name="custom_versions_no_release_notes">No release notes are available for this version.</string>
 </resources>

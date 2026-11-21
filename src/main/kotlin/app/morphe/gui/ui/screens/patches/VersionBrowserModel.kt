@@ -1,0 +1,52 @@
+/*
+ * Morphe Desktop Custom — source-scoped version presentation (upstream 2.3 UI).
+ * All helpers are pure: browsing a version never mutates device/APK/source data.
+ */
+package app.morphe.gui.ui.screens.patches
+
+import app.morphe.engine.ReleaseChannel
+import app.morphe.engine.model.Release
+import app.morphe.engine.util.newerRelease
+import app.morphe.gui.data.model.FollowMode
+import app.morphe.gui.data.model.SourceVersionPref
+
+/** A missing PIN stays missing; it must never silently appear to be the newest release. */
+internal fun sourceInUseTag(
+    preference: SourceVersionPref?,
+    usePreRelease: Boolean,
+    stable: List<Release>,
+    dev: List<Release>,
+): String? = when (preference?.mode) {
+    FollowMode.PINNED -> preference.pinnedTag?.takeIf(String::isNotBlank)
+    FollowMode.FOLLOW_STABLE -> stable.firstOrNull()?.tagName
+    FollowMode.FOLLOW_DEV -> newerRelease(dev.firstOrNull(), stable.firstOrNull())?.tagName
+    null -> if (usePreRelease) newerRelease(dev.firstOrNull(), stable.firstOrNull())?.tagName
+            else stable.firstOrNull()?.tagName
+}
+
+/** Search always includes BOTH stable and experimental (dev) versions, regardless of current tab. */
+internal fun visibleSourceReleases(
+    state: PatchesUiState,
+): List<Release> {
+    val query = state.versionQuery.trim()
+    val candidates = if (state.isOffline) {
+        state.offlineReleases
+    } else if (query.isBlank()) {
+        state.currentReleases
+    } else {
+        (state.stableReleases + state.devReleases)
+            .distinctBy(Release::tagName)
+            .sortedByDescending { it.publishedAt ?: it.createdAt ?: "" }
+    }
+    return if (query.isBlank()) candidates else candidates.filter {
+        it.tagName.contains(query, ignoreCase = true) ||
+            it.name.orEmpty().contains(query, ignoreCase = true)
+    }
+}
+
+internal fun sourceReleaseIsInUse(state: PatchesUiState, release: Release): Boolean =
+    !state.isOffline && state.sourceId != null && state.inUseTag == release.tagName
+
+/** Which channel an explicitly selected release belongs to. */
+internal fun releaseChannel(release: Release): ReleaseChannel =
+    if (release.isDevRelease()) ReleaseChannel.DEV else ReleaseChannel.STABLE

@@ -1094,4 +1094,17 @@
     <string name="custom_source_loading_title">Patchquellen werden geprüft</string>
     <string name="custom_source_loaded_title">Patchquellen geladen</string>
     <string name="custom_source_progress_count">%1$d von %2$d Quellen</string>
+    <!-- Quellengebundene Patchversionen sind keine App-Updates. -->
+    <string name="custom_versions_source_unknown">Patchquelle</string>
+    <string name="custom_versions_search_hint">Versionen suchen</string>
+    <string name="custom_versions_search_both">Die Suche umfasst stabile und experimentelle Releases</string>
+    <string name="custom_versions_search_no_match">Keine Version passt zur Suche.</string>
+    <string name="custom_versions_tracking_pinned">Modus: angeheftete Version</string>
+    <string name="custom_versions_tracking_dev">Modus: neueste stabile oder experimentelle Version</string>
+    <string name="custom_versions_tracking_stable">Modus: neueste stabile Version</string>
+    <string name="custom_versions_offline_warning">Offline: Nur lokal zwischengespeicherte Versionen sind verfügbar. Der aktuelle Quellenstatus ist nicht bestätigt.</string>
+    <string name="custom_versions_pinned_missing">Die festgelegte Version %1$s fehlt in den aktuellen Quellenergebnissen. Es wurde nicht automatisch eine andere Version gewählt.</string>
+    <string name="custom_versions_published">Veröffentlicht: %1$s</string>
+    <string name="custom_versions_release_notes">Versionshinweise</string>
+    <string name="custom_versions_no_release_notes">Für diese Version sind keine Versionshinweise verfügbar.</string>
 </resources>
