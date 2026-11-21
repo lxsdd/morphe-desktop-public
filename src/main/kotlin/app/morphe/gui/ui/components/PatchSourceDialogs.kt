@@ -88,12 +88,7 @@ internal fun AddPatchSourceDialog(
                                 placeholder = stringResource(Res.string.patch_source_dialog_repo_placeholder),
                                 modifier = Modifier.fillMaxWidth(),
                             )
-                            Text(
-                                text = stringResource(Res.string.patch_source_dialog_repo_hint),
-                                style = MorpheTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 4.dp),
-                            )
+                            RemoteSourceInputHint(form.url)
                             val isPullRequest = RemotePatchSourceFactory.parse(form.url)?.provider == PatchProvider.GITHUB_PR
                             if (!isPullRequest) {
                                 PatchSourceToggleRow(
@@ -262,6 +257,15 @@ internal fun EditPatchSourceDialog(
                                     placeholder = stringResource(Res.string.patch_source_dialog_repo_placeholder),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
+                                RemoteSourceInputHint(form.url)
+                                if (remoteSourceIdentityChanged(source.url, form.url)) {
+                                    Text(
+                                        text = stringResource(Res.string.custom_source_url_changed_signer_warning),
+                                        style = MorpheTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(top = 4.dp),
+                                    )
+                                }
                             }
                         }
                         PatchSourceType.LOCAL -> {
@@ -352,6 +356,34 @@ internal fun EditPatchSourceDialog(
 }
 
 /** Parsed remote source details with canonical URL and provider type. */
+/** A 2.3-inspired read-only format preview: source identity and signer trust are separate. */
+@Composable
+private fun RemoteSourceInputHint(value: String) {
+    val kind = remoteSourceInputKind(value)
+    val description = when (kind) {
+        RemoteSourceInputKind.EMPTY -> stringResource(Res.string.patch_source_dialog_repo_hint)
+        RemoteSourceInputKind.UNRECOGNIZED -> stringResource(Res.string.patch_source_dialog_error_invalid_url)
+        RemoteSourceInputKind.GITHUB -> stringResource(Res.string.custom_source_url_github_format)
+        RemoteSourceInputKind.GITLAB -> stringResource(Res.string.custom_source_url_gitlab_format)
+        RemoteSourceInputKind.GITHUB_PR -> stringResource(Res.string.custom_source_url_pr_format)
+    }
+    Column(modifier = Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            text = description,
+            style = MorpheTheme.typography.labelSmall,
+            color = if (kind == RemoteSourceInputKind.UNRECOGNIZED) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (kind != RemoteSourceInputKind.UNRECOGNIZED && kind != RemoteSourceInputKind.EMPTY) {
+            Text(
+                text = stringResource(Res.string.custom_source_url_format_not_verified),
+                style = MorpheTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 internal data class ResolvedRemoteSource(
     val canonicalUrl: String,
     val provider: PatchSourceType, // GITHUB or GITLAB only

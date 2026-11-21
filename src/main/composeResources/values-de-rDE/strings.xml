@@ -1117,4 +1117,9 @@
     <string name="custom_source_search_hint">Patchquellen nach Name oder Anbieter suchen</string>
     <string name="custom_source_filter_reorder_hint">Für Drag-and-drop und Reihenfolgeänderungen alle Filter und die Suche zurücksetzen.</string>
     <string name="custom_source_filter_empty">Keine Patchquelle entspricht der aktuellen Suche oder Auswahl.</string>
+    <string name="custom_source_url_github_format">GitHub-Repositoryformat erkannt</string>
+    <string name="custom_source_url_gitlab_format">GitLab-Repositoryformat erkannt</string>
+    <string name="custom_source_url_pr_format">GitHub-PR-Quellenformat erkannt</string>
+    <string name="custom_source_url_format_not_verified">Nur das URL-Format erkannt: Quelle, Patchdatei und Signaturschlüssel sind noch nicht verifiziert.</string>
+    <string name="custom_source_url_changed_signer_warning">Die Quellenadresse wurde geändert. Vor der Verwendung muss der Signaturschlüssel dieser Quelle erneut geprüft werden; eine neue Signatur wird nicht automatisch vertraut.</string>
 </resources>

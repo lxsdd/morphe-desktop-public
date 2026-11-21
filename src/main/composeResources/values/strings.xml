@@ -1295,4 +1295,9 @@
     <string name="custom_source_search_hint">Search patch sources by name or provider</string>
     <string name="custom_source_filter_reorder_hint">Clear search and select All to reorder patch sources.</string>
     <string name="custom_source_filter_empty">No patch sources match the current search or filter.</string>
+    <string name="custom_source_url_github_format">GitHub repository format recognized</string>
+    <string name="custom_source_url_gitlab_format">GitLab repository format recognized</string>
+    <string name="custom_source_url_pr_format">GitHub pull-request source format recognized</string>
+    <string name="custom_source_url_format_not_verified">URL format only: the source, patch bundle and signing key have not been verified.</string>
+    <string name="custom_source_url_changed_signer_warning">Source address changed. Verify the source signing key again before use; no new signature is automatically trusted.</string>
 </resources>
