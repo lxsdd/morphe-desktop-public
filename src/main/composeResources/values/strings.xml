@@ -1287,4 +1287,12 @@
     <string name="custom_versions_no_release_notes">No release notes are available for this version.</string>
     <string name="custom_versions_in_use">In use</string>
     <string name="custom_versions_select_to_view">Select a version to inspect its release notes. Your saved source preference will not change until you explicitly choose a version.</string>
+    <string name="custom_source_overview_counts">%1$d of %2$d patch sources enabled</string>
+    <string name="custom_source_overview_source_versions">%1$d newer patch-source versions reported (not app updates)</string>
+    <string name="custom_source_filter_all">All</string>
+    <string name="custom_source_filter_enabled">Enabled</string>
+    <string name="custom_source_filter_attention">Needs review</string>
+    <string name="custom_source_search_hint">Search patch sources by name or provider</string>
+    <string name="custom_source_filter_reorder_hint">Clear search and select All to reorder patch sources.</string>
+    <string name="custom_source_filter_empty">No patch sources match the current search or filter.</string>
 </resources>

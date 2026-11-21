@@ -48,7 +48,7 @@ b450fa543702d0a10f04d456dae2075473a23784	src/main/composeResources/values-bg-rBG
 72a2164a60d352fc69268130f45cfd2dd0507cc9	src/main/composeResources/values-da-rDK/plurals.xml
 5f77b387ce9595c5534a697da6d00ff2d7d64b04	src/main/composeResources/values-da-rDK/strings.xml
 c3fb7ba6ce9e6f6cf8951093038a1e265e6d3ca0	src/main/composeResources/values-de-rDE/plurals.xml
-6d20734efb134ae3c445c158ba1db2a5e9fc912c	src/main/composeResources/values-de-rDE/strings.xml
+0bc6f63da69855bafcabc5b5eb7de45308dfe99d	src/main/composeResources/values-de-rDE/strings.xml
 e5c2f8ac2b2fbd89440b1d987788dfcdc63dc0a3	src/main/composeResources/values-el-rGR/plurals.xml
 67cb49184d87f120ea4a15e88578b46f107fdac5	src/main/composeResources/values-el-rGR/strings.xml
 2b91a61a8118d80581eda65e9bb0338e05ebc862	src/main/composeResources/values-es-rES/plurals.xml
@@ -178,7 +178,7 @@ de32080815d24a51cbad8581b86c261583595386	src/main/composeResources/values-zh-rTW
 ed6308700985c6b2583f10b51031ed9edff37031	src/main/composeResources/values-zu-rZA/plurals.xml
 c88fa14d94ede80f458686ff7d00287153247a1e	src/main/composeResources/values-zu-rZA/strings.xml
 a9e7bc6f13d60978cd3cbce8f4b6d9e088f0fac5	src/main/composeResources/values/plurals.xml
-708acda9892258ad1030cbe73f769034653c6054	src/main/composeResources/values/strings.xml
+afe2782bcd97ce8c827e0013898e4091e8fb21d4	src/main/composeResources/values/strings.xml
 c79b45a8a6d06a3282282d38ad515449ff1b9eb6	src/main/kotlin/app/morphe/BootstrapProgressWindow.kt
 2d92c5383d872dad73671bc3e20680adab2e5c17	src/main/kotlin/app/morphe/desktop/command/CliHttpClient.kt
 e6e3f046767847093b1e8123f8e086e0ed38d4ec	src/main/kotlin/app/morphe/desktop/command/CommandUtils.kt
@@ -359,7 +359,7 @@ f764928cb663660948e0683ae279136869469f4f	src/main/kotlin/app/morphe/gui/ui/compo
 ecb3ebe5ae3e4ede680705356b2485283b3f5c98	src/main/kotlin/app/morphe/gui/ui/components/SettingsDialog.kt
 58e6090a564031218bce0ac3f40b7c9b2933bd32	src/main/kotlin/app/morphe/gui/ui/components/SigningKeyTrustDialog.kt
 293874f69712235c60090cd3e2f9d6e70f070b90	src/main/kotlin/app/morphe/gui/ui/components/SlimInputs.kt
-8107798a7f88924d1cfb9a8be26a58115860d34d	src/main/kotlin/app/morphe/gui/ui/components/SourceManagementSheet.kt
+433fca933f0906ff0fd2a206b4cb36e2b2bbbe8d	src/main/kotlin/app/morphe/gui/ui/components/SourceManagementSheet.kt
 b342bc8f299c475dc489709d4bb17ce3ecf46aa7	src/main/kotlin/app/morphe/gui/ui/components/SourcesPage.kt
 7fa7df78934e2b286ca01cc85bf505df4ed9f44c	src/main/kotlin/app/morphe/gui/ui/components/SourcesPill.kt
 d27a4e401ad07aa26ab96cc15fc5135f9e0559fb	src/main/kotlin/app/morphe/gui/ui/components/ToolsButton.kt
@@ -663,3 +663,5 @@ cb42d0ee368ac2e1ba8634b05c109ae0c2453052	src/test/kotlin/app/morphe/gui/ui/scree
 e55cb1302ad7963f38e5c9453f481a86f8efdaba	src/main/kotlin/app/morphe/gui/ui/screens/patches/VersionBrowserModel.kt
 84e475a284f54fe2dd992ba3688bdc6c9c8b7263	src/test/kotlin/app/morphe/gui/ui/screens/patches/VersionBrowserModelTest.kt
 e81e3b96b54553a8532ba6139bf5b413f3e3040b	src/main/kotlin/app/morphe/gui/ui/screens/patches/components/patches/CustomSourceVersionBrowser.kt
+1cf963b0a5655659849aecbcff7b74e892c8881d	src/main/kotlin/app/morphe/gui/ui/components/SourceManagementOverview.kt
+2b224477decb3ffcfb4e57bdf6a2f3cdd2684106	src/test/kotlin/app/morphe/gui/ui/components/SourceManagementOverviewTest.kt

@@ -1109,4 +1109,12 @@
     <string name="custom_versions_no_release_notes">Für diese Version sind keine Versionshinweise verfügbar.</string>
     <string name="custom_versions_in_use">In Verwendung</string>
     <string name="custom_versions_select_to_view">Wähle eine Version, um ihre Hinweise anzuzeigen. Deine gespeicherte Quellenauswahl bleibt unverändert, bis du ausdrücklich eine Version auswählst.</string>
+    <string name="custom_source_overview_counts">%1$d von %2$d Patchquellen aktiv</string>
+    <string name="custom_source_overview_source_versions">%1$d Hinweise auf neuere Patchquellen-Versionen (keine App-Updates)</string>
+    <string name="custom_source_filter_all">Alle</string>
+    <string name="custom_source_filter_enabled">Aktiv</string>
+    <string name="custom_source_filter_attention">Prüfbedarf</string>
+    <string name="custom_source_search_hint">Patchquellen nach Name oder Anbieter suchen</string>
+    <string name="custom_source_filter_reorder_hint">Für Drag-and-drop und Reihenfolgeänderungen alle Filter und die Suche zurücksetzen.</string>
+    <string name="custom_source_filter_empty">Keine Patchquelle entspricht der aktuellen Suche oder Auswahl.</string>
 </resources>

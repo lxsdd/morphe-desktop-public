@@ -197,12 +197,21 @@ fun SourceManagementContent(
     var draggingId by remember { mutableStateOf<String?>(null) }
     var dragDeltaY by remember { mutableStateOf(0f) }
     var dragStartIndex by remember { mutableStateOf(0) }
+    // Read-only source overview: search/filter state never changes the persisted source order.
+    var sourceQuery by remember { mutableStateOf("") }
+    var viewFilter by remember { mutableStateOf(SourceViewFilter.ALL) }
+    val overview = sourceOverview(
+        sources, sourceErrors.keys, sourceSignerChanged.keys, sourceUpdates.keys,
+    )
     // Sync external order changes only while not dragging.
     LaunchedEffect(sources.map { it.id }) {
         if (draggingId == null) workingOrder = sources.map { it.id }
     }
-    val canReorder = enabled && sources.size > 1
+    val canReorder = sourceOrderEditable(enabled, sources.size, viewFilter, sourceQuery)
     val orderedSources = workingOrder.mapNotNull { sourcesById[it] }
+    val visibleSources = visibleManagedSources(
+        orderedSources, viewFilter, sourceQuery, sourceErrors.keys, sourceSignerChanged.keys,
+    )
 
     fun commitMove(id: String, up: Boolean) {
         val i = workingOrder.indexOf(id)
@@ -223,25 +232,73 @@ fun SourceManagementContent(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = if (!enabled) stringResource(Res.string.disabled_while_patching)
-                       else stringResource(Res.string.source_sheet_multi_mode_hint),
+                text = stringResource(
+                    Res.string.custom_source_overview_counts, overview.active, overview.total,
+                ),
+                style = MorpheTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (overview.availableSourceVersions > 0) {
+                Text(
+                    text = stringResource(
+                        Res.string.custom_source_overview_source_versions,
+                        overview.availableSourceVersions,
+                    ),
+                    style = MorpheTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(
+                    SourceViewFilter.ALL to stringResource(Res.string.custom_source_filter_all),
+                    SourceViewFilter.ENABLED to stringResource(Res.string.custom_source_filter_enabled),
+                    SourceViewFilter.ATTENTION to stringResource(Res.string.custom_source_filter_attention),
+                ).forEach { (option, label) ->
+                    MorpheChoiceChip(
+                        text = label,
+                        active = viewFilter == option,
+                        onClick = { if (draggingId == null) viewFilter = option },
+                    )
+                }
+            }
+            SlimTextField(
+                value = sourceQuery,
+                onValueChange = { if (draggingId == null) sourceQuery = it },
+                placeholder = stringResource(Res.string.custom_source_search_hint),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = when {
+                    !enabled -> stringResource(Res.string.disabled_while_patching)
+                    !canReorder && sources.size > 1 ->
+                        stringResource(Res.string.custom_source_filter_reorder_hint)
+                    else -> stringResource(Res.string.source_sheet_multi_mode_hint)
+                },
                 style = MorpheTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            if (sourceErrors.isNotEmpty()) Text(
-                text = stringResource(Res.string.source_sheet_error_summary, sourceErrors.size),
+            if (overview.failedSources > 0) Text(
+                text = stringResource(Res.string.source_sheet_error_summary, overview.failedSources),
                 style = MorpheTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.error,
             )
-            if (sourceSignerChanged.isNotEmpty()) Text(
-                text = stringResource(Res.string.source_sheet_signer_summary, sourceSignerChanged.size),
+            if (overview.signerChanges > 0) Text(
+                text = stringResource(Res.string.source_sheet_signer_summary, overview.signerChanges),
                 style = MorpheTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.error,
             )
             Spacer(Modifier.height(4.dp))
 
-            orderedSources.forEachIndexed { index, source ->
+            if (visibleSources.isEmpty()) {
+                Text(
+                    text = stringResource(Res.string.custom_source_filter_empty),
+                    style = MorpheTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 16.dp),
+                )
+            }
+            visibleSources.forEachIndexed { index, source ->
                 // Key by source ID to preserve gesture state during reorder.
                 key(source.id) {
                     val isDragging = source.id == draggingId
@@ -279,10 +336,10 @@ fun SourceManagementContent(
                         channel = sourceChannels[source.id],
                         updateVersion = sourceUpdates[source.id],
                         isLoading = isLoading,
-                        error = sourceErrors[source.id],
+                        error = sourceErrors[source.id].takeIf { source.enabled },
                         signingKeyFingerprint = sourceSigningKeyFingerprints[source.id],
                         signingKey = sourceSigningKeys[source.id],
-                        signerChangedException = sourceSignerChanged[source.id],
+                        signerChangedException = sourceSignerChanged[source.id].takeIf { source.enabled },
                         onReviewSignerChanged = { trustingSourceId = source.id },
                         enabled = enabled,
                         onToggleEnabled = { newVal -> onToggleEnabled(source.id, newVal) },
@@ -292,7 +349,7 @@ fun SourceManagementContent(
                         canReorder = canReorder,
                         position = index + 1,
                         canMoveUp = index > 0,
-                        canMoveDown = index < orderedSources.lastIndex,
+                        canMoveDown = index < visibleSources.lastIndex,
                         onMoveUp = { commitMove(source.id, up = true) },
                         onMoveDown = { commitMove(source.id, up = false) },
                         dragHandleModifier = dragHandleModifier,
@@ -366,6 +423,9 @@ fun SourceManagementContent(
             onDismiss = { showAddDialog = false },
             onAdd = {
                 onAdd(it)
+                // A newly added source must not be silently hidden by an old filter.
+                sourceQuery = ""
+                viewFilter = SourceViewFilter.ALL
                 showAddDialog = false
             }
         )
