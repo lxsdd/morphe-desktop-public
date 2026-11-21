@@ -65,11 +65,9 @@ jobs:
             'https://github.com/rushiranpise/morphe-patches/releases/download/v1.23.1/patches-1.23.1.mpp' -o "$amazon"
           echo "75ede4e416edf147be8132b6c7693d78b37264a1a89dd2c4fa835efccefcdd9d  $amazon" | sha256sum -c -
           echo "MORPHE_THIRDPARTY_PATCHES_TEST_FILE=$amazon" >> "$GITHUB_ENV"
-          riky="$RUNNER_TEMP/legacy-riky-patches-2.3.2.mpp"
-          curl -fL --retry 2 --connect-timeout 20 \
-            'https://github.com/riky-dev/morphe-patches/releases/download/v2.3.2/patches-2.3.2.mpp' -o "$riky"
-          echo "6c257bcae4023a73c92e9cb9d00589baeef4dbc6997f7137f6dead27bb35e764  $riky" | sha256sum -c -
-          echo "MORPHE_RIKY_PATCHES_TEST_FILE=$riky" >> "$GITHUB_ENV"
+          # 2026-11-21: archived riky-dev fixture returned HTTP 404 and the
+          # repository was removed. Do not bypass the dead source or substitute
+          # unaudited bytes. Its optional local smoke path remains available.
           # Additional remote release fixtures: exact SHA-256 bound, read-only.
           official23="$RUNNER_TEMP/official23-patches-2.3.0.mpp"
           curl -fL --retry 2 --connect-timeout 20 \
@@ -86,11 +84,9 @@ jobs:
             'https://github.com/SapitoSucio/FroggoMorphePatches/releases/download/v1.2.4/patches-1.2.4.mpp' -o "$froggo"
           echo "826590e366b197ba703692595aa5754fdb25d739c001abcd9f6456c2b7eb3b06  $froggo" | sha256sum -c -
           echo "MORPHE_FROGGO_PATCHES_TEST_FILE=$froggo" >> "$GITHUB_ENV"
-          hoodles="$RUNNER_TEMP/hoodles-patches-1.47.0.mpp"
-          curl -fL --retry 2 --connect-timeout 20 \
-            'https://github.com/hoo-dles/morphe-patches/releases/download/v1.47.0/patches-1.47.0.mpp' -o "$hoodles"
-          echo "eac6c34b93d09cefba65c0944b681268c9a40fea1d5c25931272641ec7ff481b  $hoodles" | sha256sum -c -
-          echo "MORPHE_HOODLES_PATCHES_TEST_FILE=$hoodles" >> "$GITHUB_ENV"
+          # 2026-11-21: hoo-dles repository is blocked by GitHub (ToS).
+          # Never evade this block or download from an unverified mirror.
+          # Other independently SHA-pinned original fixtures remain required.
           patchedup="$RUNNER_TEMP/patchedup-patches-1.10.0.mpp"
           curl -fL --retry 2 --connect-timeout 20 \
             'https://github.com/docbt/patched-up/releases/download/v1.10.0/patches-1.10.0.mpp' -o "$patchedup"

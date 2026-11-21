@@ -16,7 +16,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Real release assets downloaded and SHA-256 pinned by the private Ubuntu CI.
+ * Real release assets downloaded and SHA-256 pinned by PUBLIC Ubuntu CI.
  * These tests only load patch metadata/classes. They never patch an APK, change
  * signing trust, install on devices or touch the user's own data.
  */
@@ -57,7 +57,11 @@ class OfficialStablePatchBundleSmokeTest {
         assertEquals(mixed.perSource[1].patches.toSet(), mixed.allPatches)
     }
 
-    /** Verify actual Patcher-1.8.0 community MPP releases against the current 2.4.0 loader. */
+    /** Verify Patcher-1.8.0 community MPP releases against the 2.4.0 loader.
+     * The removed riky-dev source is optional only when a locally verified fixture
+     * has been independently provided. Public CI still tests the signed official
+     * and unsigned Amazon legacy real MPP bytes without any bypass.
+     */
     @Test
     fun legacyCommunityBundlesLoadAlongsideOfficialAndRemainPerSource() = runBlocking {
         val officialPath = System.getenv("MORPHE_OFFICIAL_PATCHES_TEST_FILE")
@@ -115,7 +119,9 @@ class OfficialStablePatchBundleSmokeTest {
     }
 
     /**
-     * Load six actual pinned current MPP releases with Patcher 2.4.0.
+     * Load five available, independently pinned current MPP releases with Patcher 2.4.0.
+     * The previous SoundCloud fixture is excluded only because its source repository
+     * was blocked by GitHub; do not fetch from an untrusted substitute.
      * A listed version is only qualified if actual loaded patch metadata exposes it.
      * No APK, signer, device, or local user data is modified.
      */
@@ -125,7 +131,6 @@ class OfficialStablePatchBundleSmokeTest {
             Triple("official23", "Official Patches 2.3.0", "MORPHE_OFFICIAL_LATEST_PATCHES_TEST_FILE"),
             Triple("piko", "Piko 3.11.1", "MORPHE_PIKO_PATCHES_TEST_FILE"),
             Triple("froggo", "Froggo GitHub-latest 1.2.4", "MORPHE_FROGGO_PATCHES_TEST_FILE"),
-            Triple("hoodles", "Hoodles 1.47.0", "MORPHE_HOODLES_PATCHES_TEST_FILE"),
             Triple("patchedup", "Patched-Up 1.10.0", "MORPHE_PATCHEDUP_PATCHES_TEST_FILE"),
             Triple("aliexpress", "AliExpress 1.0.7", "MORPHE_ALIEXPRESS_PATCHES_TEST_FILE"),
         )
@@ -148,7 +153,6 @@ class OfficialStablePatchBundleSmokeTest {
             ),
             "piko" to listOf("com.instagram.android" to "452.1.0.53.64"),
             "froggo" to listOf("com.facebook.katana" to "573.0.0.37.74"),
-            "hoodles" to listOf("com.soundcloud.android" to "2026.08.26-release"),
             "patchedup" to listOf("com.ebay.kleinanzeigen" to "2026.16.1"),
             "aliexpress" to listOf("com.alibaba.aliexpresshd" to "8.162.8"),
         )

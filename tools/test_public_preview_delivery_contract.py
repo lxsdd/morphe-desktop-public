@@ -71,5 +71,25 @@ class PublicPreviewDeliveryContractTest(unittest.TestCase):
         self.assertNotIn("gh pr merge", self.source)
 
 
+    def test_public_ci_real_mpp_fixtures_remain_sha_pinned_and_do_not_bypass_removed_sources(self):
+        # A retired 404 repository and a GitHub ToS-blocked repository cannot
+        # be CI prerequisites; no unverified mirror or best-effort skip.
+        workflow = pathlib.Path(".github/workflows/build_pull_request.yml").read_text(encoding="utf-8")
+        self.assertNotIn("github.com/riky-dev/morphe-patches/releases/download/", workflow)
+        self.assertNotIn("github.com/hoo-dles/morphe-patches/releases/download/", workflow)
+        self.assertIn("sha256sum -c -", workflow)
+        for approved in (
+            "MORPHE_OFFICIAL_PATCHES_TEST_FILE",
+            "MORPHE_THIRDPARTY_PATCHES_TEST_FILE",
+            "MORPHE_OFFICIAL_LATEST_PATCHES_TEST_FILE",
+            "MORPHE_PIKO_PATCHES_TEST_FILE",
+            "MORPHE_FROGGO_PATCHES_TEST_FILE",
+            "MORPHE_PATCHEDUP_PATCHES_TEST_FILE",
+            "MORPHE_ALIEXPRESS_PATCHES_TEST_FILE",
+        ):
+            self.assertIn(approved, workflow)
+
+
+
 if __name__ == "__main__":
     unittest.main()
