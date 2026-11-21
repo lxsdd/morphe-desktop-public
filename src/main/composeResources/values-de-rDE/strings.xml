@@ -1089,4 +1089,5 @@
     <string name="home_update_reason_source_unavailable">Patchquelle nicht geladen</string>
     <string name="home_update_reason_change_unverified">Änderungen für diese App nicht geprüft</string>
     <string name="device_update_counts_scope">Updatezahlen beziehen sich auf unterschiedliche App-Mengen: Geräte-Updates zählen jede installierte App nur einmal; App- und Patch-Updates können sich überschneiden. Signatur- und Build-Prüfungen sind keine Updates.</string>
+    <string name="custom_desktop_update_check_unavailable">Custom-App-Updates konnten nicht geprüft werden. Es liegt kein verifiziertes Ergebnis vor.</string>
 </resources>

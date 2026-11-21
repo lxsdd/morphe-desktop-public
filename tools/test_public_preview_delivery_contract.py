@@ -60,6 +60,17 @@ class PublicPreviewDeliveryContractTest(unittest.TestCase):
         self.assertNotIn('custom-v2.2-core-preview-$short', self.source)
         self.assertNotIn('The internal app version may still show 2.1.1', self.source)
 
+    def test_patcher_250_real_experimental_source_is_immutable_and_not_an_app_update(self):
+        catalog = pathlib.Path("gradle/libs.versions.toml").read_text(encoding="utf-8")
+        workflow = pathlib.Path(".github/workflows/build_pull_request.yml").read_text(encoding="utf-8")
+        test = pathlib.Path("src/test/kotlin/app/morphe/engine/OfficialStablePatchBundleSmokeTest.kt").read_text(encoding="utf-8")
+        self.assertIn('morphe-patcher = "2.5.0"', catalog)
+        self.assertIn("v2.4.0-dev.7/patches-2.4.0-dev.7.mpp", workflow)
+        self.assertIn("f904d0cb74ca98562d4e0e4f2ab61d7d62d72b7504ef3bc0d1ae0309074b9056", workflow)
+        self.assertIn("MORPHE_OFFICIAL_EXPERIMENTAL_PATCHES_TEST_FILE", workflow)
+        self.assertIn("experimentalOfficialBundleLoadsWithPatcher250AndKeepsSigner", test)
+        self.assertIn('assertEquals("2.5.0", PatcherCompatibility.currentPatcherVersion)', test)
+
     def test_zip_checksum_readback_and_rollbacks_retained(self):
         self.assertIn("gh release create", self.source)
         self.assertIn("--prerelease", self.source)

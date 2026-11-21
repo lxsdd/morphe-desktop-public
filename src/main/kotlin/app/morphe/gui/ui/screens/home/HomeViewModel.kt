@@ -12,6 +12,7 @@ import app.morphe.engine.MultiSourceLoader
 import app.morphe.engine.PatchEngine
 import app.morphe.engine.PatchedAppStore
 import app.morphe.engine.DevicePatchDeploymentStore
+import app.morphe.engine.AppUpdateCheck
 import app.morphe.engine.UpdateInfo
 import app.morphe.engine.apk.ApkInspector
 import app.morphe.engine.apk.ApkOutputNaming
@@ -372,15 +373,23 @@ class HomeViewModel(
         Logger.info("HomeVM: refreshUpdateCheck() called")
         viewModelScope.launch {
             updateCheckRepository.clearCache()
-            val info = updateCheckRepository.getUpdateInfo()
+            val outcome = updateCheckRepository.checkUpdate()
+            val info = (outcome as? AppUpdateCheck.Available)?.info
             val dismissed = configRepository.loadConfig().dismissedUpdateVersion
-            Logger.info("HomeVM: refresh result, info=${info?.latestVersion}, dismissed=$dismissed")
+            Logger.info("HomeVM: refresh result, status=$outcome, dismissed=$dismissed")
             _uiState.value = _uiState.value.copy(
                 updateInfo = info,
+                updateCheckStatus = outcome,
+                updateCheckFailureDismissed = false,
                 dismissedUpdateVersion = dismissed,
                 updateBannerSessionDismissed = false,
             )
         }
+    }
+
+    /** Dismiss the uncertain Custom-release check without claiming it is current. */
+    fun dismissUpdateCheckFailure() {
+        _uiState.value = _uiState.value.copy(updateCheckFailureDismissed = true)
     }
 
     /** Dismisses the update banner for the current session. */
@@ -1890,12 +1899,15 @@ class HomeViewModel(
     init {
         viewModelScope.launch {
             val config = configRepository.loadConfig()
-            val info = updateCheckRepository.getUpdateInfo()
+            val outcome = updateCheckRepository.checkUpdate()
+            val info = (outcome as? AppUpdateCheck.Available)?.info
             val dismissed = config.dismissedUpdateVersion
             val multiSourceShouldShow = !config.multiSourceHintDismissed &&
                     patchSourceManager.getEnabledSourcesSync().size > 1
             _uiState.value = _uiState.value.copy(
                 updateInfo = info,
+                updateCheckStatus = outcome,
+                updateCheckFailureDismissed = false,
                 dismissedUpdateVersion = dismissed,
                 showMultiSourceHint = multiSourceShouldShow,
                 appListFilter = if (tabSelectedThisSession) _uiState.value.appListFilter
@@ -2182,6 +2194,9 @@ data class HomeUiState(
     val patchSourceName: String? = null,
     val patchLoadError: String? = null,
     val updateInfo: UpdateInfo? = null,
+    /** Custom DESKTOP distribution update check; patch-source checks are separate. */
+    val updateCheckStatus: AppUpdateCheck? = null,
+    val updateCheckFailureDismissed: Boolean = false,
     val dismissedUpdateVersion: String? = null,
     val updateBannerSessionDismissed: Boolean = false,
     /** True if the multi-source intro hint should be displayed. */
@@ -2203,6 +2218,9 @@ data class HomeUiState(
                 updateInfo.latestVersion != dismissedUpdateVersion &&
                 !updateBannerSessionDismissed
 
+    /** Failed or untrusted checks are explicitly unknown, never "up to date". */
+    val showCustomUpdateCheckFailure: Boolean
+        get() = updateCheckStatus == AppUpdateCheck.Failed && !updateCheckFailureDismissed
 }
 
 data class ApkInfo(

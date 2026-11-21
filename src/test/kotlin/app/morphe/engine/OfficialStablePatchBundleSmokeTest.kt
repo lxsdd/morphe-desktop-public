@@ -27,7 +27,7 @@ class OfficialStablePatchBundleSmokeTest {
             ?.takeIf { it.isNotBlank() } ?: return@runBlocking
         val file = File(path)
         assertTrue(file.isFile && file.length() > 1024)
-        assertEquals("2.4.0", PatcherCompatibility.currentPatcherVersion)
+        assertEquals("2.5.0", PatcherCompatibility.currentPatcherVersion)
         assertEquals(
             RemotePatchSourceFactory.OFFICIAL_PATCHES_SIGNING_KEY,
             PatchBundleSignature.verify(file),
@@ -79,7 +79,7 @@ class OfficialStablePatchBundleSmokeTest {
             MultiSourceLoader.SourceInput("official", "Morphe Patches", official),
         )
         assertTrue(fixtures.all { it.patchFile.isFile && it.patchFile.length() > 1024 })
-        assertEquals("2.4.0", PatcherCompatibility.currentPatcherVersion)
+        assertEquals("2.5.0", PatcherCompatibility.currentPatcherVersion)
         assertNull(PatchBundleSignature.verify(amazon), "Unexpected signer change requires trust review")
         assertEquals("1.8.0", PatcherCompatibility.requiredPatcherVersion(amazon))
         riky?.let { assertEquals("1.8.0", PatcherCompatibility.requiredPatcherVersion(it)) }
@@ -119,7 +119,7 @@ class OfficialStablePatchBundleSmokeTest {
     }
 
     /**
-     * Load five available, independently pinned current MPP releases with Patcher 2.4.0.
+     * Load five available, independently pinned current MPP releases with Patcher 2.5.0.
      * The previous SoundCloud fixture is excluded only because its source repository
      * was blocked by GitHub; do not fetch from an untrusted substitute.
      * A listed version is only qualified if actual loaded patch metadata exposes it.
@@ -140,7 +140,7 @@ class OfficialStablePatchBundleSmokeTest {
         val inputs = sourceEnv.mapIndexed { idx, (id, name, _) ->
             MultiSourceLoader.SourceInput(id, name, File(files[idx]!!))
         }
-        assertEquals("2.4.0", PatcherCompatibility.currentPatcherVersion)
+        assertEquals("2.5.0", PatcherCompatibility.currentPatcherVersion)
         assertTrue(inputs.all { it.patchFile.isFile && it.patchFile.length() > 1024 })
         inputs.forEach { assertNull(PatcherCompatibility.incompatibilityMessage(it.patchFile)) }
         val loaded = MultiSourceLoader.load(inputs)
@@ -169,6 +169,31 @@ class OfficialStablePatchBundleSmokeTest {
                     "${source.sourceName}: missing $name $version")
             }
         }
+    }
+
+    /**
+     * Real official experimental MPP, independently SHA-256 pinned by public CI.
+     * Patcher 2.5.0 must load its metadata and preserve the official signing key.
+     * This is a compatibility qualification, not a patch recommendation or APK write.
+     */
+    @Test
+    fun experimentalOfficialBundleLoadsWithPatcher250AndKeepsSigner() = runBlocking {
+        val fixture = System.getenv("MORPHE_OFFICIAL_EXPERIMENTAL_PATCHES_TEST_FILE")
+            ?.takeIf { it.isNotBlank() } ?: return@runBlocking
+        val file = File(fixture)
+        assertTrue(file.isFile && file.length() > 1024)
+        assertEquals("2.5.0", PatcherCompatibility.currentPatcherVersion)
+        assertEquals(RemotePatchSourceFactory.OFFICIAL_PATCHES_SIGNING_KEY,
+            PatchBundleSignature.verify(file))
+        assertNull(PatcherCompatibility.incompatibilityMessage(file))
+        val loaded = MultiSourceLoader.load(
+            listOf(MultiSourceLoader.SourceInput("official-experimental", "Official Patches 2.4.0-dev.7", file))
+        )
+        val source = loaded.perSource.single()
+        assertTrue(source.isSuccess, "Experimental official MPP could not load: ${source.error?.readableMessage()}")
+        assertTrue(source.patches.isNotEmpty(), "Experimental official MPP has no patch metadata")
+        assertTrue(SupportedAppCatalog.extractSupportedApps(source.patches).isNotEmpty(),
+            "Experimental bundle has no supported apps to audit")
     }
 
 }

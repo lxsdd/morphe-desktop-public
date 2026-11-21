@@ -74,6 +74,13 @@ jobs:
             'https://github.com/MorpheApp/morphe-patches/releases/download/v2.3.0/patches-2.3.0.mpp' -o "$official23"
           echo "1c37549274a2b6cf7f2e3e099d9b8cb641880b8a7dac323a95638a06bb4509a9  $official23" | sha256sum -c -
           echo "MORPHE_OFFICIAL_LATEST_PATCHES_TEST_FILE=$official23" >> "$GITHUB_ENV"
+          # SHA-256 pinned official experimental bundle probes new Patcher 2.5.0 APIs.
+          # This fixture is read-only; it is NOT accepted as a user app-update.
+          experimental="$RUNNER_TEMP/official-patches-2.4.0-dev.7.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/MorpheApp/morphe-patches/releases/download/v2.4.0-dev.7/patches-2.4.0-dev.7.mpp' -o "$experimental"
+          echo "f904d0cb74ca98562d4e0e4f2ab61d7d62d72b7504ef3bc0d1ae0309074b9056  $experimental" | sha256sum -c -
+          echo "MORPHE_OFFICIAL_EXPERIMENTAL_PATCHES_TEST_FILE=$experimental" >> "$GITHUB_ENV"
           piko="$RUNNER_TEMP/piko-patches-3.11.1.mpp"
           curl -fL --retry 2 --connect-timeout 20 \
             'https://github.com/crimera/piko/releases/download/v3.11.1/patches-3.11.1.mpp' -o "$piko"
