@@ -117,4 +117,21 @@ class VersionBrowserModelTest {
         ))
         assertEquals(stable.first(), initialSourceRelease(null, null, stable + dev, stable.first()))
     }
+
+    @Test fun staleDownloadCannotWriteToAnotherSourceOrSelection() {
+        val selected = stable.first()
+        val state = PatchesUiState(sourceId = "official", selectedRelease = selected)
+        assertTrue(canApplySourceDownload(state, selected, "official", "official", true))
+        assertFalse(canApplySourceDownload(state, selected, "official", "official", false))
+        assertFalse(canApplySourceDownload(state, selected, "official", "other", true))
+        assertFalse(canApplySourceDownload(state.copy(sourceId = "other"), selected, "official", "official", true))
+        assertFalse(canApplySourceDownload(state.copy(selectedRelease = stable.last()), selected, "official", "official", true))
+        assertFalse(canApplySourceDownload(state.copy(selectedRelease = null), selected, "official", "official", true))
+    }
+
+    @Test fun sourceFreeDownloadRequiresSourceFreeStateAsWell() {
+        val selected = stable.first()
+        assertTrue(canApplySourceDownload(PatchesUiState(selectedRelease = selected), selected, null, null, true))
+        assertFalse(canApplySourceDownload(PatchesUiState(sourceId = "official", selectedRelease = selected), selected, null, null, true))
+    }
 }

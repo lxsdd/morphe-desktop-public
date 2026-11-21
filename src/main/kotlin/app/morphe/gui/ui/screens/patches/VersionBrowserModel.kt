@@ -47,6 +47,22 @@ internal fun sourcePinnedReleaseMissing(state: PatchesUiState): Boolean =
         !state.inUseTag.isNullOrBlank() &&
         (state.stableReleases + state.devReleases).none { it.tagName == state.inUseTag }
 
+/**
+ * Bind an asynchronous download to the exact source and release that the user chose.
+ * The generation flag also rejects results from an earlier selection or source reload.
+ */
+internal fun canApplySourceDownload(
+    state: PatchesUiState,
+    release: Release,
+    requestedSourceId: String?,
+    activeSourceId: String?,
+    sameGeneration: Boolean,
+): Boolean =
+    sameGeneration &&
+        state.sourceId == requestedSourceId &&
+        activeSourceId == requestedSourceId &&
+        state.selectedRelease?.tagName == release.tagName
+
 /** Search always includes BOTH stable and experimental (dev) versions, regardless of current tab. */
 internal fun visibleSourceReleases(
     state: PatchesUiState,

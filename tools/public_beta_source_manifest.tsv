@@ -425,7 +425,7 @@ eb6bd944490ecc592ac70f5939ae2ed14ba6a6aa	src/main/kotlin/app/morphe/gui/ui/scree
 9675dde1bb3455fca3eb1f2db82d16d6eff80092	src/main/kotlin/app/morphe/gui/ui/screens/patches/components/selection/SelectionModeChips.kt
 ae3024c2ff4ab09dee7f7e47204c74af73f13b6b	src/main/kotlin/app/morphe/gui/ui/screens/patches/components/selection/StripLibsStatusBanner.kt
 c63b2908f2388ce3263d9beb54e5bcbc8149539e	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchesScreen.kt
-501f53f9ca73698f6082d413b9d1eb398d246f74	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchesViewModel.kt
+1e5f41a0c572fbb2924375b1ddd6bc5de00661be	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchesViewModel.kt
 78ceca27092bdf8c88679b2c3c77df707b033699	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchSelectionScreen.kt
 411b6b7adae438f6dbaf52c43dc999b74306a896	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchSelectionViewModel.kt
 d40b5fc807351bef3e212a34a7407269e219d575	src/main/kotlin/app/morphe/gui/ui/screens/patching/components/FailureBottomBar.kt
@@ -660,6 +660,6 @@ cb42d0ee368ac2e1ba8634b05c109ae0c2453052	src/test/kotlin/app/morphe/gui/ui/scree
 747f37a154e4b6c5de00adf6706715391bb0b388	src/test/kotlin/app/morphe/gui/ui/components/SourceUpdateBannerStateTest.kt
 9c5a3b44f861261ef963d5d6bf8256e3847565b5	src/test/kotlin/app/morphe/gui/util/EnabledSourcesLoaderProgressTest.kt
 6b919ed98f6ebe28f06df94833dca82f6af96d0c	src/test/kotlin/app/morphe/gui/ui/screens/home/HomeSourceProgressIntegrationTest.kt
-ea8bbb9db23d80c99c6c6ea50b761ab77b396336	src/main/kotlin/app/morphe/gui/ui/screens/patches/VersionBrowserModel.kt
-a4123c570f8ea4c817f4043380b4371439753241	src/test/kotlin/app/morphe/gui/ui/screens/patches/VersionBrowserModelTest.kt
+e55cb1302ad7963f38e5c9453f481a86f8efdaba	src/main/kotlin/app/morphe/gui/ui/screens/patches/VersionBrowserModel.kt
+84e475a284f54fe2dd992ba3688bdc6c9c8b7263	src/test/kotlin/app/morphe/gui/ui/screens/patches/VersionBrowserModelTest.kt
 e81e3b96b54553a8532ba6139bf5b413f3e3040b	src/main/kotlin/app/morphe/gui/ui/screens/patches/components/patches/CustomSourceVersionBrowser.kt
