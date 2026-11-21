@@ -1268,4 +1268,8 @@
     <string name="home_update_reason_change_unverified">Changes for this app not verified</string>
     <string name="device_update_counts_scope">Update counts use different sets of apps: device updates count each installed app once; app and patch updates may overlap. Signing and build diagnostics are not updates.</string>
     <string name="custom_desktop_update_check_unavailable">Custom app update check unavailable. No result was verified.</string>
+    <!-- Progress reports patch source resolution; it is not evidence of an app update. -->
+    <string name="custom_source_loading_title">Checking patch sources</string>
+    <string name="custom_source_loaded_title">Patch sources loaded</string>
+    <string name="custom_source_progress_count">%1$d of %2$d sources</string>
 </resources>

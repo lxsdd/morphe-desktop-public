@@ -71,6 +71,28 @@ class PublicPreviewDeliveryContractTest(unittest.TestCase):
         self.assertIn("experimentalOfficialBundleLoadsWithPatcher250AndKeepsSigner", test)
         self.assertIn('assertEquals("2.5.0", PatcherCompatibility.currentPatcherVersion)', test)
 
+    def test_upstream23_source_progress_is_really_wired_without_weaker_custom_guards(self):
+        loader = pathlib.Path("src/main/kotlin/app/morphe/gui/util/EnabledSourcesLoader.kt").read_text(encoding="utf-8")
+        vm = pathlib.Path("src/main/kotlin/app/morphe/gui/ui/screens/home/HomeViewModel.kt").read_text(encoding="utf-8")
+        banner = pathlib.Path("src/main/kotlin/app/morphe/gui/ui/screens/home/components/HomeBanners.kt").read_text(encoding="utf-8")
+        home = pathlib.Path("src/main/kotlin/app/morphe/gui/ui/screens/home/HomeScreen.kt").read_text(encoding="utf-8")
+        state = pathlib.Path("src/main/kotlin/app/morphe/gui/ui/components/SourceUpdateBanner.kt").read_text(encoding="utf-8")
+        self.assertIn("onSourceProgress: ((SourceLoadProgress) -> Unit)?", loader)
+        self.assertIn("val done = completed.incrementAndGet()", loader)
+        self.assertIn("val usableResolvedSources: List<ResolvedSource>", loader)
+        self.assertIn("sourceReloadEpoch.incrementAndGet()", vm)
+        self.assertIn("if (sourceReloadEpoch.get() != sourceEpoch) state", vm)
+        self.assertIn("onSourceProgress = { event ->", vm)
+        self.assertIn("sourceUpdateBanner = _uiState.value.sourceUpdateBanner.finished(", vm)
+        self.assertIn("usableSources = usableResolved.size", vm)
+        self.assertIn("failedSources = failedSourceIds.size", vm)
+        self.assertIn("onlyLegacyPatcherFailures(", vm)
+        self.assertIn("SourceUpdateBanner(", banner)
+        self.assertIn("onDismissSourceUpdate = { viewModel.dismissSourceUpdateBanner() }", home)
+        self.assertIn("usableSources == total && failedSources == 0", state)
+        self.assertIn("MorpheBannerDismiss(onClick = onDismiss)", state)
+        self.assertNotIn("PatchEngine.patch(", state)
+
     def test_zip_checksum_readback_and_rollbacks_retained(self):
         self.assertIn("gh release create", self.source)
         self.assertIn("--prerelease", self.source)

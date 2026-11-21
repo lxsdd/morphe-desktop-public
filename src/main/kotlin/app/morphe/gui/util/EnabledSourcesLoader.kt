@@ -20,10 +20,13 @@ import app.morphe.gui.data.model.PatchSourceType
 import app.morphe.gui.data.model.SourceVersionPref
 import app.morphe.morphe_desktop.generated.resources.*
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.StringResource
@@ -50,6 +53,14 @@ object EnabledSourcesLoader {
         suspend fun getUserErrorMessage(): String? =
             errorRes?.let { getString(it, *errorArgs.toTypedArray()) } ?: error
     }
+
+    /** Source resolution progress, NOT evidence of an app or patch update. */
+    data class SourceLoadProgress(
+        val completed: Int,
+        val total: Int,
+        val activeSource: PatchSource?,
+        val downloadFraction: Float? = null,
+    )
 
     data class Result(
         /** Resolution outcome per source (success or failure). */
@@ -82,11 +93,43 @@ object EnabledSourcesLoader {
         excludedMppPatterns: List<String> = emptyList(),
         onDownloadProgress: ((String, Float) -> Unit)? = null,
         forceRefresh: Boolean = false,
+        onSourceProgress: ((SourceLoadProgress) -> Unit)? = null,
     ): Result = withContext(Dispatchers.IO) { supervisorScope {
+        val total = enabled.size
+        val completed = AtomicInteger(0)
+        val active = ConcurrentHashMap<String, PatchSource>().apply {
+            enabled.forEach { (source, _) -> put(source.id, source) }
+        }
+        val fractions = ConcurrentHashMap<String, Float>()
+        if (total > 0) {
+            onSourceProgress?.invoke(SourceLoadProgress(0, total, enabled.first().first))
+        }
         val resolved = enabled.map { (source, repo) ->
             async(Dispatchers.IO) {
                 try {
-                    val resolvedSource = resolve(source, repo, prefsBySource[source.id], excludedMppPatterns, onDownloadProgress, forceRefresh)
+                    val resolvedSource = resolve(
+                        source = source,
+                        repo = repo,
+                        pref = prefsBySource[source.id],
+                        excludedMppPatterns = excludedMppPatterns,
+                        onDownloadProgress = { name, pct ->
+                            onDownloadProgress?.invoke(name, pct)
+                            if (pct.isFinite() && pct in 0f..1f) {
+                                fractions[source.id] = pct
+                            } else {
+                                fractions.remove(source.id)
+                            }
+                            onSourceProgress?.invoke(
+                                SourceLoadProgress(
+                                    completed = completed.get(),
+                                    total = total,
+                                    activeSource = source,
+                                    downloadFraction = pct.takeIf { it.isFinite() && it > 0f && it < 1f },
+                                )
+                            )
+                        },
+                        forceRefresh = forceRefresh,
+                    )
                     val file = resolvedSource.patchFile
                     val manifestName = file?.let { PatchBundleLoader.extractName(it) }
                     val effectiveName = manifestName?.takeUnless { it.isBlank() || PatchSourceNaming.isRawOrCorruptedName(it) }
@@ -101,6 +144,21 @@ object EnabledSourcesLoader {
                     throw e
                 } catch (e: Exception) {
                     ResolvedSource(source = source, error = e.message ?: e.javaClass.simpleName)
+                } finally {
+                    active.remove(source.id)
+                    fractions.remove(source.id)
+                    val done = completed.incrementAndGet()
+                    if (isActive) {
+                        val next = enabled.firstOrNull { active.containsKey(it.first.id) }?.first
+                        onSourceProgress?.invoke(
+                            SourceLoadProgress(
+                                completed = done,
+                                total = total,
+                                activeSource = next,
+                                downloadFraction = next?.let { fractions[it.id] }?.takeIf { it > 0f && it < 1f },
+                            )
+                        )
+                    }
                 }
             }
         }.awaitAll()

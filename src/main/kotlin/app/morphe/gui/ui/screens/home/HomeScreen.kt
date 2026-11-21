@@ -701,6 +701,7 @@ fun HomeScreenContent(
                             onDismissMultiSourceHint = { viewModel.dismissMultiSourceHint() },
                             onManageSources = { openPage(HomePage.SOURCES) },
                             onDismissSourcesFailed = { viewModel.dismissSourcesFailedBanner() },
+                            onDismissSourceUpdate = { viewModel.dismissSourceUpdateBanner() },
                             onShowChangelog = { showChangelogDialog = true },
                         )
                         HorizontalPager(

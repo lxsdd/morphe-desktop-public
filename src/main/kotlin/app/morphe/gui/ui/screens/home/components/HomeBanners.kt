@@ -17,6 +17,7 @@ import app.morphe.gui.ui.components.MorpheBannerDismiss
 import app.morphe.gui.ui.components.MorpheBannerText
 import app.morphe.gui.ui.components.MorpheBannerTone
 import app.morphe.gui.ui.components.MorpheBanners
+import app.morphe.gui.ui.components.SourceUpdateBanner
 import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
@@ -33,16 +34,24 @@ internal fun HomeBanners(
     onDismissMultiSourceHint: () -> Unit,
     onManageSources: () -> Unit,
     onDismissSourcesFailed: () -> Unit,
+    onDismissSourceUpdate: () -> Unit = {},
     modifier: Modifier = Modifier,
     onShowChangelog: (() -> Unit)? = null,
 ) {
-    if (uiState.showUpdateBanner ||
+    if (uiState.sourceUpdateBanner.visible ||
+        uiState.showUpdateBanner ||
         uiState.showCustomUpdateCheckFailure ||
         uiState.showMultiSourceHint ||
         uiState.showSourcesFailedBanner
     ) {
         Column(modifier = modifier) {
             MorpheBanners {
+                if (uiState.sourceUpdateBanner.visible) {
+                    SourceUpdateBanner(
+                        state = uiState.sourceUpdateBanner,
+                        onDismiss = onDismissSourceUpdate,
+                    )
+                }
                 if (uiState.showCustomUpdateCheckFailure) {
                     MorpheBanner(
                         tone = MorpheBannerTone.Info,
