@@ -48,7 +48,7 @@ b450fa543702d0a10f04d456dae2075473a23784	src/main/composeResources/values-bg-rBG
 72a2164a60d352fc69268130f45cfd2dd0507cc9	src/main/composeResources/values-da-rDK/plurals.xml
 5f77b387ce9595c5534a697da6d00ff2d7d64b04	src/main/composeResources/values-da-rDK/strings.xml
 c3fb7ba6ce9e6f6cf8951093038a1e265e6d3ca0	src/main/composeResources/values-de-rDE/plurals.xml
-071e19aba5727c51fa1169248f58f2bbfff3ed9c	src/main/composeResources/values-de-rDE/strings.xml
+6d20734efb134ae3c445c158ba1db2a5e9fc912c	src/main/composeResources/values-de-rDE/strings.xml
 e5c2f8ac2b2fbd89440b1d987788dfcdc63dc0a3	src/main/composeResources/values-el-rGR/plurals.xml
 67cb49184d87f120ea4a15e88578b46f107fdac5	src/main/composeResources/values-el-rGR/strings.xml
 2b91a61a8118d80581eda65e9bb0338e05ebc862	src/main/composeResources/values-es-rES/plurals.xml
@@ -178,7 +178,7 @@ de32080815d24a51cbad8581b86c261583595386	src/main/composeResources/values-zh-rTW
 ed6308700985c6b2583f10b51031ed9edff37031	src/main/composeResources/values-zu-rZA/plurals.xml
 c88fa14d94ede80f458686ff7d00287153247a1e	src/main/composeResources/values-zu-rZA/strings.xml
 a9e7bc6f13d60978cd3cbce8f4b6d9e088f0fac5	src/main/composeResources/values/plurals.xml
-38362e0f132506a48e17fd1c4e65ecbe3dedc069	src/main/composeResources/values/strings.xml
+708acda9892258ad1030cbe73f769034653c6054	src/main/composeResources/values/strings.xml
 c79b45a8a6d06a3282282d38ad515449ff1b9eb6	src/main/kotlin/app/morphe/BootstrapProgressWindow.kt
 2d92c5383d872dad73671bc3e20680adab2e5c17	src/main/kotlin/app/morphe/desktop/command/CliHttpClient.kt
 e6e3f046767847093b1e8123f8e086e0ed38d4ec	src/main/kotlin/app/morphe/desktop/command/CommandUtils.kt
@@ -425,7 +425,7 @@ eb6bd944490ecc592ac70f5939ae2ed14ba6a6aa	src/main/kotlin/app/morphe/gui/ui/scree
 9675dde1bb3455fca3eb1f2db82d16d6eff80092	src/main/kotlin/app/morphe/gui/ui/screens/patches/components/selection/SelectionModeChips.kt
 ae3024c2ff4ab09dee7f7e47204c74af73f13b6b	src/main/kotlin/app/morphe/gui/ui/screens/patches/components/selection/StripLibsStatusBanner.kt
 c63b2908f2388ce3263d9beb54e5bcbc8149539e	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchesScreen.kt
-b6fd385e3e37e82aa62e3422d062ee97bc839d62	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchesViewModel.kt
+501f53f9ca73698f6082d413b9d1eb398d246f74	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchesViewModel.kt
 78ceca27092bdf8c88679b2c3c77df707b033699	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchSelectionScreen.kt
 411b6b7adae438f6dbaf52c43dc999b74306a896	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchSelectionViewModel.kt
 d40b5fc807351bef3e212a34a7407269e219d575	src/main/kotlin/app/morphe/gui/ui/screens/patching/components/FailureBottomBar.kt
@@ -660,6 +660,6 @@ cb42d0ee368ac2e1ba8634b05c109ae0c2453052	src/test/kotlin/app/morphe/gui/ui/scree
 747f37a154e4b6c5de00adf6706715391bb0b388	src/test/kotlin/app/morphe/gui/ui/components/SourceUpdateBannerStateTest.kt
 9c5a3b44f861261ef963d5d6bf8256e3847565b5	src/test/kotlin/app/morphe/gui/util/EnabledSourcesLoaderProgressTest.kt
 6b919ed98f6ebe28f06df94833dca82f6af96d0c	src/test/kotlin/app/morphe/gui/ui/screens/home/HomeSourceProgressIntegrationTest.kt
-3432b108860c32ec23820c868c4184c1b8b656ef	src/main/kotlin/app/morphe/gui/ui/screens/patches/VersionBrowserModel.kt
-18af00113402563e64721b5e120f52b4618b8d9f	src/test/kotlin/app/morphe/gui/ui/screens/patches/VersionBrowserModelTest.kt
-a1ec07779e4dadc6dba44023e14c81c3288f7126	src/main/kotlin/app/morphe/gui/ui/screens/patches/components/patches/CustomSourceVersionBrowser.kt
+ea8bbb9db23d80c99c6c6ea50b761ab77b396336	src/main/kotlin/app/morphe/gui/ui/screens/patches/VersionBrowserModel.kt
+a4123c570f8ea4c817f4043380b4371439753241	src/test/kotlin/app/morphe/gui/ui/screens/patches/VersionBrowserModelTest.kt
+e81e3b96b54553a8532ba6139bf5b413f3e3040b	src/main/kotlin/app/morphe/gui/ui/screens/patches/components/patches/CustomSourceVersionBrowser.kt

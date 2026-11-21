@@ -82,4 +82,39 @@ class VersionBrowserModelTest {
         assertEquals(tags.toSet().size, tags.size)
         assertEquals("v2.4.0-dev.7", tags.first())
     }
+
+    @Test fun missingPinnedVersionCannotAutoSelectLatestOnlineOrOffline() {
+        val pin = SourceVersionPref(FollowMode.PINNED, "v2.1.0")
+        assertNull(initialSourceRelease(pin, "v2.1.0", stable + dev, stable.first()))
+        assertNull(initialSourceRelease(pin, "v2.1.0", listOf(stable.first()), stable.first()))
+        assertNull(initialSourceRelease(SourceVersionPref(FollowMode.PINNED), null, stable, stable.first()))
+        assertEquals(stable.last(), initialSourceRelease(
+            SourceVersionPref(FollowMode.PINNED, stable.last().tagName),
+            stable.last().tagName, stable + dev, stable.first(),
+        ))
+    }
+
+    @Test fun explicitSourcePinWarningRequiresLiveKnownSourceEvidence() {
+        val state = PatchesUiState(
+            sourceId = "official", sourceTrackingMode = FollowMode.PINNED,
+            inUseTag = "v2.1.0", stableReleases = stable, devReleases = dev,
+        )
+        assertTrue(sourcePinnedReleaseMissing(state))
+        assertFalse(sourcePinnedReleaseMissing(state.copy(isOffline = true)))
+        assertFalse(sourcePinnedReleaseMissing(state.copy(sourceId = null)))
+        assertFalse(sourcePinnedReleaseMissing(state.copy(sourceTrackingMode = FollowMode.FOLLOW_STABLE)))
+        assertFalse(sourcePinnedReleaseMissing(state.copy(inUseTag = stable.first().tagName)))
+        assertFalse(sourcePinnedReleaseMissing(state.copy(inUseTag = null)))
+    }
+
+    @Test fun unpinnedSelectionsStillHonorFollowModesAndFallback() {
+        val pref = SourceVersionPref(FollowMode.FOLLOW_STABLE)
+        assertEquals(stable.first(), initialSourceRelease(
+            pref, stable.first().tagName, stable + dev, dev.first(),
+        ))
+        assertEquals(dev.first(), initialSourceRelease(
+            SourceVersionPref(FollowMode.FOLLOW_DEV), "missing", stable + dev, dev.first(),
+        ))
+        assertEquals(stable.first(), initialSourceRelease(null, null, stable + dev, stable.first()))
+    }
 }

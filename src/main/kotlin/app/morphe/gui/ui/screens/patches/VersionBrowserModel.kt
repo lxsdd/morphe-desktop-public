@@ -24,6 +24,29 @@ internal fun sourceInUseTag(
             else stable.firstOrNull()?.tagName
 }
 
+/**
+ * Resolve a selected release without substituting a missing explicit source pin.
+ * Following sources may fall back; a PINNED source always requires an exact match.
+ */
+internal fun initialSourceRelease(
+    preference: SourceVersionPref?,
+    savedTag: String?,
+    available: List<Release>,
+    fallback: Release?,
+): Release? {
+    val match = savedTag?.takeIf { it.isNotBlank() }
+        ?.let { tag -> available.firstOrNull { it.tagName == tag } }
+    return if (preference?.mode == FollowMode.PINNED) match else match ?: fallback
+}
+
+/** A missing pinned tag can only be asserted from live, source-specific release results. */
+internal fun sourcePinnedReleaseMissing(state: PatchesUiState): Boolean =
+    !state.isOffline &&
+        state.sourceId != null &&
+        state.sourceTrackingMode == FollowMode.PINNED &&
+        !state.inUseTag.isNullOrBlank() &&
+        (state.stableReleases + state.devReleases).none { it.tagName == state.inUseTag }
+
 /** Search always includes BOTH stable and experimental (dev) versions, regardless of current tab. */
 internal fun visibleSourceReleases(
     state: PatchesUiState,

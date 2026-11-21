@@ -112,18 +112,12 @@ class PatchesViewModel(
                         }
                     }
 
-                    // Resolve saved release or fall back to latest release.
-                    val initialRelease = if (savedVersion != null) {
-                        stableReleases.find { it.tagName == savedVersion }
-                            ?: devReleases.find { it.tagName == savedVersion }
-                            ?: stableReleases.firstOrNull()
-                    } else {
-                        if (usePreRelease) {
-                            newerRelease(devReleases.firstOrNull(), stableReleases.firstOrNull())
-                        } else {
-                            stableReleases.firstOrNull()
-                        }
-                    }
+                    // Never preselect a substitute when the configured source pin is missing.
+                    val initialRelease = initialSourceRelease(
+                        pref, savedVersion, stableReleases + devReleases,
+                        if (usePreRelease) newerRelease(devReleases.firstOrNull(), stableReleases.firstOrNull())
+                        else stableReleases.firstOrNull(),
+                    )
 
                     val initialChannel = if (initialRelease != null && initialRelease.isDevRelease()) {
                         ReleaseChannel.DEV
@@ -180,11 +174,8 @@ class PatchesViewModel(
                             }
                         }
 
-                        // Select saved version or fall back to most recent offline release.
-                        val initialRelease = if (savedVersion != null) {
-                            offlineReleases.find { it.tagName == savedVersion }
-                        } else null
-                        val selected = initialRelease ?: if (usePreRelease) {
+                        // A cached offline release must not silently replace a missing source pin.
+                        val offlineFallback = if (usePreRelease) {
                             newerRelease(
                                 offlineReleases.firstOrNull { it.isDevRelease() },
                                 offlineReleases.firstOrNull { !it.isDevRelease() },
@@ -192,6 +183,9 @@ class PatchesViewModel(
                         } else {
                             offlineReleases.firstOrNull { !it.isDevRelease() } ?: offlineReleases.firstOrNull()
                         }
+                        val selected = initialSourceRelease(
+                            pref, savedVersion, offlineReleases, offlineFallback,
+                        )
 
                         val cachedFile = selected?.let { PatchCache.getCachedFile(patchRepository.repoPath, it) }
 

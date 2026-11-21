@@ -1286,4 +1286,5 @@
     <string name="custom_versions_release_notes">Release notes</string>
     <string name="custom_versions_no_release_notes">No release notes are available for this version.</string>
     <string name="custom_versions_in_use">In use</string>
+    <string name="custom_versions_select_to_view">Select a version to inspect its release notes. Your saved source preference will not change until you explicitly choose a version.</string>
 </resources>

@@ -55,6 +55,7 @@ import app.morphe.gui.ui.components.MorpheBadge
 import app.morphe.gui.ui.components.MorpheBadgeTone
 import app.morphe.gui.ui.components.MorpheScrollbarStyle
 import app.morphe.gui.ui.screens.patches.PatchesUiState
+import app.morphe.gui.ui.screens.patches.sourcePinnedReleaseMissing
 import app.morphe.gui.ui.screens.patches.sourceReleaseIsInUse
 import app.morphe.gui.ui.screens.patches.visibleSourceReleases
 import app.morphe.gui.ui.theme.MorpheTheme
@@ -99,6 +100,13 @@ internal fun CustomVersionRail(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (sourcePinnedReleaseMissing(state)) {
+            Text(
+                text = stringResource(Res.string.custom_versions_pinned_missing, state.inUseTag.orEmpty()),
+                style = MorpheTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         if (!state.isOffline) {
             ChannelSelector(
                 selectedChannel = state.selectedChannel,
@@ -227,7 +235,20 @@ internal fun CustomVersionDetail(
     state: PatchesUiState,
     modifier: Modifier = Modifier,
 ) {
-    val release = state.selectedRelease ?: return
+    val release = state.selectedRelease
+    if (release == null) {
+        Box(
+            modifier = modifier.fillMaxSize().padding(20.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = stringResource(Res.string.custom_versions_select_to_view),
+                style = MorpheTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
     val scroll = rememberScrollState()
     Column(
         modifier = modifier
@@ -269,15 +290,6 @@ internal fun CustomVersionDetail(
                 text = stringResource(Res.string.custom_versions_offline_warning),
                 style = MorpheTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else if (state.sourceId != null && state.inUseTag != null &&
-            state.inUseTag != release.tagName &&
-            (state.stableReleases + state.devReleases).none { it.tagName == state.inUseTag }
-        ) {
-            Text(
-                text = stringResource(Res.string.custom_versions_pinned_missing, state.inUseTag),
-                style = MorpheTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
             )
         }
         release.publishedAt?.takeIf { it.isNotBlank() }?.let { published ->

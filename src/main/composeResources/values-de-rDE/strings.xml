@@ -1108,4 +1108,5 @@
     <string name="custom_versions_release_notes">Versionshinweise</string>
     <string name="custom_versions_no_release_notes">Für diese Version sind keine Versionshinweise verfügbar.</string>
     <string name="custom_versions_in_use">In Verwendung</string>
+    <string name="custom_versions_select_to_view">Wähle eine Version, um ihre Hinweise anzuzeigen. Deine gespeicherte Quellenauswahl bleibt unverändert, bis du ausdrücklich eine Version auswählst.</string>
 </resources>
