@@ -61,6 +61,11 @@ class SettingsSearchRoutingTest {
         )
         assertEquals("About", SettingsSearchRouting.find("Custom-Releases", listOf(about)).single().category)
         assertEquals("About", SettingsSearchRouting.find("bestätigte", listOf(about)).single().category)
-        assertTrue(SettingsSearchRouting.find("private-access-token-value", listOf(about)).isEmpty())
+        val licenses = SettingsSearchItem(
+            category = "About", categoryLabel = "Über",
+            label = "Open Source licenses", hint = "Third-party attributions",
+        )
+        assertEquals("About", SettingsSearchRouting.find("licenses", listOf(licenses)).single().category)
+        assertTrue(SettingsSearchRouting.find("private-access-token-value", listOf(about, licenses)).isEmpty())
     }
 }

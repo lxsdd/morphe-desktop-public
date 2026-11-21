@@ -86,6 +86,7 @@ internal fun settingsSearchItems(
         item("System", system, stringResource(Res.string.settings_section_storage)),
         item("About", about, stringResource(Res.string.settings_section_about)),
         item("About", about, stringResource(Res.string.settings_about_changelogs_title)),
+        item("About", about, stringResource(Res.string.settings_about_licenses_title)),
         item("About", about, stringResource(Res.string.settings_about_documentation_title)),
         item("About", about, stringResource(Res.string.settings_about_website_title)),
     )

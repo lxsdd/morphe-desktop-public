@@ -114,11 +114,15 @@ fun SettingsDialog(
     val searchMatches = SettingsSearchRouting.find(searchQuery, searchItems)
     val contentScroll = remember(selectedCategory) { ScrollState(0) }
     var showChangelogDialog by remember { mutableStateOf(false) }
+    var showLicensesDialog by remember { mutableStateOf(false) }
 
     if (showChangelogDialog) {
         ChangelogDialog(
             onDismiss = { showChangelogDialog = false }
         )
+    }
+    if (showLicensesDialog) {
+        LicensesDialog(onDismiss = { showLicensesDialog = false })
     }
 
     val windowSize = LocalWindowInfo.current.containerSize
@@ -294,6 +298,7 @@ fun SettingsDialog(
                             )
                             "About" -> CustomAboutPane(
                                 onShowChangelog = { showChangelogDialog = true },
+                                onShowLicenses = { showLicensesDialog = true },
                             )
                             "System" -> SystemTab(
                                 autoCleanupTempFiles = autoCleanupTempFiles,

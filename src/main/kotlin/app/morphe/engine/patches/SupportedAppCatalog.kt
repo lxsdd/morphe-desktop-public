@@ -152,6 +152,17 @@ object SupportedAppCatalog {
         }.sortedBy { it.displayName }
     }
 
+    /** Source-declared form factors, retaining the first authoritative compatible entry per package. */
+    fun extractFormFactors(patches: Iterable<Patch>): Map<String, FormFactor> = buildMap {
+        for (patch in patches) {
+            val compat = patch.compatibility ?: continue
+            for (entry in compat) {
+                val packageName = entry.packageName ?: continue
+                entry.formFactor?.let { putIfAbsent(packageName, it) }
+            }
+        }
+    }
+
     /** Builds a frequency map of compatible versions per package across patches. */
     fun getCompatibilityMap(
         packageNames: Set<String>? = null,

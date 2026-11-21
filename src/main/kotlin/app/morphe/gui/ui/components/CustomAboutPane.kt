@@ -31,7 +31,10 @@ import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-internal fun CustomAboutPane(onShowChangelog: () -> Unit) {
+internal fun CustomAboutPane(
+    onShowChangelog: () -> Unit,
+    onShowLicenses: () -> Unit,
+) {
     val links = LocalUriHandler.current
     val unknown = stringResource(Res.string.unknown)
     Column(
@@ -90,6 +93,13 @@ internal fun CustomAboutPane(onShowChangelog: () -> Unit) {
             title = stringResource(Res.string.settings_about_changelogs_title),
             subtitle = stringResource(Res.string.settings_about_changelogs_desc),
             onClick = onShowChangelog,
+        ) {
+            Icon(MorpheIcons.Article, contentDescription = null, tint = MorpheTheme.colors.primary)
+        }
+        AboutRow(
+            title = stringResource(Res.string.settings_about_licenses_title),
+            subtitle = stringResource(Res.string.settings_about_licenses_desc),
+            onClick = onShowLicenses,
         ) {
             Icon(MorpheIcons.Article, contentDescription = null, tint = MorpheTheme.colors.primary)
         }
