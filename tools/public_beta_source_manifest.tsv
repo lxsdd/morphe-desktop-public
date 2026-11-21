@@ -563,7 +563,7 @@ c5df607b830837f7a6178e291d46118b51343f07	src/test/kotlin/app/morphe/engine/Offic
 98a3376b6cb22452ebb251b10e5d32e9cf734e05	src/test/kotlin/app/morphe/engine/options/PatchOptionsFileTest.kt
 1b659fdbc1ce21603250e128d62c9ebb8ded0fb8	src/test/kotlin/app/morphe/engine/PatchCacheTrustPreservationTest.kt
 472e6c87fa24ceaf315ee3a1ad0d2c04f4d8036f	src/test/kotlin/app/morphe/engine/PatchedAppStoreTest.kt
-da1cd91e6c291d892fc44426eebca1132d9b59ea	src/test/kotlin/app/morphe/engine/PatcherCompatibilityMigrationTest.kt
+533eb51e06417a0233866dd364dd94511ee5261e	src/test/kotlin/app/morphe/engine/PatcherCompatibilityMigrationTest.kt
 f58f390d4fda34d06b51f1126a26ad812e72e300	src/test/kotlin/app/morphe/engine/patches/PatchBundleSigningTest.kt
 a7f83161f3646dd10f4df5cde79f8216bde908a2	src/test/kotlin/app/morphe/engine/patches/SupportedAppCatalogTest.kt
 87d0d95059334f9463dee0c2c9ef1a764c1f4ba2	src/test/kotlin/app/morphe/engine/SplitBundleStagingTest.kt
