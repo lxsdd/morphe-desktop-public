@@ -1285,4 +1285,5 @@
     <string name="custom_versions_published">Published: %1$s</string>
     <string name="custom_versions_release_notes">Release notes</string>
     <string name="custom_versions_no_release_notes">No release notes are available for this version.</string>
+    <string name="custom_versions_in_use">In use</string>
 </resources>

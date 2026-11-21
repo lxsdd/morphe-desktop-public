@@ -1107,4 +1107,5 @@
     <string name="custom_versions_published">Veröffentlicht: %1$s</string>
     <string name="custom_versions_release_notes">Versionshinweise</string>
     <string name="custom_versions_no_release_notes">Für diese Version sind keine Versionshinweise verfügbar.</string>
+    <string name="custom_versions_in_use">In Verwendung</string>
 </resources>

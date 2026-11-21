@@ -41,6 +41,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -208,7 +209,7 @@ private fun CustomVersionRailRow(
         )
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
             if (isInUse) {
-                MorpheBadge(text = stringResource(Res.string.versions_in_use), tone = MorpheBadgeTone.Success)
+                MorpheBadge(text = stringResource(Res.string.custom_versions_in_use), tone = MorpheBadgeTone.Success)
             }
             if (release.isDevRelease()) {
                 MorpheBadge(text = stringResource(Res.string.version_label_prerelease), tone = MorpheBadgeTone.Neutral)
@@ -241,7 +242,7 @@ internal fun CustomVersionDetail(
         )
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             if (sourceReleaseIsInUse(state, release)) {
-                MorpheBadge(text = stringResource(Res.string.versions_in_use), tone = MorpheBadgeTone.Success)
+                MorpheBadge(text = stringResource(Res.string.custom_versions_in_use), tone = MorpheBadgeTone.Success)
             }
             if (release.isDevRelease()) {
                 MorpheBadge(text = stringResource(Res.string.version_label_prerelease), tone = MorpheBadgeTone.Neutral)
