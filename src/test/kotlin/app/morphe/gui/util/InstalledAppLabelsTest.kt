@@ -136,7 +136,7 @@ class InstalledAppLabelsTest {
         val config = com.reandroid.arsc.value.ResConfig().apply { setLanguage("de") }
         assertNull(config.region)
         val entry = pkg.getOrCreate(config, "string", "app_name")
-        entry.setValueAsString("Übersetzer")
+        entry.setDataAsString("Übersetzer")
         table.refreshFull()
         val result = InstalledAppLabelResolver.parseResource(table.bytes, entry.resourceId, "de-DE")
         assertEquals("app.pkg:string/app_name", result?.resourceName)
@@ -149,8 +149,8 @@ class InstalledAppLabelsTest {
         val table = com.reandroid.arsc.chunk.TableBlock()
         val pkg = table.packageArray.createNext().apply { id = 0x7f; name = "app.pkg" }
         val config = com.reandroid.arsc.value.ResConfig()
-        val label = pkg.getOrCreate(config, "string", "label").apply { setValueAsString("Correct") }
-        val unrelated = pkg.getOrCreate(config, "string", "policy").apply { setValueAsString("Wrong") }
+        val label = pkg.getOrCreate(config, "string", "label").apply { setDataAsString("Correct") }
+        val unrelated = pkg.getOrCreate(config, "string", "policy").apply { setDataAsString("Wrong") }
         label.setName("0_resource_name_obfuscated")
         unrelated.setName("0_resource_name_obfuscated")
         table.refreshFull()
@@ -233,7 +233,7 @@ class InstalledAppLabelsTest {
         val table = com.reandroid.arsc.chunk.TableBlock()
         val pkg = table.packageArray.createNext().apply { id = 0x7f; name = "app.pkg" }
         val entry = pkg.getOrCreate(com.reandroid.arsc.value.ResConfig(), "string", "app_name")
-        entry.setValueAsString(label)
+        entry.setDataAsString(label)
         table.refreshFull()
         val bytes = table.bytes
         val id = entry.resourceId

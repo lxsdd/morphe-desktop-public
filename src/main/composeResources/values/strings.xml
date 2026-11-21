@@ -237,8 +237,8 @@
 
     <!-- Home Screen - YourAppsPane -->
     <string name="home_your_apps_status_patched">Patched</string>
-    <string name="home_filter_all_apps">All apps</string>
-    <string name="home_filter_your_apps">Your apps</string>
+    <string name="home_filter_all_apps">Patch catalog</string>
+    <string name="home_filter_your_apps">Patch history</string>
     <string name="home_banner_view">View</string>
     <string name="home_your_apps_install_ready">Install ready</string>
     <string name="home_action_install_to_device">Install to device</string>
@@ -687,6 +687,8 @@
     <string name="settings_appearance_monochrome">Monochrome</string>
     <string name="settings_toggle_sharp_corners_label">Sharp corners</string>
     <string name="settings_toggle_sharp_corners_desc">Square off cards, dialogs and buttons</string>
+    <string name="settings_toggle_outlines_label">Outlines</string>
+    <string name="settings_toggle_outlines_desc">Show decorative edges on cards, panels and buttons. Focus, errors and selections stay visible</string>
     <string name="settings_section_accent_color">Accent color</string>
     <string name="settings_accent_clear_description">Clear accent color</string>
     <string name="settings_accent_custom_description">Custom accent color</string>
@@ -833,8 +835,8 @@
     <string name="changelog_show_less">Show less</string>
     <string name="changelog_view_on_github_button">View on GitHub</string>
     <string name="home_detail_relink_verified_output">Relink verified patched APK</string>
-    <string name="home_filter_app_updates">App updates</string>
-    <string name="home_filter_patch_updates">Patch updates</string>
+    <string name="home_filter_app_updates">App updates (history)</string>
+    <string name="home_filter_patch_updates">Patch updates (history)</string>
     <string name="home_filter_device_apps">On device</string>
     <string name="home_version_patched">Patched app: %1$s</string>
     <string name="home_version_patch_source">Patch source: %1$s</string>
@@ -848,11 +850,14 @@
     <string name="home_update_source_proof_missing">app-scoped changelog not verified</string>
     <string name="home_update_unknown">Only confirmed updates to your patched apps are listed here.</string>
     <string name="home_update_checks_incomplete">Update check incomplete for %1$d patched apps. The counts show confirmed, patch-compatible updates only.</string>
+    <string name="home_update_checks_incomplete_named">%1$d patch-history entries not fully checked: %2$s. Only confirmed updates are counted.</string>
+    <string name="home_update_retry_check">Recheck</string>
     <string name="home_update_checks_incomplete_short">Update check incomplete</string>
     <string name="home_version_patch_only">Patch source used: %1$s</string>
     <string name="home_update_view_empty">No confirmed updates in this category</string>
     <string name="home_your_apps_patch_update_status">Patch update</string>
     <string name="home_your_apps_app_update_status">App update</string>
+    <string name="home_your_apps_experimental_update_status">Experimental app update</string>
     <string name="home_your_apps_patch_review_hint">Relevant patch changes available. Open details to review.</string>
     <string name="home_device_inventory_patched_record">Previously patched with Morphe</string>
     <string name="home_device_installed_version">Device version: %1$s</string>
@@ -868,8 +873,8 @@
     <string name="device_updates_both">App and patch updates available</string>
     <string name="device_updates_none">No confirmed compatible updates</string>
     <string name="device_updates_none_explain">Only newer supported versions and confirmed app-scoped patch changes appear here. Incomplete checks are reported separately above; zero confirmed updates does not mean all checks succeeded.</string>
-    <string name="device_diagnostics_show">Technical diagnostics</string>
-    <string name="device_diagnostics_hide">Hide diagnostics</string>
+    <string name="device_diagnostics_show">Show technical details</string>
+    <string name="device_diagnostics_hide">Hide technical details</string>
     <string name="device_diagnostics_cases_count">Technical review %1$d</string>
     <string name="device_overview_app_update">Update app version</string>
     <string name="device_overview_patch_update">Update patches</string>
@@ -879,7 +884,7 @@
     <string name="device_overview_signer_conflict">Signer differs from current key · review</string>
     <string name="device_overview_review">Review needed</string>
     <string name="device_overview_other">Outside patch catalog</string>
-    <string name="device_overview_summary">%1$d installed · %2$d in patch catalog · %3$d confirmed compatible updates</string>
+    <string name="device_overview_summary">%1$d installed · %2$d with catalog entries · %3$d confirmed device updates</string>
     <string name="device_overview_disclaimer">Device data is read only. Equal version and signer do not prove identical APK bytes.</string>
     <string name="device_overview_all">All %1$d</string>
     <string name="device_overview_needs">Technical review %1$d</string>
@@ -1225,4 +1230,46 @@
     <string name="ui_direct_apk_inspection_error">APK inspection failed.</string>
     <string name="ui_direct_apk_verify_error">APK verification failed.</string>
     <string name="ui_direct_apk_install_error">APK installation failed.</string>
+
+    <!-- Granular 2.2-compatible storage management in the existing Custom Settings modal. -->
+    <string name="settings_cache_category_patches">Downloaded patches</string>
+    <string name="settings_cache_category_logs">Application logs</string>
+    <string name="settings_cache_category_temp">Temporary files</string>
+    <string name="settings_cache_category_avatars">Repository avatars</string>
+    <string name="settings_storage_category_summary">%1$s · %2$d files</string>
+    <string name="settings_cache_confirm_patches_title">Clear downloaded patches?</string>
+    <string name="settings_cache_confirm_patches_message">Only downloaded .mpp and .jar bundles are removed. Trusted signer pins and source settings are preserved. Needed patches will be downloaded again.</string>
+    <string name="settings_cache_confirm_logs_title">Clear application logs?</string>
+    <string name="settings_cache_confirm_logs_message">Delete locally cached application logs. Device logs are not changed.</string>
+    <string name="settings_cache_confirm_temp_title">Clear temporary files?</string>
+    <string name="settings_cache_confirm_temp_message">Delete Morphe scratch/workspace files. No patch must be running.</string>
+    <string name="settings_cache_confirm_avatars_title">Clear repository avatars?</string>
+    <string name="settings_cache_confirm_avatars_message">Delete cached repository avatar images only. Local app icons and custom card colors are unchanged.</string>
+    <string name="settings_cache_category_cleared">%1$s cleared</string>
+    <string name="settings_cache_category_clear_failed">Failed to clear %1$s</string>
+    <string name="settings_search_settings_placeholder">Find a setting…</string>
+    <string name="settings_search_no_results">No matching settings</string>
+
+    <!-- Optional official 2.2 community discovery; never a verified app/update recommendation. -->
+    <string name="settings_toggle_more_apps_label">Show community patch discovery</string>
+    <string name="settings_toggle_more_apps_desc">Optional external link below supported apps. Unsupported apps and versions are never shown as updates.</string>
+    <string name="home_more_apps_title">More apps</string>
+    <string name="home_more_apps_subtitle">Community patches (external)</string>
+    <string name="community_patches_notice_title">Third-party patch sources</string>
+    <string name="community_patches_notice_message">Community patch sources are maintained by independent authors and are not verified by Morphe. Review their security and compatibility before using them. Opening this link does not install patches or change configured sources.</string>
+    <string name="community_patches_open_button">Open community site</string>
+    <string name="settings_toggle_local_icons_label">Show local APK icons</string>
+    <string name="settings_toggle_local_icons_desc">Display icons from existing local APK files. Device rows require a verified matching build; disabling never reads APKs</string>
+    <string name="settings_cache_category_app_icons">Local app-icon cache</string>
+    <string name="settings_storage_scan_pending">Reading…</string>
+    <string name="home_update_reason_metadata_unavailable">No complete metadata result yet</string>
+    <string name="home_update_reason_no_source">Patch sources for this record are unresolved</string>
+    <string name="home_update_reason_source_unavailable">Patch source not loaded</string>
+    <string name="home_update_reason_change_unverified">Changes for this app not verified</string>
+    <string name="device_update_counts_scope">Update counts use different sets of apps: device updates count each installed app once; app and patch updates may overlap. Signing and build diagnostics are not updates.</string>
+    <string name="custom_desktop_update_check_unavailable">Custom app update check unavailable. No result was verified.</string>
+    <!-- Progress reports patch source resolution; it is not evidence of an app update. -->
+    <string name="custom_source_loading_title">Checking patch sources</string>
+    <string name="custom_source_loaded_title">Patch sources loaded</string>
+    <string name="custom_source_progress_count">%1$d of %2$d sources</string>
 </resources>

@@ -106,6 +106,11 @@ open class ConfigRepository {
         saveConfig(current.copy(useSharpCorners = enabled))
     }
 
+    suspend fun setUseOutlines(enabled: Boolean) {
+        val current = loadConfig()
+        saveConfig(current.copy(useOutlines = enabled))
+    }
+
     suspend fun setHomeAppSortMode(mode: String) {
         val current = loadConfig()
         saveConfig(current.copy(homeAppSortMode = mode))
@@ -137,6 +142,24 @@ open class ConfigRepository {
     suspend fun setEnableParallax(enabled: Boolean) {
         val current = loadConfig()
         saveConfig(current.copy(enableParallax = enabled))
+    }
+
+    suspend fun setShowLocalAppIcons(enabled: Boolean) {
+        val current = loadConfig()
+        saveConfig(current.copy(showLocalAppIcons = enabled))
+    }
+
+    suspend fun setShowMoreAppsCard(enabled: Boolean) {
+        val current = loadConfig()
+        saveConfig(current.copy(showMoreAppsCard = enabled))
+    }
+
+    /** Persists only a user's explicit confirmation of the external-source notice. */
+    suspend fun setCommunityNoticeAcknowledged() {
+        val current = loadConfig()
+        if (!current.communityNoticeAcknowledged) {
+            saveConfig(current.copy(communityNoticeAcknowledged = true))
+        }
     }
     
     suspend fun setCustomAccentColorArgb(color: Int?) {
@@ -208,7 +231,7 @@ open class ConfigRepository {
         if (current.userDidChooseUpdateChannel && saved != null) {
             return saved
         }
-        val derived = if (currentVersion.contains("dev")) {
+        val derived = if (currentVersion.contains("-")) {
             UpdateChannelPreference.DEV
         } else {
             UpdateChannelPreference.STABLE

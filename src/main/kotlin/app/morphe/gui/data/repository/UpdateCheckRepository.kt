@@ -5,6 +5,7 @@
 
 package app.morphe.gui.data.repository
 
+import app.morphe.engine.AppUpdateCheck
 import app.morphe.engine.ReleaseChannel
 import app.morphe.engine.UpdateChecker
 import app.morphe.engine.UpdateInfo
@@ -18,64 +19,70 @@ import kotlinx.coroutines.withContext
 /**
  * Singleton wrapper around [UpdateChecker] so the network probe runs at most
  * once per (app session, channel) combination. Both home view models share the
- * cached result. Settings should call [clearCache] after the user changes the
- * update channel preference so the next read re-probes.
+ * successful result. Network/metadata failures are intentionally retryable.
+ * Settings should call [clearCache] after a channel preference change.
  */
 class UpdateCheckRepository(
     private val configRepository: ConfigRepository,
 ) {
 
     private val mutex = Mutex()
-    private var cached: Result<UpdateInfo?>? = null
+    private val checked = SuccessfulCustomUpdateCache()
 
     /**
-     * Fetch the latest update info per the user's channel preference. Returns
-     * null when there's no update, the channel is OFF, or the network probe
-     * failed. Cached after the first successful call until [clearCache].
+     * Failed checks are not cached: a transient offline/HTTP/invalid-payload
+     * failure must not permanently suppress real published Custom updates.
+     * OFF never causes network activity or an "up to date" assertion.
      */
-    suspend fun getUpdateInfo(): UpdateInfo? = withContext(Dispatchers.IO) {
+    suspend fun checkUpdate(): AppUpdateCheck? = withContext(Dispatchers.IO) {
         mutex.withLock {
-            cached?.let { return@withContext it.getOrNull() }
+            checked.get()?.let { return@withContext it }
 
-            // Resolve channel preference, smart-defaulting to match the running
-            // build the very first time so dev users aren't silently flipped
-            // to stable on upgrade.
             val currentVersion = UpdateChecker.currentVersion()
             val pref = if (currentVersion != null) {
                 configRepository.getOrInitUpdateChannelPreference(currentVersion)
             } else {
                 UpdateChannelPreference.STABLE
             }
-
-            if (pref == UpdateChannelPreference.OFF) {
-                cached = Result.success(null)
-                return@withContext null
-            }
+            if (pref == UpdateChannelPreference.OFF) return@withContext null
 
             val channel = when (pref) {
                 UpdateChannelPreference.STABLE -> ReleaseChannel.STABLE
                 UpdateChannelPreference.DEV -> ReleaseChannel.DEV
                 UpdateChannelPreference.OFF -> error("unreachable, short-circuited above")
             }
-
-            val info = try {
-                UpdateChecker.checkInfo(channel)
+            val outcome = try {
+                UpdateChecker.checkStatus(channel)
             } catch (e: Exception) {
-                Logger.error("UpdateCheck: threw exception", e)
-                null
+                Logger.error("Custom release update check failed", e)
+                AppUpdateCheck.Failed
             }
-            cached = Result.success(info)
-            info
+            checked.remember(outcome)
+            outcome
         }
     }
 
-    /**
-     * Invalidate the cached result so the next [getUpdateInfo] re-probes.
-     * Called when the user changes the update channel preference in Settings.
-     */
+    /** Compatibility API for home banners and CLI callers. */
+    suspend fun getUpdateInfo(): UpdateInfo? =
+        (checkUpdate() as? AppUpdateCheck.Available)?.info
+
     suspend fun clearCache() {
-        mutex.withLock {
-            cached = null
-        }
+        mutex.withLock { checked.clear() }
+    }
+}
+
+
+/** Pure cache contract: only successfully checked Custom release evidence is durable. */
+internal class SuccessfulCustomUpdateCache {
+    private var result: AppUpdateCheck? = null
+
+    fun get(): AppUpdateCheck? = result
+
+    fun remember(outcome: AppUpdateCheck) {
+        if (outcome != AppUpdateCheck.Failed) result = outcome
+    }
+
+    fun clear() {
+        result = null
     }
 }

@@ -79,7 +79,22 @@ object PatchEngine {
         val disabledPatchIndices: Set<Int> = emptySet(),
         val patchOptions: Map<String, Map<String, Any?>> = emptyMap(),
         val patchOptionIndices: Map<Int, Map<String, Any?>> = emptyMap(),
-    )
+    ) {
+        /** Resolve names ignoring case, then apply index-specific options without losing other fields. */
+        internal fun resolveOptions(patches: List<Patch>): Map<String, Map<String, Any?>> {
+            val resolved = patchOptions.entries.associate { (name, options) ->
+                val declaredName = patches.firstOrNull { it.name.equals(name, ignoreCase = true) }?.name ?: name
+                declaredName to options
+            }.toMutableMap()
+            patchOptionIndices.forEach { (index, options) ->
+                if (index in patches.indices) {
+                    val name = patches[index].name
+                    if (name != null) resolved[name] = resolved[name].orEmpty() + options
+                }
+            }
+            return resolved
+        }
+    }
 
     data class HistoryMetadata(
         val originalPackageName: String? = null,
@@ -213,6 +228,8 @@ object PatchEngine {
         ) { session ->
             val tempDir = session.root
             var mergedApkToCleanup: File? = null
+            var obbDirToCleanup: File? = null
+            var obbFiles: Map<String, File> = emptyMap()
             val stepResults = mutableListOf<StepResult>()
             val appliedPatches = mutableListOf<String>()
             val failedPatches = mutableListOf<FailedPatch>()
@@ -267,11 +284,16 @@ object PatchEngine {
                     val stagedBundle = stageSplitBundleInput(inputApk, tempDir)
 
                     try {
-                        ApkMerger(JulLogger.getLogger("app.morphe.patcher.ApkMerger").toMorpheLogger()).merge(
+                        val merger = ApkMerger(JulLogger.getLogger("app.morphe.patcher.ApkMerger").toMorpheLogger())
+                        merger.merge(
                             inputFile = stagedBundle,
                             outputFile = mergedApk,
                             cleanMetaInf = false,
                         )
+                        val obbDir = File(tempDir, "obb")
+                        obbDirToCleanup = obbDir
+                        obbFiles = merger.extractObbFiles(inputApk, obbDir)
+                        if (obbFiles.isNotEmpty()) info("Extracted ${obbFiles.size} OBB file(s) from the bundle")
                     } finally {
                         if (stagedBundle != inputApk) {
                             runCatching { Files.deleteIfExists(stagedBundle.toPath()) }
@@ -308,6 +330,7 @@ object PatchEngine {
                 progress = { task, done, total ->
                     if (scopeContext.isActive) onEvent(PatchEvent.TaskProgress(task, done, total))
                 },
+                obbFiles = obbFiles,
             )
 
             report(PatchEvent.StepStarted(PatchStep.LOADING_PATCHES))
@@ -426,16 +449,7 @@ object PatchEngine {
                         val jsonOpts = jsonOptionsByFile[lb.sourceFile] ?: emptyMap()
 
                         val patchesList = lb.patches.toList()
-                        val resolvedScopeOptions = scope.patchOptions.toMutableMap()
-                        scope.patchOptionIndices.forEach { (idx, opts) ->
-                            if (idx in patchesList.indices) {
-                                val name = patchesList[idx].name
-                                if (name != null) {
-                                    val existing = resolvedScopeOptions[name] ?: emptyMap()
-                                    resolvedScopeOptions[name] = existing + opts
-                                }
-                            }
-                        }
+                        val resolvedScopeOptions = scope.resolveOptions(patchesList)
 
                         val effectiveEnabledNames = scope.enabledPatchNames.ifEmpty { config.enabledPatches }
                         val effectiveDisabledNames = scope.disabledPatchNames.ifEmpty { config.disabledPatches }
@@ -727,6 +741,7 @@ object PatchEngine {
             patcherLogger.useParentHandlers = prevUseParentHandlers
             if (!session.retain) {
                 mergedApkToCleanup?.delete()
+                obbDirToCleanup?.deleteRecursively()
             }
 
             if (config.optionsFile != null && config.updateOptions && patchesSnapshotForFinally.isNotEmpty()) {

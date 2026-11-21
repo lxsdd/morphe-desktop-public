@@ -196,25 +196,29 @@ fun resolveUnifiedHomeAppState(input: UnifiedHomeAppInput): UnifiedHomeAppState 
         status = appStatus,
     )
 
-    val relevantStable = input.patchSources.any {
+    val verifiedSources = input.patchSources.filter { it.metadataKnown }
+    val relevantStable = verifiedSources.any {
         it.newerReleaseAvailable && it.hasRelevantAppChanges && it.channel == HomePatchBundleChannel.STABLE
     }
-    val relevantDev = input.patchSources.any {
+    val relevantDev = verifiedSources.any {
         it.newerReleaseAvailable && it.hasRelevantAppChanges && it.channel == HomePatchBundleChannel.DEV
     }
-    val anyRelevant = input.patchSources.any { it.newerReleaseAvailable && it.hasRelevantAppChanges }
-    val anyIrrelevantNewer = input.patchSources.any { it.newerReleaseAvailable && !it.hasRelevantAppChanges }
-    val anyUnknown = input.patchSources.any { !it.metadataKnown }
+    val anyRelevant = verifiedSources.any { it.newerReleaseAvailable && it.hasRelevantAppChanges }
+    val anyIrrelevantNewer = verifiedSources.any { it.newerReleaseAvailable && !it.hasRelevantAppChanges }
+    val anyUnknown = verifiedPatchUpdateFact(input.patchSources.map {
+        SourceChangeProof(it.hasRelevantAppChanges, it.metadataKnown)
+    }) == VerifiedUpdateFact.UNCHECKED
     val patchStatus = when {
         relevantStable && relevantDev -> HomePatchBundleStatus.RELEVANT_STABLE_AND_DEV_PATCH_AVAILABLE
         relevantStable -> HomePatchBundleStatus.RELEVANT_STABLE_PATCH_AVAILABLE
         relevantDev -> HomePatchBundleStatus.RELEVANT_DEV_PATCH_AVAILABLE
-        anyRelevant && input.patchSources.any {
+        anyRelevant && verifiedSources.any {
             it.newerReleaseAvailable && it.hasRelevantAppChanges && it.channel == HomePatchBundleChannel.LOCAL
         } -> HomePatchBundleStatus.RELEVANT_LOCAL_PATCH_AVAILABLE
         anyRelevant -> HomePatchBundleStatus.UNKNOWN
-        anyIrrelevantNewer -> HomePatchBundleStatus.NEWER_RELEASE_BUT_NO_RELEVANT_APP_CHANGE
+        // A newer irrelevant source cannot conceal another unchecked source.
         anyUnknown -> HomePatchBundleStatus.UNKNOWN
+        anyIrrelevantNewer -> HomePatchBundleStatus.NEWER_RELEASE_BUT_NO_RELEVANT_APP_CHANGE
         else -> HomePatchBundleStatus.CURRENT
     }
     val patchAxis = HomePatchBundleAxis(input.patchSources, patchStatus)
@@ -350,20 +354,19 @@ private fun RecallUpdateInfo.AppChannel?.toHomeChannel(): HomeAppVersionChannel 
 }
 
 /**
- * The 2.1.1 recall snapshot does not carry trusted source-id, channel or
- * manifest knowledge. Do not infer 'stable current' from a plain display name;
- * return UNKNOWN until a full source-aware resolver qualifies this axis.
+ * Only the completed per-app source assessment may drive the live UI and actions.
+ * Never infer a trusted source/channel from a display name or newer tag.
  */
 private fun RecallUpdateInfo.SourceUpdate.toHomePatchSourceAxis(): HomePatchSourceAxis = HomePatchSourceAxis(
     sourceId = sourceId,
     sourceName = name,
-    channel = HomePatchBundleChannel.UNKNOWN,
+    channel = if (metadataKnown && !checkIncomplete) channel else HomePatchBundleChannel.UNKNOWN,
     usedVersion = usedVersion,
     currentVersion = resolvedVersion,
     latestAvailableVersion = latestAvailableVersion,
     newerReleaseAvailable = outdated,
-    hasRelevantAppChanges = hasRelevantChanges,
-    metadataKnown = false,
+    hasRelevantAppChanges = hasRelevantChanges && metadataKnown && !checkIncomplete,
+    metadataKnown = metadataKnown && !checkIncomplete,
 )
 
 private fun isNewer(candidate: String?, current: String?): Boolean =

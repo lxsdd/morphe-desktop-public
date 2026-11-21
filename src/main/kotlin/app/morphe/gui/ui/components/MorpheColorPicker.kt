@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import app.morphe.gui.ui.components.color.CustomSwatches
 import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.theme.MorpheTheme
+import app.morphe.gui.ui.theme.outlineBorder
+import app.morphe.gui.ui.theme.outlineStroke
 import app.morphe.morphe_desktop.generated.resources.*
 import java.awt.Color.HSBtoRGB
 import java.awt.Color.RGBtoHSB
@@ -76,7 +78,7 @@ fun MorpheColorPickerCard(
     Surface(
         shape = shapes.medium,
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, colors.primary.copy(alpha = 0.4f)),
+        border = outlineStroke(colors.primary.copy(alpha = 0.4f)),
         shadowElevation = 8.dp,
         modifier = Modifier.width(220.dp),
     ) {
@@ -111,7 +113,7 @@ fun MorpheColorPickerCard(
                         .size(28.dp)
                         .clip(shapes.small)
                         .background(Color(hsvaToArgb(h, s, v, a)))
-                        .border(1.dp, Color.White.copy(alpha = 0.2f), shapes.small)
+                        .outlineBorder(Color.White.copy(alpha = 0.2f), shapes.small)
                 )
                 
                 Row(
@@ -177,7 +179,7 @@ fun MorpheColorPickerCard(
                                         .fillMaxSize()
                                         .clip(shapes.small)
                                         .background(Color(c))
-                                        .border(1.dp, Color.White.copy(alpha = 0.2f), shapes.small)
+                                        .outlineBorder(Color.White.copy(alpha = 0.2f), shapes.small)
                                         .clickable { setFrom(c) }
                                  )
                                 Box(

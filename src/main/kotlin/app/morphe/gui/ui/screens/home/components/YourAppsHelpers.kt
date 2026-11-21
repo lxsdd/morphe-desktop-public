@@ -93,7 +93,7 @@ internal data class IncompleteUpdateSource(val name: String, val sourceLoaded: B
 
 internal fun incompleteUpdateSources(info: RecallUpdateInfo?): List<IncompleteUpdateSource> =
     info?.sources.orEmpty().asSequence()
-        .filter { it.checkIncomplete }
+        .filter { it.checkIncomplete || !it.metadataKnown }
         .map { source ->
             IncompleteUpdateSource(
                 name = source.name,

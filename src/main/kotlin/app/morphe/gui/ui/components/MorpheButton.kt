@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.morphe.gui.ui.theme.MorpheMotion
 import app.morphe.gui.ui.theme.MorpheTheme
+import app.morphe.gui.ui.theme.outlineBorder
+import app.morphe.gui.ui.theme.shouldDrawOutline
 import app.morphe.gui.ui.theme.contrastingForeground
 
 /** Visual weight and styling variants for [MorpheButton]. */
@@ -174,6 +176,10 @@ fun MorpheButton(
 
     val animatedBg by animateColorAsState(targetBgColor, animationSpec = MorpheMotion.fastTween())
     val animatedBorder by animateColorAsState(targetBorderColor, animationSpec = MorpheMotion.fastTween())
+    // An explicitly outlined button stays outlined for semantic clarity.
+    val showOutline = variant != MorpheButtonVariant.GHOST && shouldDrawOutline(
+        MorpheTheme.outlines, required = variant == MorpheButtonVariant.OUTLINED || variant == MorpheButtonVariant.DANGER,
+    )
 
     Box(
         modifier = modifier
@@ -184,11 +190,7 @@ fun MorpheButton(
             .defaultMinSize(minHeight = size.minHeight)
             .clip(resolvedShape)
             .background(animatedBg)
-            .then(
-                if (variant != MorpheButtonVariant.GHOST) {
-                    Modifier.border(1.dp, animatedBorder, resolvedShape)
-                } else Modifier
-            )
+            .outlineBorder(animatedBorder, resolvedShape, enabled = showOutline)
             .hoverable(interactionSource)
             .handCursor(enabled)
             .clickable(enabled = enabled, onClick = onClick)

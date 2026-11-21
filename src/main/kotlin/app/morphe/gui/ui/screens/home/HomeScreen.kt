@@ -696,9 +696,12 @@ fun HomeScreenContent(
                             uiState = uiState,
                             onDismissUpdateSession = { viewModel.dismissUpdateForSession() },
                             onDismissUpdateVersion = { viewModel.dismissUpdateForVersion() },
+                            onRetryUpdateCheck = { viewModel.refreshUpdateCheck() },
+                            onDismissUpdateCheckFailure = { viewModel.dismissUpdateCheckFailure() },
                             onDismissMultiSourceHint = { viewModel.dismissMultiSourceHint() },
                             onManageSources = { openPage(HomePage.SOURCES) },
                             onDismissSourcesFailed = { viewModel.dismissSourcesFailedBanner() },
+                            onDismissSourceUpdate = { viewModel.dismissSourceUpdateBanner() },
                             onShowChangelog = { showChangelogDialog = true },
                         )
                         HorizontalPager(

@@ -1,8 +1,7 @@
 /*
- * Copyright 2026 Morphe.
- * https://github.com/MorpheApp/morphe-desktop
+ * Morphe Desktop Custom — public Custom application releases only.
+ * Official Morphe Desktop and patch-bundle updates are separate products.
  */
-
 package app.morphe.engine
 
 import app.morphe.engine.util.Logger
@@ -10,7 +9,6 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.util.Properties
 
-/** Release channels supported for update checking. */
 enum class ReleaseChannel { STABLE, DEV }
 
 data class UpdateInfo(
@@ -18,73 +16,99 @@ data class UpdateInfo(
     val latestVersion: String,
     val crossesDevToStable: Boolean,
     val downloadLink: String,
+    /** Exact Custom GitHub release notes; never point at an unrelated official changelog. */
+    val releaseNotesLink: String? = null,
 )
 
+/** Outcomes are about THIS Custom desktop distribution, never patch-source updates. */
+sealed interface AppUpdateCheck {
+    data object UpToDate : AppUpdateCheck
+    data class Available(val info: UpdateInfo) : AppUpdateCheck
+    data object Failed : AppUpdateCheck
+}
+
+/**
+ * Pure, offline-testable GitHub release evidence classifier.
+ * Malformed JSON and responses with only rejected release identities are UNKNOWN,
+ * not a success result to be cached forever.
+ */
+internal fun classifyCustomDesktopUpdateResponse(
+    response: String,
+    currentVersion: String,
+    channel: ReleaseChannel,
+): AppUpdateCheck {
+    if (!isRecognizedCustomDesktopVersion(currentVersion)) return AppUpdateCheck.Failed
+    val payload = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(response) }.getOrNull()
+    val entries = payload as? kotlinx.serialization.json.JsonArray ?: return AppUpdateCheck.Failed
+    if (entries.isNotEmpty() && parseCustomDesktopReleases(response).isEmpty()) {
+        return AppUpdateCheck.Failed
+    }
+    val candidate = selectNewerCustomDesktopRelease(response, currentVersion, channel)
+        ?: return AppUpdateCheck.UpToDate
+    return AppUpdateCheck.Available(
+        UpdateInfo(
+            currentVersion = currentVersion,
+            latestVersion = candidate.version,
+            crossesDevToStable = isCustomPrerelease(currentVersion) && !candidate.prerelease,
+            downloadLink = candidate.downloadLink,
+            releaseNotesLink = candidate.changelogLink,
+        )
+    )
+}
+
 object UpdateChecker {
-    /** Checks GitHub for newer versions on [channel], defaulting to the current build's channel. */
-    fun checkInfo(channel: ReleaseChannel? = null): UpdateInfo? {
-        try {
-            val currentVersion = javaClass.getResourceAsStream("/app/morphe/cli/version.properties")
-                ?.use { stream ->
-                    Properties().apply { load(stream) }.getProperty("version")
-                } ?: return null
+    private const val CUSTOM_RELEASE_API =
+        "https://api.github.com/repos/lxsdd/morphe-desktop-public/releases?per_page=30"
 
-            val isDev = currentVersion.contains("dev")
-            val resolvedChannel = channel ?: if (isDev) ReleaseChannel.DEV else ReleaseChannel.STABLE
+    /**
+     * Check ONLY owner-published complete Custom distribution releases.
+     * A network or metadata failure must never be confused with "up to date".
+     * No official Morphe Desktop or patch-bundle release can satisfy this check.
+     */
+    fun checkStatus(channel: ReleaseChannel? = null): AppUpdateCheck {
+        return try {
+            val current = currentVersion() ?: return AppUpdateCheck.Failed
+            if (!isRecognizedCustomDesktopVersion(current)) return AppUpdateCheck.Failed
+            val resolvedChannel = channel ?: if (isCustomPrerelease(current)) {
+                ReleaseChannel.DEV
+            } else ReleaseChannel.STABLE
 
-            val url = when (resolvedChannel) {
-                // Probing dev also catches new stables following release merges.
-                ReleaseChannel.DEV ->
-                    "https://raw.githubusercontent.com/MorpheApp/morphe-desktop/refs/heads/dev/gradle.properties"
-                ReleaseChannel.STABLE ->
-                    "https://raw.githubusercontent.com/MorpheApp/morphe-desktop/refs/heads/main/gradle.properties"
+            val connection = URI(CUSTOM_RELEASE_API).toURL().openConnection() as HttpURLConnection
+            connection.connectTimeout = 4000
+            connection.readTimeout = 4000
+            connection.setRequestProperty("Accept", "application/vnd.github+json")
+            connection.setRequestProperty("User-Agent", "Morphe-Desktop-Custom-public-update-check")
+            val response = try {
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                    return AppUpdateCheck.Failed
+                }
+                connection.inputStream.bufferedReader().use { it.readText() }
+            } finally {
+                connection.disconnect()
             }
-
-            val connection = URI(url).toURL().openConnection() as HttpURLConnection
-            connection.connectTimeout = 3000
-            connection.readTimeout = 3000
-
-            val response = connection.getInputStream().bufferedReader().use { it.readText() }
-
-            val latestVersion = Properties().apply {
-                load(response.byteInputStream())
-            }.getProperty("version") ?: return null
-
-            if (latestVersion == currentVersion) return null
-
-            val downloadLink = when (resolvedChannel) {
-                ReleaseChannel.DEV -> "https://github.com/MorpheApp/morphe-desktop/releases/"
-                ReleaseChannel.STABLE -> "https://github.com/MorpheApp/morphe-desktop/releases/latest"
-            }
-
-            return UpdateInfo(
-                currentVersion = currentVersion,
-                latestVersion = latestVersion,
-                crossesDevToStable = isDev && !latestVersion.contains("dev"),
-                downloadLink = downloadLink,
-            )
-        } catch (ex: Exception) {
-            Logger.debug("Could not check for CLI update: $ex")
-            return null
+            classifyCustomDesktopUpdateResponse(response, current, resolvedChannel)
+        } catch (e: Exception) {
+            Logger.debug("Custom desktop release check unavailable: $e")
+            AppUpdateCheck.Failed
         }
     }
 
-    /** Reads the current build version from bundled properties, or null if missing. */
-    fun currentVersion(): String? = javaClass.getResourceAsStream("/app/morphe/cli/version.properties")
-        ?.use { stream ->
-            Properties().apply { load(stream) }.getProperty("version")
-        }
+    /** Retains the existing UI/CLI API; null means either current or unknown. */
+    fun checkInfo(channel: ReleaseChannel? = null): UpdateInfo? =
+        (checkStatus(channel) as? AppUpdateCheck.Available)?.info
 
-    /** Formats update notification message string, or null if up to date. */
+    /** Resolved version of the runnable distribution, not the official upstream project. */
+    fun currentVersion(): String? =
+        javaClass.getResourceAsStream("/app/morphe/cli/version.properties")
+            ?.use { stream -> Properties().apply { load(stream) }.getProperty("version") }
+
+    /** Human-readable CLI notice without leaking users into official downloads. */
     fun check(): String? {
         val info = checkInfo() ?: return null
-        val trackChangesMessage = if (info.crossesDevToStable) {
-            "\nNotice: The latest CLI is a stable release. Updating to that will stop dev " +
-                    "update notifications. To keep receiving dev updates, skip stable update " +
-                    "and wait for the next dev release."
+        val channelNote = if (info.crossesDevToStable) {
+            "\nThe new Custom release is stable; selecting it leaves the preview channel."
         } else ""
-
-        return "Update available: v${info.latestVersion} (current: v${info.currentVersion})" +
-                "$trackChangesMessage\nDownload from ${info.downloadLink}"
+        return "Custom update available: v${info.latestVersion} (current: v${info.currentVersion})" +
+            "$channelNote\nDownload from ${info.downloadLink}"
     }
 }

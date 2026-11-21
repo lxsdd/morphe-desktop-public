@@ -224,8 +224,8 @@
     <string name="home_sort_recently_patched_desc">Zuletzt gepatchte zuerst</string>
     <!-- Home Screen - YourAppsPane -->
     <string name="home_your_apps_status_patched">Gepatcht</string>
-    <string name="home_filter_all_apps">Alle Apps</string>
-    <string name="home_filter_your_apps">Deine Apps</string>
+    <string name="home_filter_all_apps">Patchkatalog</string>
+    <string name="home_filter_your_apps">Patchverlauf</string>
     <string name="home_banner_view">Ansehen</string>
     <string name="home_your_apps_install_ready">Bereit zur Installation</string>
     <string name="home_action_install_to_device">Auf Gerät installieren</string>
@@ -658,6 +658,8 @@
     <string name="settings_appearance_monochrome">Einfarbig</string>
     <string name="settings_toggle_sharp_corners_label">Scharfe Ecken</string>
     <string name="settings_toggle_sharp_corners_desc">Karten, Dialoge und Schaltflächen eckig machen</string>
+    <string name="settings_toggle_outlines_label">Umrandungen</string>
+    <string name="settings_toggle_outlines_desc">Dekorative Ränder an Karten, Bereichen und Schaltflächen anzeigen. Fokus, Fehler und Auswahl bleiben sichtbar</string>
     <string name="settings_section_accent_color">Akzentfarbe</string>
     <string name="settings_accent_clear_description">Akzentfarbe entfernen</string>
     <string name="settings_accent_custom_description">Benutzerdefinierte Akzentfarbe</string>
@@ -795,8 +797,8 @@
     <string name="changelog_show_less">Weniger anzeigen</string>
     <string name="changelog_view_on_github_button">Auf GitHub ansehen</string>
     <string name="home_detail_relink_verified_output">Gepatchte APK sicher neu zuordnen</string>
-    <string name="home_filter_app_updates">App-Updates</string>
-    <string name="home_filter_patch_updates">Patch-Updates</string>
+    <string name="home_filter_app_updates">App-Updates (Verlauf)</string>
+    <string name="home_filter_patch_updates">Patch-Updates (Verlauf)</string>
     <string name="home_filter_device_apps">Auf Gerät</string>
     <string name="home_version_patched">Gepatchte App: %1$s</string>
     <string name="home_version_patch_source">Patchquelle: %1$s</string>
@@ -809,6 +811,8 @@
     <string name="home_update_source_not_loaded">Quelldaten fehlen</string>
     <string name="home_update_source_proof_missing">App-bezogener Änderungsnachweis fehlt</string>
     <string name="home_update_checks_incomplete">Update-Prüfung für %1$d gepatchte Apps unvollständig. Die Zähler zeigen nur bestätigte, patchkompatible Updates.</string>
+    <string name="home_update_checks_incomplete_named">%1$d Einträge im Patchverlauf noch nicht vollständig geprüft: %2$s. Gezählt werden nur bestätigte Updates.</string>
+    <string name="home_update_retry_check">Erneut prüfen</string>
     <string name="home_update_checks_incomplete_short">Update-Prüfung unvollständig</string>
     <string name="home_your_apps_newer_patch_hint">Ein neuer Patch könnte die App aktualisieren. Unter „Update“ prüfen.</string>
     <string name="home_your_apps_device_version_ready">Gepatchte v%1$s bereit, auf Gerät v%2$s (kein erneutes Patchen nötig)</string>
@@ -818,6 +822,7 @@
     <string name="home_update_view_empty">Keine bestätigten Updates in dieser Kategorie</string>
     <string name="home_your_apps_patch_update_status">Patch-Update</string>
     <string name="home_your_apps_app_update_status">App-Update</string>
+    <string name="home_your_apps_experimental_update_status">Experimentelles App-Update</string>
     <string name="home_your_apps_patch_review_hint">Für diese App liegen relevante Patch-Änderungen vor. Details öffnen.</string>
     <string name="home_device_inventory_patched_record">In Morphe bereits gepatcht</string>
     <string name="home_device_installed_version">Geräteversion: %1$s</string>
@@ -833,8 +838,8 @@
     <string name="device_updates_both">App- und Patch-Update verfügbar</string>
     <string name="device_updates_none">Keine bestätigten kompatiblen Updates</string>
     <string name="device_updates_none_explain">Hier erscheinen nur neuere unterstützte Versionen und bestätigte, appbezogene Patchänderungen. Unvollständige Prüfungen stehen separat oben. Null bestätigte Updates bedeutet nicht, dass alle Prüfungen erfolgreich waren.</string>
-    <string name="device_diagnostics_show">Technische Diagnose</string>
-    <string name="device_diagnostics_hide">Diagnose schließen</string>
+    <string name="device_diagnostics_show">Technikdetails anzeigen</string>
+    <string name="device_diagnostics_hide">Technikdetails ausblenden</string>
     <string name="device_diagnostics_cases_count">Technische Prüffälle %1$d</string>
     <string name="device_overview_app_update">App-Version aktualisieren</string>
     <string name="device_overview_patch_update">Patch-Aktualisierung</string>
@@ -844,7 +849,7 @@
     <string name="device_overview_signer_conflict">Signatur weicht vom aktuellen Schlüssel ab</string>
     <string name="device_overview_review">Prüfung erforderlich</string>
     <string name="device_overview_other">Außerhalb Patchkatalog</string>
-    <string name="device_overview_summary">%1$d installiert · %2$d im Patchkatalog · %3$d bestätigte kompatible Updates</string>
+    <string name="device_overview_summary">%1$d installiert · %2$d mit Katalogeintrag · %3$d bestätigte Geräte-Updates</string>
     <string name="device_overview_disclaimer">Gerätedaten werden nur gelesen. Gleiche Version und Signatur beweisen noch keinen identischen APK-Build.</string>
     <string name="device_overview_all">Alle %1$d</string>
     <string name="device_overview_needs">Technische Prüffälle %1$d</string>
@@ -1047,4 +1052,46 @@
     <string name="ui_direct_apk_inspection_error">Die APK-Prüfung ist fehlgeschlagen.</string>
     <string name="ui_direct_apk_verify_error">Die APK-Verifizierung ist fehlgeschlagen.</string>
     <string name="ui_direct_apk_install_error">Die APK-Installation ist fehlgeschlagen.</string>
+
+    <!-- Granulare Cache-Verwaltung in den bestehenden Custom-Einstellungen. -->
+    <string name="settings_cache_category_patches">Heruntergeladene Patches</string>
+    <string name="settings_cache_category_logs">App-Protokolle</string>
+    <string name="settings_cache_category_temp">Temporäre Dateien</string>
+    <string name="settings_cache_category_avatars">Repository-Avatare</string>
+    <string name="settings_storage_category_summary">%1$s · %2$d Dateien</string>
+    <string name="settings_cache_confirm_patches_title">Heruntergeladene Patches löschen?</string>
+    <string name="settings_cache_confirm_patches_message">Nur heruntergeladene .mpp- und .jar-Pakete werden gelöscht. Vertrauensschlüssel und Quelleneinstellungen bleiben erhalten. Benötigte Patches werden erneut geladen.</string>
+    <string name="settings_cache_confirm_logs_title">App-Protokolle löschen?</string>
+    <string name="settings_cache_confirm_logs_message">Lokal gespeicherte App-Protokolle löschen. Geräteprotokolle bleiben unverändert.</string>
+    <string name="settings_cache_confirm_temp_title">Temporäre Dateien löschen?</string>
+    <string name="settings_cache_confirm_temp_message">Temporäre Morphe-Arbeitsdateien löschen. Es darf kein Patchvorgang laufen.</string>
+    <string name="settings_cache_confirm_avatars_title">Repository-Avatare löschen?</string>
+    <string name="settings_cache_confirm_avatars_message">Nur zwischengespeicherte Repository-Avatare löschen. Lokale App-Icons und eigene Kartenfarben bleiben erhalten.</string>
+    <string name="settings_cache_category_cleared">%1$s geleert</string>
+    <string name="settings_cache_category_clear_failed">%1$s konnte nicht geleert werden</string>
+    <string name="settings_search_settings_placeholder">Einstellung suchen…</string>
+    <string name="settings_search_no_results">Keine passenden Einstellungen</string>
+
+    <!-- Optionale Community-Suche nach 2.2; keine bestätigten App-Updates. -->
+    <string name="settings_toggle_more_apps_label">Community-Patchquellen anzeigen</string>
+    <string name="settings_toggle_more_apps_desc">Optionaler externer Link unter unterstützten Apps. Nicht unterstützte Apps und Versionen werden nie als Updates angezeigt.</string>
+    <string name="home_more_apps_title">Weitere Apps</string>
+    <string name="home_more_apps_subtitle">Community-Patches (extern)</string>
+    <string name="community_patches_notice_title">Patchquellen von Drittanbietern</string>
+    <string name="community_patches_notice_message">Community-Patchquellen werden von unabhängigen Autoren gepflegt und nicht von Morphe überprüft. Bitte prüfe Sicherheit und Kompatibilität vor der Verwendung. Das Öffnen des Links installiert keine Patches und verändert keine eingerichteten Quellen.</string>
+    <string name="community_patches_open_button">Community-Seite öffnen</string>
+    <string name="settings_toggle_local_icons_label">Lokale App-Symbole anzeigen</string>
+    <string name="settings_toggle_local_icons_desc">Symbole aus vorhandenen APK-Dateien anzeigen. Gerätezeilen erfordern eine verifizierte identische Version; deaktiviert werden keine APKs gelesen</string>
+    <string name="settings_cache_category_app_icons">Lokaler App-Symbol-Cache</string>
+    <string name="settings_storage_scan_pending">Wird ermittelt…</string>
+    <string name="home_update_reason_metadata_unavailable">Noch kein vollständiges Prüfergebnis</string>
+    <string name="home_update_reason_no_source">Patchquellen für diesen Eintrag ungeklärt</string>
+    <string name="home_update_reason_source_unavailable">Patchquelle nicht geladen</string>
+    <string name="home_update_reason_change_unverified">Änderungen für diese App nicht geprüft</string>
+    <string name="device_update_counts_scope">Updatezahlen beziehen sich auf unterschiedliche App-Mengen: Geräte-Updates zählen jede installierte App nur einmal; App- und Patch-Updates können sich überschneiden. Signatur- und Build-Prüfungen sind keine Updates.</string>
+    <string name="custom_desktop_update_check_unavailable">Custom-App-Updates konnten nicht geprüft werden. Es liegt kein verifiziertes Ergebnis vor.</string>
+    <!-- Quellenfortschritt ist kein Nachweis eines App-Updates. -->
+    <string name="custom_source_loading_title">Patchquellen werden geprüft</string>
+    <string name="custom_source_loaded_title">Patchquellen geladen</string>
+    <string name="custom_source_progress_count">%1$d von %2$d Quellen</string>
 </resources>

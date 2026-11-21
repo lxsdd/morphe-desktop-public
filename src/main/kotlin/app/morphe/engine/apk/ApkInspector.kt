@@ -6,7 +6,9 @@
 package app.morphe.engine.apk
 
 import app.morphe.engine.util.Logger
+import com.reandroid.arsc.chunk.TableBlock
 import com.reandroid.arsc.chunk.xml.AndroidManifestBlock
+import com.reandroid.arsc.value.DataType
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.util.zip.ZipEntry
@@ -25,6 +27,9 @@ object AndroidArchitectures {
 
 /** Reads manifest metadata and architectures from APKs and bundles in-memory. */
 object ApkInspector {
+
+    /** Never expand untrusted nested bundle resources.arsc without a byte limit. */
+    private const val MAX_LABEL_TABLE_BYTES = 32 * 1024 * 1024
 
     /** Extracts manifest attributes and CPU architectures, or null if invalid. */
     fun inspect(file: File): ApkInspectionResult? {
@@ -85,7 +90,12 @@ object ApkInspector {
                 versionName = block.versionName,
                 versionCode = block.versionCode,
                 minSdkVersion = block.minSdkVersion,
-                applicationLabel = block.applicationLabelString,
+                applicationLabel = resolveApplicationLabel(block, file) {
+                    zip.getEntry(TableBlock.FILE_NAME)?.let { entry ->
+                        if (entry.size > MAX_LABEL_TABLE_BYTES) null
+                        else zip.getInputStream(entry).use { TableBlock.load(it) }
+                    }
+                },
                 architectures = architectures,
                 isBundle = false,
             )
@@ -100,6 +110,7 @@ object ApkInspector {
             }
 
             var manifestBlock: AndroidManifestBlock? = null
+            var resourcesBytes: ByteArray? = null
             val baseEmbeddedArchs = mutableSetOf<String>()
 
             // Stream base.apk directly in memory without writing to disk
@@ -110,6 +121,10 @@ object ApkInspector {
                         if (innerEntry.name == "AndroidManifest.xml") {
                             val manifestBytes = innerZip.readBytes()
                             manifestBlock = AndroidManifestBlock.load(ByteArrayInputStream(manifestBytes))
+                        } else if (innerEntry.name == TableBlock.FILE_NAME) {
+                            // readNBytes caps decompressed bytes even if a ZIP entry lies about size.
+                            resourcesBytes = innerZip.readNBytes(MAX_LABEL_TABLE_BYTES + 1)
+                                .takeIf { it.size <= MAX_LABEL_TABLE_BYTES }
                         } else if (innerEntry.name.startsWith("lib/")) {
                             val parts = innerEntry.name.split("/")
                             if (parts.size >= 2 && parts[1].isNotBlank()) {
@@ -157,10 +172,29 @@ object ApkInspector {
                 versionName = block.versionName,
                 versionCode = block.versionCode,
                 minSdkVersion = block.minSdkVersion,
-                applicationLabel = block.applicationLabelString,
+                applicationLabel = resolveApplicationLabel(block, file) {
+                    resourcesBytes?.let { TableBlock.load(ByteArrayInputStream(it)) }
+                },
                 architectures = finalArchitectures,
                 isBundle = true,
             )
+        }
+    }
+
+    /** Only manifest-specified resource labels are resolved; missing or corrupt tables fail closed. */
+    private fun resolveApplicationLabel(
+        manifest: AndroidManifestBlock,
+        file: File,
+        loadResources: () -> TableBlock?,
+    ): String? {
+        manifest.applicationLabelString?.let { return it }
+        val resourceId = manifest.applicationLabelReference ?: return null
+        return try {
+            val value = loadResources()?.getResource(resourceId)?.resolveReference()?.get()?.resValue
+            value?.takeIf { it.dataType == DataType.STRING }?.dataAsPoolString?.get()
+        } catch (e: Exception) {
+            Logger.warn("Failed to resolve app label of ${file.name}: ${e.message ?: e::class.simpleName}")
+            null
         }
     }
 

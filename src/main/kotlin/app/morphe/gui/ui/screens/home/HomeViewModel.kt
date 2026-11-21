@@ -12,7 +12,10 @@ import app.morphe.engine.MultiSourceLoader
 import app.morphe.engine.PatchEngine
 import app.morphe.engine.PatchedAppStore
 import app.morphe.engine.DevicePatchDeploymentStore
+import app.morphe.engine.AppUpdateCheck
 import app.morphe.engine.UpdateInfo
+import app.morphe.gui.ui.components.SourceUpdateBannerState
+import app.morphe.gui.ui.components.SourceUpdateStatus
 import app.morphe.engine.apk.ApkInspector
 import app.morphe.engine.apk.ApkOutputNaming
 import app.morphe.engine.apk.BundleFormats
@@ -81,11 +84,13 @@ import app.morphe.gui.util.onlyLegacyPatcherFailures
 import app.morphe.gui.util.patchSourceHeaders
 import app.morphe.morphe_desktop.generated.resources.*
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -125,6 +130,9 @@ class HomeViewModel(
     /** Only successfully loaded patch files across enabled sources. */
     private var cachedAllPatchFiles: List<File> = emptyList()
     private var loadJob: Job? = null
+    /** New source reloads invalidate all queued progress from superseded sessions. */
+    private val sourceReloadEpoch = AtomicLong(0)
+    private var sourceBannerDismissJob: Job? = null
     /** Automatic device-first navigation must never override a tab chosen by the user. */
     private var tabSelectedThisSession = false
 
@@ -372,15 +380,23 @@ class HomeViewModel(
         Logger.info("HomeVM: refreshUpdateCheck() called")
         viewModelScope.launch {
             updateCheckRepository.clearCache()
-            val info = updateCheckRepository.getUpdateInfo()
+            val outcome = updateCheckRepository.checkUpdate()
+            val info = (outcome as? AppUpdateCheck.Available)?.info
             val dismissed = configRepository.loadConfig().dismissedUpdateVersion
-            Logger.info("HomeVM: refresh result, info=${info?.latestVersion}, dismissed=$dismissed")
+            Logger.info("HomeVM: refresh result, status=$outcome, dismissed=$dismissed")
             _uiState.value = _uiState.value.copy(
                 updateInfo = info,
+                updateCheckStatus = outcome,
+                updateCheckFailureDismissed = false,
                 dismissedUpdateVersion = dismissed,
                 updateBannerSessionDismissed = false,
             )
         }
+    }
+
+    /** Dismiss the uncertain Custom-release check without claiming it is current. */
+    fun dismissUpdateCheckFailure() {
+        _uiState.value = _uiState.value.copy(updateCheckFailureDismissed = true)
     }
 
     /** Dismisses the update banner for the current session. */
@@ -393,6 +409,15 @@ class HomeViewModel(
         _uiState.value = _uiState.value.copy(showMultiSourceHint = false)
         viewModelScope.launch {
             configRepository.setMultiSourceHintDismissed()
+        }
+    }
+
+    /** Completion is dismissible; an in-progress source operation is not. */
+    fun dismissSourceUpdateBanner() {
+        if (_uiState.value.sourceUpdateBanner.status != SourceUpdateStatus.Success) return
+        sourceBannerDismissJob?.cancel()
+        _uiState.update { state ->
+            state.copy(sourceUpdateBanner = state.sourceUpdateBanner.copy(visible = false))
         }
     }
 
@@ -586,7 +611,9 @@ class HomeViewModel(
     private val updateMetadataGeneration = UpdateMetadataGenerationGuard()
 
     private fun loadPatchesAndSupportedApps(forceRefresh: Boolean = false) {
+        val sourceEpoch = sourceReloadEpoch.incrementAndGet()
         loadJob?.cancel()
+        sourceBannerDismissJob?.cancel()
         updateMetadataGeneration.next()
         latestResolvedApps = null
         loadJob = viewModelScope.launch {
@@ -596,6 +623,7 @@ class HomeViewModel(
                 patchLoadError = null,
                 showSourcesFailedBanner = false,
                 onlyLegacySourcesFailed = false,
+                sourceUpdateBanner = SourceUpdateBannerState(),
             )
 
             try {
@@ -608,6 +636,16 @@ class HomeViewModel(
                     return@launch
                 }
 
+                // Source resolution is separate from app/patched-app update evidence.
+                _uiState.update { state ->
+                    state.copy(sourceUpdateBanner = SourceUpdateBannerState(
+                        visible = true,
+                        status = SourceUpdateStatus.Updating,
+                        completed = 0,
+                        total = enabled.size,
+                        activeSourceName = enabled.first().first.name,
+                    ))
+                }
                 // Load per-source version preferences.
                 val prefs = configRepository.getSourceVersionPrefs()
                 lastLoadedVersionsBySource = prefs
@@ -616,6 +654,12 @@ class HomeViewModel(
                     prefsBySource = prefs,
                     excludedMppPatterns = engineConfigRepository.loadConfig().excludedMppPatterns,
                     forceRefresh = forceRefresh,
+                    onSourceProgress = { event ->
+                        _uiState.update { state ->
+                            if (sourceReloadEpoch.get() != sourceEpoch) state
+                            else state.copy(sourceUpdateBanner = state.sourceUpdateBanner.progress(event))
+                        }
+                    },
                 )
 
                 if (!result.anyLoaded) {
@@ -643,7 +687,8 @@ class HomeViewModel(
                     cachedSourcesResult = result
                     _uiState.value = _uiState.value.copy(
                         isLoadingPatches = false,
-                        patchLoadError = friendlyError
+                        patchLoadError = friendlyError,
+                        sourceUpdateBanner = SourceUpdateBannerState(),
                     )
                     return@launch
                 }
@@ -746,7 +791,25 @@ class HomeViewModel(
                     failedSourcesCount = failedSourceIds.size,
                     onlyLegacySourcesFailed = onlyLegacySourcesFailed,
                     failedSourceIds = failedSourceIds,
+                    sourceUpdateBanner = _uiState.value.sourceUpdateBanner.finished(
+                        usableSources = usableResolved.size,
+                        failedSources = failedSourceIds.size,
+                    ),
                 )
+                if (_uiState.value.sourceUpdateBanner.status == SourceUpdateStatus.Success &&
+                    _uiState.value.sourceUpdateBanner.visible
+                ) {
+                    sourceBannerDismissJob = viewModelScope.launch {
+                        delay(3_000)
+                        if (sourceReloadEpoch.get() == sourceEpoch) {
+                            _uiState.update { state ->
+                                if (state.sourceUpdateBanner.status == SourceUpdateStatus.Success)
+                                    state.copy(sourceUpdateBanner = state.sourceUpdateBanner.copy(visible = false))
+                                else state
+                            }
+                        }
+                    }
+                }
                 refreshDeviceInfo() // Refresh device layer after records load
                 reanalyzeSelectedApk()
                 eagerlyResolveLatestApps() // Update info against latest patch versions
@@ -759,6 +822,7 @@ class HomeViewModel(
                 _uiState.value = _uiState.value.copy(
                     isLoadingPatches = false,
                     patchLoadError = humanizePatchLoadError(e),
+                    sourceUpdateBanner = SourceUpdateBannerState(),
                 )
             }
         }
@@ -818,6 +882,7 @@ class HomeViewModel(
         val identities = current.map { it.source.id to it.source.name }
         val changedSources = relevantSourceUpdates[record.packageName].orEmpty()
         val incompleteSources = incompleteSourceChecks[record.packageName].orEmpty()
+        val checkedSources = checkedSourceChecks[record.packageName].orEmpty()
         val allSources = patchSourceManager.allSources.value
         val sources = record.sourcesSnapshot
             // Include only sources that provided patches for this record.
@@ -832,6 +897,15 @@ class HomeViewModel(
                 val cleanName = resolved?.source?.name ?: matchingSrc?.name
                     ?: PatchSourceNaming.sanitize(snap.sourceName, allSources)
                 val latest = resolved?.latestAvailableVersion ?: resolved?.resolvedVersion
+                // A source being loaded does not prove that this particular app was checked.
+                val scoped = resolved != null && snap.sourceId in checkedSources &&
+                    snap.sourceId !in incompleteSources
+                val sourceChannel = when (resolved?.channel) {
+                    PatchResolver.Channel.STABLE -> HomePatchBundleChannel.STABLE
+                    PatchResolver.Channel.PRERELEASE -> HomePatchBundleChannel.DEV
+                    PatchResolver.Channel.LOCAL -> HomePatchBundleChannel.LOCAL
+                    else -> HomePatchBundleChannel.UNKNOWN
+                }
                 RecallUpdateInfo.SourceUpdate(
                     name = cleanName,
                     usedVersion = snap.version,
@@ -840,7 +914,9 @@ class HomeViewModel(
                     outdated = isNewerVersion(latest, snap.version),
                     hasRelevantChanges = snap.sourceId in changedSources,
                     sourceId = snap.sourceId,
-                    checkIncomplete = snap.sourceId in incompleteSources || resolved == null,
+                    checkIncomplete = !scoped,
+                    channel = sourceChannel,
+                    metadataKnown = scoped && sourceChannel != HomePatchBundleChannel.UNKNOWN,
                 )
             }
         val app = apps.find { it.packageName == record.packageName }
@@ -953,6 +1029,7 @@ class HomeViewModel(
         // Compare stable source IDs instead of mutable source display names.
         val relevant = mutableMapOf<String, Set<String>>()
         val incomplete = mutableMapOf<String, Set<String>>()
+        val checked = mutableMapOf<String, Set<String>>()
         val states = apps.associate { app ->
             val record = records[app.packageName]
             val output = record?.let { File(it.outputApkPath) }
@@ -960,6 +1037,7 @@ class HomeViewModel(
                 else relevantUpdatedSources(record, app)
             if (proof.changed.isNotEmpty()) relevant[app.packageName] = proof.changed
             if (proof.unknown.isNotEmpty()) incomplete[app.packageName] = proof.unknown
+            if (proof.checked.isNotEmpty()) checked[app.packageName] = proof.checked
             val sourceUpdate = proof.changed.isNotEmpty()
             app.packageName to when {
                 record == null -> PatchedAppState.NEVER_PATCHED
@@ -973,6 +1051,7 @@ class HomeViewModel(
         }
         relevantSourceUpdates = relevant
         incompleteSourceChecks = incomplete
+        checkedSourceChecks = checked
         states
     } catch (e: CancellationException) {
         throw e
@@ -1243,6 +1322,7 @@ class HomeViewModel(
 
     private var relevantSourceUpdates: Map<String, Set<String>> = emptyMap()
     private var incompleteSourceChecks: Map<String, Set<String>> = emptyMap()
+    private var checkedSourceChecks: Map<String, Set<String>> = emptyMap()
 
     private suspend fun relevantUpdatedSources(
         record: PatchedAppRecord,
@@ -1253,6 +1333,7 @@ class HomeViewModel(
         val names = appNameCandidates(app)
         val changed = mutableSetOf<String>()
         val unknown = mutableSetOf<String>()
+        val checked = mutableSetOf<String>()
         for (snapshot in record.sourcesSnapshot) {
             val sourceId = matchHistoricalSourceId(snapshot, identities)
             val resolved = usable.firstOrNull { it.source.id == sourceId }
@@ -1272,12 +1353,15 @@ class HomeViewModel(
                 unavailable = resolved == null || !hasCompatiblePatches || resolved.isOffline ||
                     resolved.source.type == PatchSourceType.LOCAL,
             )) {
-                ScopedSourceChange.CHANGED -> changed += snapshot.sourceId
+                ScopedSourceChange.CHANGED -> {
+                    changed += snapshot.sourceId
+                    checked += snapshot.sourceId
+                }
                 ScopedSourceChange.UNKNOWN -> unknown += snapshot.sourceId
-                ScopedSourceChange.NO_CHANGE -> Unit
+                ScopedSourceChange.NO_CHANGE -> checked += snapshot.sourceId
             }
         }
-        return PatchSourceAssessment(changed, unknown)
+        return PatchSourceAssessment(changed, unknown, checked)
     }
 
     private fun appNameCandidates(app: SupportedApp): Set<String> = buildSet {
@@ -1870,12 +1954,15 @@ class HomeViewModel(
     init {
         viewModelScope.launch {
             val config = configRepository.loadConfig()
-            val info = updateCheckRepository.getUpdateInfo()
+            val outcome = updateCheckRepository.checkUpdate()
+            val info = (outcome as? AppUpdateCheck.Available)?.info
             val dismissed = config.dismissedUpdateVersion
             val multiSourceShouldShow = !config.multiSourceHintDismissed &&
                     patchSourceManager.getEnabledSourcesSync().size > 1
             _uiState.value = _uiState.value.copy(
                 updateInfo = info,
+                updateCheckStatus = outcome,
+                updateCheckFailureDismissed = false,
                 dismissedUpdateVersion = dismissed,
                 showMultiSourceHint = multiSourceShouldShow,
                 appListFilter = if (tabSelectedThisSession) _uiState.value.appListFilter
@@ -1931,16 +2018,18 @@ class HomeViewModel(
                 cachedPatches = emptyList()
                 cachedSourcesResult = null
                 // Preserve update banner and navigation state across source changes.
-                val carriedUpdate = _uiState.value.updateInfo
-                val carriedDismissed = _uiState.value.dismissedUpdateVersion
-                val carriedSelectedPage = _uiState.value.selectedPage
-                val carriedAppListFilter = _uiState.value.appListFilter
+                val carried = _uiState.value
                 _uiState.value = HomeUiState(
                     isDefaultSource = isDefaultSource,
-                    updateInfo = carriedUpdate,
-                    dismissedUpdateVersion = carriedDismissed,
-                    selectedPage = carriedSelectedPage,
-                    appListFilter = carriedAppListFilter,
+                    updateInfo = carried.updateInfo,
+                    updateCheckStatus = carried.updateCheckStatus,
+                    updateCheckFailureDismissed = carried.updateCheckFailureDismissed,
+                    dismissedUpdateVersion = carried.dismissedUpdateVersion,
+                    updateBannerSessionDismissed = carried.updateBannerSessionDismissed,
+                    selectedPage = carried.selectedPage,
+                    appListFilter = carried.appListFilter,
+                    sortMode = carried.sortMode,
+                    preferredPatchSourceByPackage = carried.preferredPatchSourceByPackage,
                 )
                 loadPatchesAndSupportedApps()
             }
@@ -1999,6 +2088,8 @@ internal enum class ScopedSourceChange { CHANGED, NO_CHANGE, UNKNOWN }
 internal data class PatchSourceAssessment(
     val changed: Set<String> = emptySet(),
     val unknown: Set<String> = emptySet(),
+    /** App-scoped source checks with a definitive positive or negative outcome. */
+    val checked: Set<String> = emptySet(),
 )
 
 /** Stable identity survives renaming; legacy name-only IDs require a unique match. */
@@ -2052,12 +2143,14 @@ data class RecallUpdateInfo(
 ) {
     /** Preserve separate app and patch knowledge; unknown inputs never mean up-to-date. */
     fun classification(installedVersion: String?, installedPatchUpdateAvailable: Boolean? = null): AppUpdateClassification {
-        val knownHistory = sources.takeIf {
-            it.isNotEmpty() && it.all { src ->
-                !src.latestAvailableVersion.isNullOrBlank() || !src.resolvedVersion.isNullOrBlank()
-            }
+        // A newer repository release is not evidence that this application's patches changed.
+        // Prefer positive scoped proof even when another source is temporarily unavailable.
+        // Only a complete negative assessment may become "no patch update".
+        val patchFact: Boolean? = when (verifiedAppUpdates(this).patch) {
+            VerifiedUpdateFact.AVAILABLE -> true
+            VerifiedUpdateFact.CURRENT -> false
+            VerifiedUpdateFact.UNCHECKED -> null
         }
-        val patchFact = knownHistory?.any { it.outdated || it.hasRelevantChanges }
         val liveVersion = installedVersion?.takeUnless { it.isBlank() || it.equals("unknown", ignoreCase = true) }
         return classifyAppUpdate(
             patchUpdateAvailable = if (liveVersion != null) installedPatchUpdateAvailable else patchFact,
@@ -2082,6 +2175,10 @@ data class RecallUpdateInfo(
         val sourceId: String = name,
         /** Offline, missing release info or changelog; never a confirmed no-update. */
         val checkIncomplete: Boolean = false,
+        /** Verified release channel, not inferred from a display name. */
+        val channel: HomePatchBundleChannel = HomePatchBundleChannel.UNKNOWN,
+        /** True only after a definitive check for this app/source. */
+        val metadataKnown: Boolean = false,
     )
 
     val patchesChanged: Boolean get() = sources.any { it.hasRelevantChanges }
@@ -2153,7 +2250,12 @@ data class HomeUiState(
     val patchesChannel: PatchResolver.Channel? = null,
     val patchSourceName: String? = null,
     val patchLoadError: String? = null,
+    /** Read-only source resolution progress; not patch/app update proof. */
+    val sourceUpdateBanner: SourceUpdateBannerState = SourceUpdateBannerState(),
     val updateInfo: UpdateInfo? = null,
+    /** Custom DESKTOP distribution update check; patch-source checks are separate. */
+    val updateCheckStatus: AppUpdateCheck? = null,
+    val updateCheckFailureDismissed: Boolean = false,
     val dismissedUpdateVersion: String? = null,
     val updateBannerSessionDismissed: Boolean = false,
     /** True if the multi-source intro hint should be displayed. */
@@ -2175,6 +2277,9 @@ data class HomeUiState(
                 updateInfo.latestVersion != dismissedUpdateVersion &&
                 !updateBannerSessionDismissed
 
+    /** Failed or untrusted checks are explicitly unknown, never "up to date". */
+    val showCustomUpdateCheckFailure: Boolean
+        get() = updateCheckStatus == AppUpdateCheck.Failed && !updateCheckFailureDismissed
 }
 
 data class ApkInfo(

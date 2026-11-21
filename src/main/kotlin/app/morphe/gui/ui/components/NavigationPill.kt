@@ -36,6 +36,7 @@ import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.screens.home.HomePage
 import app.morphe.gui.ui.theme.MorpheMotion
 import app.morphe.gui.ui.theme.MorpheTheme
+import app.morphe.gui.ui.theme.outlineBorder
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
@@ -82,7 +83,7 @@ fun NavigationPill(
             .height(dimens.controlHeight)
             .clip(shapes.small)
             .background(containerColor)
-            .border(1.dp, borderColor, shapes.small)
+            .outlineBorder(borderColor, shapes.small)
             .padding(2.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -95,7 +96,7 @@ fun NavigationPill(
                     .fillMaxHeight()
                     .clip(shapes.small)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f), shapes.small)
+                    .outlineBorder(MaterialTheme.colorScheme.primary.copy(alpha = 0.45f), shapes.small, enabled = true)
             )
         }
 
@@ -221,7 +222,7 @@ fun PatchesLoadingIndicator(
             .height(dimens.controlHeight)
             .clip(shapes.small)
             .background(containerColor)
-            .border(1.dp, borderColor, shapes.small)
+            .outlineBorder(borderColor, shapes.small)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -259,7 +260,7 @@ fun OfflineBadge(
         modifier = modifier
             .height(dimens.controlHeight)
             .clip(shapes.small)
-            .border(1.dp, borderColor, shapes.small)
+            .outlineBorder(borderColor, shapes.small, enabled = true)
             .hoverable(hoverInteraction)
             .handCursor()
             .clickable(onClick = onRetry)

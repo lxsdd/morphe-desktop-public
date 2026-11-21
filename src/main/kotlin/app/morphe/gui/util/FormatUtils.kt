@@ -131,6 +131,11 @@ object FormatUtils {
             "$kbPerSec KB/s"
         }
     }
+
+    /** Show every required Android versionCode in stable order; never guess a primary ABI. */
+    fun formatVersionWithBuild(version: String, buildCodes: Set<Int>): String =
+        if (buildCodes.isEmpty()) version
+        else "$version (${buildCodes.sorted().joinToString(", ")})"
 }
 
 /** Resolves current GUI [Locale] from [LocalLanguageState]. */
