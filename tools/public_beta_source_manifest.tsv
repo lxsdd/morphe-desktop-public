@@ -208,7 +208,7 @@ ab8c616969deb5ae3fb17993c2a52a110168ee12	src/main/kotlin/app/morphe/engine/apk/B
 d91a43ba9eceae92ec0fbdf6d0e2ef8dd9b38010	src/main/kotlin/app/morphe/engine/CacheManager.kt
 38f39ac04c1f6cd2d0467474ab08a915ab1af11c	src/main/kotlin/app/morphe/engine/config/EngineConfig.kt
 d1d4371db9e5ba4b0ce530d50b5262b60dc8c26a	src/main/kotlin/app/morphe/engine/config/EngineConfigRepository.kt
-a3d1b526ddece49ab5998945c2da1b689bb1eabc	src/main/kotlin/app/morphe/engine/CustomDesktopReleaseCatalog.kt
+45ff46b5bbffac2affda20f1903c538e2af015f1	src/main/kotlin/app/morphe/engine/CustomDesktopReleaseCatalog.kt
 1b6ee34179723aa86b4067758639b348eb4b8633	src/main/kotlin/app/morphe/engine/DevicePatchDeploymentStore.kt
 7749dc835fbf7d131561abfb99dd10658422e686	src/main/kotlin/app/morphe/engine/installation/AdbApkInstaller.kt
 334fdec1d0e0da3cf92b9404c67f207c49a4c57d	src/main/kotlin/app/morphe/engine/installation/AdbAppLinkRouter.kt
@@ -252,7 +252,7 @@ f42d017d4e994bddd716237c37ab54a1f95a81d5	src/main/kotlin/app/morphe/engine/Patch
 82cf2aa1913b95ba261ee5acb7b32256790d0646	src/main/kotlin/app/morphe/engine/PlatformDetector.kt
 85c63f29e71bcd1ec554860a27fa55a214b5edba	src/main/kotlin/app/morphe/engine/RunningPatchWatch.kt
 18fb9321c0730770710ac26dd8d40772ad01a08a	src/main/kotlin/app/morphe/engine/ThrowableMessages.kt
-013a9e643bc11dad422b2ce339f8e8c6bbf3917f	src/main/kotlin/app/morphe/engine/UpdateChecker.kt
+8291ea9c4ddeec300e45064fe63f84c7e272ee21	src/main/kotlin/app/morphe/engine/UpdateChecker.kt
 9d38deb13c4cba8bc09fcedb33cb97663e9ab13e	src/main/kotlin/app/morphe/engine/util/AdbManager.kt
 5a144a796fae274db6792fece08cc6ee34e56cfc	src/main/kotlin/app/morphe/engine/util/AndroidSdkLocator.kt
 46dc04a481a39ceb5383b94e45a572283391fb1e	src/main/kotlin/app/morphe/engine/util/ApkManifestReader.kt
@@ -288,7 +288,7 @@ a656dfc68a045a5f0103602a0677a702cc2a7c3b	src/main/kotlin/app/morphe/gui/data/rep
 c6aa1fdd357980463edbd911aa77cd28950eb843	src/main/kotlin/app/morphe/gui/data/repository/PatchSourceDuplicateGuard.kt
 97da4bb11781d4309ee46b3ecc68ddc530996e17	src/main/kotlin/app/morphe/gui/data/repository/PatchSourceManager.kt
 470c1f0f96861e71610c222dc8963f26f5847b5f	src/main/kotlin/app/morphe/gui/data/repository/SeenPatchesRepository.kt
-8dbce08481e217b5f202729584a5c382cf406d4c	src/main/kotlin/app/morphe/gui/data/repository/UpdateCheckRepository.kt
+c49fbd0eaecc0fec2c89ce26d8f6271470ea8c89	src/main/kotlin/app/morphe/gui/data/repository/UpdateCheckRepository.kt
 d3fe39a2deb5aae437e2056dacfb6f9f82159f40	src/main/kotlin/app/morphe/gui/di/AppModule.kt
 50a6fdd9113f7287c20ad5d3368183e23a977945	src/main/kotlin/app/morphe/gui/GuiMain.kt
 9b2868a928ee153162e20f32acbca71aaa03f2ba	src/main/kotlin/app/morphe/gui/icon/ForegroundPrep.kt
@@ -550,6 +550,7 @@ b828c3aef59427e7cf1b7da559825c3a6b145832	src/main/resources/fonts/RobotoMono-Sem
 925a41c904a11064f8d43b1d6335a3409d7f94df	src/test/kotlin/app/morphe/engine/BundleScopeTest.kt
 41697d16c38ffeae6745ec7d88131c84c9dc0a88	src/test/kotlin/app/morphe/engine/CacheManagerStatsTest.kt
 73a796dfe41ce08b06fd8ce8c1e7e383325c1be1	src/test/kotlin/app/morphe/engine/CustomDesktopReleaseCatalogTest.kt
+ceafcc0ebfaf5d3be9763074cafe3dea3e0548cd	src/test/kotlin/app/morphe/engine/CustomDesktopUpdateStatusTest.kt
 7b24ad643d4d5abc13ec2ae5f7db548e30edcd9d	src/test/kotlin/app/morphe/engine/DevicePatchDeploymentStorePortTest.kt
 393c73064579fc43a5752d62e7cf6ac41e748d91	src/test/kotlin/app/morphe/engine/DevicePatchDeploymentStoreTest.kt
 74e24589aa5b7a102d9cd00ba97ac17d9a0d2542	src/test/kotlin/app/morphe/engine/installation/AdbApkInstallerTest.kt
@@ -579,6 +580,7 @@ a136b64bf252fe97faba783b1a3a81804cd5fc14	src/test/kotlin/app/morphe/gui/data/mod
 10b945c57036cccbe18331b81ae6d30ee64169bb	src/test/kotlin/app/morphe/gui/data/repository/PatchSourceDuplicateGuardPortTest.kt
 613cdcca0b7821cd6e9a2552ce9bbcc6223aec8e	src/test/kotlin/app/morphe/gui/data/repository/PatchSourceDuplicateGuardTest.kt
 b9830ae7dcd71fd4743b1f9c6f1e80959b789d79	src/test/kotlin/app/morphe/gui/data/repository/SourceChannelSeedingTest.kt
+cb457b790aa94339495a46484f130f0a8968bfa7	src/test/kotlin/app/morphe/gui/data/repository/SuccessfulCustomUpdateCacheTest.kt
 98bb9d20dc142b3c703546fc26176c749ca29cc0	src/test/kotlin/app/morphe/gui/icon/IconProjectSerializationTest.kt
 02722f119c606099eff09b9c3a816eec5c9895b8	src/test/kotlin/app/morphe/gui/icon/IconRendererTest.kt
 578326ddf99c9fd2894631380b3f0e09d8702b72	src/test/kotlin/app/morphe/gui/PatchSelectionParamsTest.kt

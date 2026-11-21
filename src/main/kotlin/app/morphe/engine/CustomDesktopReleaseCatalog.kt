@@ -58,6 +58,9 @@ private fun parsedVersion(text: String): CustomVersion? {
     return CustomVersion(major, minor, patch, order, number)
 }
 
+/** Only a valid Custom distribution version can be classified as current. */
+internal fun isRecognizedCustomDesktopVersion(version: String): Boolean = parsedVersion(version) != null
+
 internal fun isCustomPrerelease(version: String): Boolean =
     parsedVersion(version)?.stage?.let { it < 4 } ?: false
 
