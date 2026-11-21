@@ -269,16 +269,18 @@ class PatchesViewModel(
 
         // A source ID is part of the download's identity, not just its tag/version.
         val requestedSourceId = requestState.sourceId
-        if (patchSourceManager?.getActiveSource()?.id != requestedSourceId) return
         val loadGeneration = releaseLoadEpoch.get()
         val requestGeneration = downloadEpoch.incrementAndGet()
         fun isCurrentRequest(): Boolean = canApplySourceDownload(
-            _uiState.value, release, requestedSourceId, patchSourceManager?.getActiveSource()?.id,
+            _uiState.value, release, requestedSourceId, requestedSourceId,
             downloadEpoch.get() == requestGeneration && releaseLoadEpoch.get() == loadGeneration,
         )
 
         viewModelScope.launch {
-            if (!isCurrentRequest()) return@launch
+            // The live source resolver is suspend; only query it inside this coroutine.
+            if (!isCurrentRequest() || patchSourceManager?.getActiveSource()?.id != requestedSourceId) {
+                return@launch
+            }
             _uiState.value = _uiState.value.copy(
                 isDownloading = true,
                 downloadProgress = 0f,
@@ -291,8 +293,10 @@ class PatchesViewModel(
                     _uiState.value = _uiState.value.copy(downloadProgress = progress)
                 }
             }
-            // Never adopt a foreign/stale file or persist its release preference.
-            if (!isCurrentRequest()) return@launch
+            // Re-read the live source after suspension before adopting/persisting a result.
+            if (!isCurrentRequest() || patchSourceManager?.getActiveSource()?.id != requestedSourceId) {
+                return@launch
+            }
             result.fold(
                 onSuccess = { patchFile ->
                     _uiState.value = _uiState.value.copy(
