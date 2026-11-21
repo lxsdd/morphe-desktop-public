@@ -114,17 +114,10 @@ fun SettingsDialog(
     val searchMatches = SettingsSearchRouting.find(searchQuery, searchItems)
     val contentScroll = remember(selectedCategory) { ScrollState(0) }
     var showChangelogDialog by remember { mutableStateOf(false) }
-    var showAppInfoDialog by remember { mutableStateOf(false) }
 
     if (showChangelogDialog) {
         ChangelogDialog(
             onDismiss = { showChangelogDialog = false }
-        )
-    }
-
-    if (showAppInfoDialog) {
-        AppInfoDialog(
-            onDismiss = { showAppInfoDialog = false }
         )
     }
 
@@ -211,7 +204,8 @@ fun SettingsDialog(
                     val navItems = listOf(
                         Triple("Appearance", Res.string.settings_nav_appearance, MorpheIcons.Palette),
                         Triple("Advanced", Res.string.settings_nav_advanced, MorpheIcons.Tune),
-                        Triple("System", Res.string.settings_nav_system, MorpheIcons.Monitor)
+                        Triple("System", Res.string.settings_nav_system, MorpheIcons.Monitor),
+                        Triple("About", Res.string.settings_section_about, MorpheIcons.Info)
                     )
                     navItems.forEach { (category, labelRes, icon) ->
                         val isSelected = selectedCategory == category
@@ -298,6 +292,9 @@ fun SettingsDialog(
                                 isPatching = isPatching,
                                 borderColor = borderColor,
                             )
+                            "About" -> CustomAboutPane(
+                                onShowChangelog = { showChangelogDialog = true },
+                            )
                             "System" -> SystemTab(
                                 autoCleanupTempFiles = autoCleanupTempFiles,
                                 onAutoCleanupChange = onAutoCleanupChange,
@@ -309,7 +306,7 @@ fun SettingsDialog(
                                 onAutoStartAdbChange = onAutoStartAdbChange,
                                 isPatching = isPatching,
                                 borderColor = borderColor,
-                                onShowAppInfo = { showAppInfoDialog = true },
+                                onShowAppInfo = { selectedCategory = "About"; jumpLabel = null },
                                 onShowChangelog = { showChangelogDialog = true },
                             )
                         }

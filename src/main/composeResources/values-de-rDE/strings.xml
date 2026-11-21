@@ -1122,4 +1122,11 @@
     <string name="custom_source_url_pr_format">GitHub-PR-Quellenformat erkannt</string>
     <string name="custom_source_url_format_not_verified">Nur das URL-Format erkannt: Quelle, Patchdatei und Signaturschlüssel sind noch nicht verifiziert.</string>
     <string name="custom_source_url_changed_signer_warning">Die Quellenadresse wurde geändert. Vor der Verwendung muss der Signaturschlüssel dieser Quelle erneut geprüft werden; eine neue Signatur wird nicht automatisch vertraut.</string>
+    <string name="form_factor_tv">TV</string>
+    <string name="form_factor_wearable">Wearable</string>
+    <string name="form_factor_automotive">Fahrzeug</string>
+    <string name="custom_about_downstream_label">Custom-Ausgabe – offizieller Kern mit separat gepflegten Funktionen</string>
+    <string name="custom_about_update_provenance">Versionsankündigungen von Morphe, Patchquellen oder Patcher belegen kein Update für Morphe Desktop Custom. Dafür zählt ausschließlich ein bestätigtes Custom-Release.</string>
+    <string name="custom_about_public_releases">Öffentliche Custom-Releases</string>
+    <string name="custom_about_public_releases_desc">Veröffentlichte Custom-Downloads anzeigen; es startet kein automatischer Download.</string>
 </resources>

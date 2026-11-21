@@ -26,6 +26,8 @@ import app.morphe.gui.ui.components.AppCard
 import app.morphe.gui.ui.components.LocalCardFills
 import app.morphe.gui.ui.components.MorpheAppAvatar
 import app.morphe.gui.ui.components.MorpheAvatarSize
+import app.morphe.gui.ui.components.FormFactorBadge
+import app.morphe.gui.ui.components.hasVisibleFormFactorBadge
 import app.morphe.gui.ui.components.MorpheBadge
 import app.morphe.gui.ui.components.MorpheBadgeTone
 import app.morphe.gui.ui.components.MorpheCardChip
@@ -95,6 +97,10 @@ fun SupportedAppListRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+            if (app.formFactor.hasVisibleFormFactorBadge()) {
+                Spacer(Modifier.width(8.dp))
+                FormFactorBadge(formFactor = app.formFactor, onGradient = !cardColors.isMonochrome)
             }
             if (patchedState != PatchedAppState.NEVER_PATCHED) {
                 Spacer(Modifier.width(8.dp))

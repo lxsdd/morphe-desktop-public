@@ -41,6 +41,7 @@ internal fun settingsSearchItems(
     val appearance = stringResource(Res.string.settings_nav_appearance)
     val advanced = stringResource(Res.string.settings_nav_advanced)
     val system = stringResource(Res.string.settings_nav_system)
+    val about = stringResource(Res.string.settings_section_about)
     fun item(category: String, categoryLabel: String, label: String, hint: String = "",
              target: String = label, expand: String? = null) =
         SettingsSearchItem(category, categoryLabel, label, hint, target, expand)
@@ -83,7 +84,9 @@ internal fun settingsSearchItems(
         item("System", system, stringResource(Res.string.settings_toggle_auto_start_adb_label),
             stringResource(Res.string.settings_toggle_auto_start_adb_desc)),
         item("System", system, stringResource(Res.string.settings_section_storage)),
-        item("System", system, stringResource(Res.string.settings_section_about)),
-        item("System", system, stringResource(Res.string.settings_about_changelogs_title)),
+        item("About", about, stringResource(Res.string.settings_section_about)),
+        item("About", about, stringResource(Res.string.settings_about_changelogs_title)),
+        item("About", about, stringResource(Res.string.settings_about_documentation_title)),
+        item("About", about, stringResource(Res.string.settings_about_website_title)),
     )
 }

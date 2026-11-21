@@ -1300,4 +1300,11 @@
     <string name="custom_source_url_pr_format">GitHub pull-request source format recognized</string>
     <string name="custom_source_url_format_not_verified">URL format only: the source, patch bundle and signing key have not been verified.</string>
     <string name="custom_source_url_changed_signer_warning">Source address changed. Verify the source signing key again before use; no new signature is automatically trusted.</string>
+    <string name="form_factor_tv">TV</string>
+    <string name="form_factor_wearable">Wearable</string>
+    <string name="form_factor_automotive">Automotive</string>
+    <string name="custom_about_downstream_label">Custom edition — official engine with separately maintained features</string>
+    <string name="custom_about_update_provenance">Official Morphe, patch-source and Patcher version announcements are not proof of a newer Morphe Desktop Custom build. Only a verified Custom release establishes a Custom app update.</string>
+    <string name="custom_about_public_releases">Public Custom releases</string>
+    <string name="custom_about_public_releases_desc">Open the official published Custom downloads; no download is started automatically.</string>
 </resources>

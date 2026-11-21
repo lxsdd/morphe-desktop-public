@@ -52,4 +52,15 @@ class SettingsSearchRoutingTest {
         assertEquals("Links weiterleiten", SettingsSearchRouting.find("standardlinks", listOf(item)).single().targetLabel)
         assertEquals(null, item.expandSection)
     }
+
+    @Test fun aboutSettingsSearchOpensTheActualAboutTab() {
+        val about = SettingsSearchItem(
+            category = "About", categoryLabel = "Über",
+            label = "Öffentliche Custom-Releases",
+            hint = "Nur bestätigte Custom-Versionen",
+        )
+        assertEquals("About", SettingsSearchRouting.find("Custom-Releases", listOf(about)).single().category)
+        assertEquals("About", SettingsSearchRouting.find("bestätigte", listOf(about)).single().category)
+        assertTrue(SettingsSearchRouting.find("private-access-token-value", listOf(about)).isEmpty())
+    }
 }
