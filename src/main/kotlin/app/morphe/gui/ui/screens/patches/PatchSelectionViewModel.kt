@@ -8,7 +8,6 @@ package app.morphe.gui.ui.screens.patches
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.morphe.engine.PatchEngine
-import app.morphe.engine.SaveOriginalApk
 import app.morphe.engine.OriginalApkStore
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_ALIAS
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_PASSWORD
@@ -122,7 +121,6 @@ class PatchSelectionViewModel(
 
     private var defaultOutputDirectory: String? = null
     private var autoCleanupTempFiles: Boolean = true
-    private var saveOriginalApk: SaveOriginalApk? = null
 
     private val _uiState = MutableStateFlow(
         PatchSelectionUiState(
@@ -141,7 +139,6 @@ class PatchSelectionViewModel(
         viewModelScope.launch {
             val config = engineConfigRepository.loadConfig()
             autoCleanupTempFiles = config.autoCleanupTempFiles
-            saveOriginalApk = config.resolvedOriginalApkMode()
             // Never patch *into* original-apks when a retained input was chosen.
             defaultOutputDirectory = config.resolvedDefaultOutputDirectory()?.absolutePath
                 ?: OriginalApkStore.shared.outputBaseFor(File(apkPath))?.absolutePath
@@ -628,7 +625,8 @@ class PatchSelectionViewModel(
             failOnError = !continueOnError,
             disablePurge = !autoCleanupTempFiles,
             recordHistory = true,
-            saveOriginalApk = saveOriginalApk,
+            // Read the live persisted preference at action time, never a cached MOVE mode.
+            saveOriginalApk = engineConfigRepository.configFlow.value?.resolvedOriginalApkMode(),
             appDisplayName = apkName,
             historyMetadata = PatchEngine.HistoryMetadata(
                 originalPackageName = packageName,

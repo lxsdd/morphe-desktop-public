@@ -105,6 +105,27 @@ class OriginalApkStoreTest {
         assertEquals("first", first.readText())
     }
 
+
+    @Test fun explicitMoveIsRefusedWhileOtherHistoryStillPointsAtSelectedSource() = kotlinx.coroutines.runBlocking {
+        val source = input("shared.apk", "source bytes")
+        val kept = store.save(source, "com.example.app", "1")!!
+        fun record(pkg: String, sourcePath: String) = app.morphe.engine.model.PatchedAppRecord(
+            packageName = pkg, displayName = pkg, apkVersion = "1",
+            inputApkPath = sourcePath,
+            outputApkPath = File(downloads, pkg + ".apk").absolutePath,
+            patchedAt = 1L, patchedWithMorpheVersion = "test",
+        )
+        history.upsert(record("com.example.app", kept.absolutePath))
+        history.upsert(record("com.example.other", source.absolutePath))
+        assertFalse(store.removeVerifiedSourceAfterHistory(source, kept, "com.example.app"))
+        assertTrue(source.exists())
+        history.delete("com.example.other")
+        assertFalse(store.removeVerifiedSourceAfterHistory(source, kept, "wrong.package"))
+        assertTrue(store.removeVerifiedSourceAfterHistory(source, kept, "com.example.app"))
+        assertFalse(source.exists())
+        assertTrue(kept.exists())
+    }
+
     @Test fun deletingAnUnreferencedOriginalRequiresAnotherHistoryEntryNotToShareIt() = kotlinx.coroutines.runBlocking {
         val kept = store.save(input("a.apk"), "com.example.app", "1")!!
         fun record(pkg: String) = app.morphe.engine.model.PatchedAppRecord(
@@ -145,4 +166,15 @@ class OriginalApkStoreTest {
         assertTrue(source.exists())
     }
 
+
+    @Test fun retainedOriginalModeChangesAreObservedInsteadOfUsingAnOldMoveSelection() = kotlinx.coroutines.runBlocking {
+        val repo = app.morphe.engine.config.EngineConfigRepository(File(root, "isolated-config.json"))
+        assertNull(repo.loadConfig().resolvedOriginalApkMode())
+        repo.setOriginalApkRetention(SaveOriginalApk.MOVE)
+        assertEquals(SaveOriginalApk.MOVE, repo.configFlow.value?.resolvedOriginalApkMode())
+        repo.setOriginalApkRetention(null)
+        assertNull(repo.configFlow.value?.resolvedOriginalApkMode())
+        repo.setOriginalApkRetention(SaveOriginalApk.COPY)
+        assertEquals(SaveOriginalApk.COPY, repo.configFlow.value?.resolvedOriginalApkMode())
+    }
 }

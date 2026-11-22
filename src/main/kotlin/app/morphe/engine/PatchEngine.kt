@@ -687,7 +687,9 @@ object PatchEngine {
                             config.inputApk.canonicalFile != finalOutputApk.canonicalFile
                         ) {
                             try {
+                                info("Saving user-requested original APK copy...")
                                 OriginalApkStore.shared.save(config.inputApk, originalPackage, packageVersion)
+                                    .also { if (it != null) info("Original APK copy verified and retained.") }
                             } catch (e: CancellationException) {
                                 throw e
                             } catch (e: Exception) {
@@ -718,11 +720,13 @@ object PatchEngine {
                         // MOVE is never an implicit cleanup. Only the explicitly chosen
                         // MOVE mode may remove an input, and only after persisted history,
                         // preserved bytes and unchanged input have been verified.
-                        if (config.saveOriginalApk == SaveOriginalApk.MOVE && kept != null &&
-                            PatchedAppStore.shared.get(record.packageName)?.inputApkPath == kept.absolutePath
-                        ) {
-                            if (!OriginalApkStore.shared.removeVerifiedSource(config.inputApk, kept)) {
+                        if (config.saveOriginalApk == SaveOriginalApk.MOVE && kept != null) {
+                            if (!OriginalApkStore.shared.removeVerifiedSourceAfterHistory(
+                                    config.inputApk, kept, record.packageName
+                                )) {
                                 warn("Original preserved, but source file was not removed; check it manually.")
+                            } else {
+                                info("Explicitly requested original APK move completed after history verification.")
                             }
                         }
                     } catch (e: CancellationException) {

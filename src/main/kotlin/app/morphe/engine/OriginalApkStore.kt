@@ -7,6 +7,7 @@ package app.morphe.engine
 import app.morphe.engine.model.PatchedAppRecord
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.StandardCopyOption
 import java.nio.file.AtomicMoveNotSupportedException
 import java.security.MessageDigest
@@ -48,7 +49,7 @@ class OriginalApkStore(
         require(!Files.isSymbolicLink(dir.toPath())) { "Refusing redirected original APK store" }
         val target = File(dir, "$safePackage-$safeVersion.$extension")
         require(target.canonicalFile.parentFile == dir.canonicalFile) { "Unsafe original APK destination" }
-        if (target.exists()) {
+        if (Files.exists(target.toPath(), LinkOption.NOFOLLOW_LINKS)) {
             if (contains(target) && identical(apk, target)) return target
             throw java.nio.file.FileAlreadyExistsException(target.path, null, "Different original exists; refusing overwrite")
         }
@@ -57,7 +58,7 @@ class OriginalApkStore(
             Files.copy(apk.toPath(), staging, StandardCopyOption.REPLACE_EXISTING)
             check(identical(apk, staging.toFile())) { "Original changed while copying" }
             // No REPLACE_EXISTING: a user's earlier kept copy must never be overwritten.
-            check(!target.exists()) { "Original target appeared while copying" }
+            check(!Files.exists(target.toPath(), LinkOption.NOFOLLOW_LINKS)) { "Original target appeared while copying" }
             try {
                 Files.move(staging, target.toPath(), StandardCopyOption.ATOMIC_MOVE)
             } catch (_: AtomicMoveNotSupportedException) {
@@ -82,6 +83,25 @@ class OriginalApkStore(
         Files.delete(source.toPath())
         true
     }.getOrDefault(false)
+
+    /**
+     * Final MOVE permission gate: even an opted-in move cannot break another
+     * history record still pointing at the original source path.
+     */
+    suspend fun removeVerifiedSourceAfterHistory(
+        source: File,
+        kept: File,
+        originalPackageName: String,
+    ): Boolean {
+        if (!contains(kept) ||
+            patchedApps.get(originalPackageName)?.inputApkPath != kept.absolutePath) return false
+        val sourcePath = runCatching { source.canonicalPath }.getOrNull() ?: return false
+        if (patchedApps.getAll().any { record ->
+                record.packageName != originalPackageName &&
+                    runCatching { File(record.inputApkPath).canonicalPath == sourcePath }.getOrDefault(false)
+            }) return false
+        return removeVerifiedSource(source, kept)
+    }
 
     /** Per-record delete is exclusively called after user confirmation. */
     fun delete(file: File): Boolean = contains(file) && file.delete()

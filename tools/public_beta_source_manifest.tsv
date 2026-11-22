@@ -231,7 +231,7 @@ ee170d409c06adc0965f964150bfee90518880ab	src/main/kotlin/app/morphe/engine/optio
 c2895be80c511db29693436e70d72c805c42144b	src/main/kotlin/app/morphe/engine/options/PatchOptionValues.kt
 fb52057d26078261053f87cdaff19a4266fa9ee5	src/main/kotlin/app/morphe/engine/options/PatchPreferencesRepository.kt
 fa875c040c331cf65227e8b42c396a06f236805c	src/main/kotlin/app/morphe/engine/PatchedAppStore.kt
-a2581b08483a0af8c001ab4bcd0d9600dd3d748e	src/main/kotlin/app/morphe/engine/PatchEngine.kt
+d2586b09473789a07103a4155f8c5feb79206e17	src/main/kotlin/app/morphe/engine/PatchEngine.kt
 89cb21b23c9f3351395a001f7590af205c0c1c97	src/main/kotlin/app/morphe/engine/PatcherCompatibility.kt
 0b8dd455a03f44cac24e3fd8c474f85693071231	src/main/kotlin/app/morphe/engine/patches/AppVersionResolver.kt
 4243de79895c5e242939f3187c6d00778faf1b58	src/main/kotlin/app/morphe/engine/patches/GitHubPatchSource.kt
@@ -427,7 +427,7 @@ ae3024c2ff4ab09dee7f7e47204c74af73f13b6b	src/main/kotlin/app/morphe/gui/ui/scree
 c63b2908f2388ce3263d9beb54e5bcbc8149539e	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchesScreen.kt
 3fac3ca709a257780266cd7caa2776c5aac66784	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchesViewModel.kt
 78ceca27092bdf8c88679b2c3c77df707b033699	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchSelectionScreen.kt
-122b825b9317b2ad3817de498f7b2832043f4bdc	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchSelectionViewModel.kt
+d52aac7379a7d08145a992592c598326ab6f2215	src/main/kotlin/app/morphe/gui/ui/screens/patches/PatchSelectionViewModel.kt
 d40b5fc807351bef3e212a34a7407269e219d575	src/main/kotlin/app/morphe/gui/ui/screens/patching/components/FailureBottomBar.kt
 d470e0e699b1593de985caa73733b1b0a879ea2d	src/main/kotlin/app/morphe/gui/ui/screens/patching/components/LogEntryRow.kt
 fbcd380f8531ffcb8be188eeb99041eb1c19791f	src/main/kotlin/app/morphe/gui/ui/screens/patching/components/LogFileViewerDialog.kt
@@ -673,5 +673,5 @@ ca7a7aa65cc1acd3a96280e577f3fcb1972638dc	src/test/kotlin/app/morphe/gui/ui/compo
 687d9ec8f3728e8866ea385c7d7d853ff1117374	src/main/kotlin/app/morphe/gui/util/X11UiScale.kt
 d5cb9b3b07827b6bd468c3dc7fe1471825cc024a	src/test/kotlin/app/morphe/gui/util/X11UiScaleTest.kt
 8593cd027655774c19bcade6aea475c71894f4f9	src/test/kotlin/app/morphe/engine/patches/FormFactorCliTest.kt
-91d78fe05a7409a4233f0f1a2feb0ba74efae821	src/main/kotlin/app/morphe/engine/OriginalApkStore.kt
-8f110bc2fb1c579ea78131258857abc8f1ab1a0b	src/test/kotlin/app/morphe/engine/OriginalApkStoreTest.kt
+f2439d6a2519afe55f8b293d9209be833c17d063	src/main/kotlin/app/morphe/engine/OriginalApkStore.kt
+f644fb06391e7d8815ac40c9e7c1bdbc6fd8d5fb	src/test/kotlin/app/morphe/engine/OriginalApkStoreTest.kt

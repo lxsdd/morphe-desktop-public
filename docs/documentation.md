@@ -417,7 +417,7 @@ The gear icon opens Settings – Morphe's persistent preferences. Think of it as
 | **Expert mode**                | Switch between Simple mode and Expert mode                                                                | Off (Simple mode)                                                                    | –                                                                                          |
 | **Background animation**       | Choose an animated background style (e.g. Circles, Rings, Mesh, Space)                                    | Circles                                                                              | –                                                                                          |
 | **Parallax effect**            | Smooth background shifting when moving the mouse                                                          | On                                                                                   | –                                                                                          |
-| **Keep original APKs**         | Off (default), Copy (keep input), or Move (delete only after verified copy + history) | Off |
+| **Keep original APKs**         | Off, Copy (keep input), or Move (remove only after verified copy and history)                         | Off                                                                                  | `--save-original COPY|MOVE|OFF` (CLI defaults Off)                                         |
 | **Auto-cleanup temp files**    | Delete scratch files after patching                                                                       | On                                                                                   | On by default; `--disable-purge` to turn off                                               |
 | **Auto-start ADB**             | Start the ADB daemon on launch so devices are monitored                                                   | Off                                                                                  | enables `-i` / install features                                                            |
 | **Update channel**             | Stable or Prerelease app updates (dropdown menu)                                                          | Smart (Prerelease on dev builds, else Stable)                                        | `--prerelease` (loosely)                                                                   |
@@ -613,7 +613,7 @@ Here is a quick lookup for all the flags under this subcommand:
 | `--signer`                     | Signer name in the APK signature                                                   |
 | `--unsigned`                   | Skip signing the final APK                                                         |
 | `-t`, `--temporary-files-path` | Path to store temp files                                                           |
-| `--save-original`             | Opt into keeping a verified original: `COPY`, `MOVE` or `OFF` (default) |                  |
+| `--save-original`             | Opt into keeping a verified original: `COPY`, `MOVE` or `OFF` (default)           |
 | `--disable-purge`              | Keep this run's scratch files (deleted after patching by default)                  |
 | `--striplibs`                  | Architectures to keep, comma-separated (e.g.`arm64-v8a,x86`)                       |
 | `--bytecode-mode`              | Bytecode mode:`FULL`, `STRIP_SAFE`, or `STRIP_FAST`                                |
