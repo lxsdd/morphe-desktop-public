@@ -1268,6 +1268,17 @@
     <string name="home_update_reason_no_source">Patch sources for this record are unresolved</string>
     <string name="home_update_reason_source_unavailable">Patch source not loaded</string>
     <string name="home_update_reason_change_unverified">Changes for this app not verified</string>
+    <string name="home_source_issue_unmatched">Historical source cannot be matched to a configured source; check source identity</string>
+    <string name="home_source_issue_disabled">Historical source is disabled; review source settings</string>
+    <string name="home_source_issue_inaccessible">Source returned unavailable/missing or policy-restricted evidence; check its original repository</string>
+    <string name="home_source_issue_restricted">Source access is restricted (authentication or permissions); review source settings</string>
+    <string name="home_source_issue_transient">Temporary network/server problem; retry the check</string>
+    <string name="home_source_issue_load">Source failed to load; inspect its error in Sources</string>
+    <string name="home_source_issue_unresolved">Source release cannot currently be resolved</string>
+    <string name="home_source_issue_offline">Only cached source metadata available; no current remote proof</string>
+    <string name="home_source_issue_no_patches">Current source does not verify compatible patches for this app</string>
+    <string name="home_source_issue_changelog">App-specific patch changes could not be verified from changelog</string>
+    <string name="home_source_issue_channel">Patch source release channel not confirmed</string>
     <string name="device_update_counts_scope">Update counts use different sets of apps: device updates count each installed app once; app and patch updates may overlap. Signing and build diagnostics are not updates.</string>
     <string name="custom_desktop_update_check_unavailable">Custom app update check unavailable. No result was verified.</string>
     <!-- Progress reports patch source resolution; it is not evidence of an app update. -->

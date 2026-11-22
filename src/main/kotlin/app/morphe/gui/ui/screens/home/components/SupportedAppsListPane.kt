@@ -183,7 +183,7 @@ internal fun SupportedAppsListPane(
             // Explain the first missing proof for each app, not just a list of
             // names suggesting that a pending check is itself a new update.
             val uncheckedDescriptions = uncheckedEntries.map { item ->
-                val reason = when (item.reason) {
+                val reason = item.sourceIssue?.let { historicalSourceIssueText(it) } ?: when (item.reason) {
                     IncompleteUpdateReason.METADATA_UNAVAILABLE ->
                         stringResource(Res.string.home_update_reason_metadata_unavailable)
                     IncompleteUpdateReason.NO_SOURCE_PROOF ->
@@ -213,6 +213,16 @@ internal fun SupportedAppsListPane(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                if (uncheckedEntries.any { it.sourceIssue in setOf(
+                        app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_UNMATCHED,
+                        app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_DISABLED,
+                        app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE,
+                        app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED,
+                    ) }) {
+                    TextButton(onClick = onManageSources) {
+                        Text(stringResource(Res.string.home_header_manage_sources_button))
+                    }
+                }
                 TextButton(onClick = onRetry, enabled = !isLoading) {
                     Text(stringResource(Res.string.home_update_retry_check))
                 }

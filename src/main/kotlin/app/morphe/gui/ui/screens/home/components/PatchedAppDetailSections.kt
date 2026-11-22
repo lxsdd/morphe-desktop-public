@@ -140,9 +140,11 @@ internal fun IdentityBand(
             if (unfinished.isNotEmpty()) {
                 val sourceMissing = stringResource(Res.string.home_update_source_not_loaded)
                 val changeProofMissing = stringResource(Res.string.home_update_source_proof_missing)
-                val descriptions = unfinished.joinToString(" · ") { source ->
-                    source.name + ": " + if (source.sourceLoaded) changeProofMissing else sourceMissing
-                }
+                val descriptions = unfinished.map { source ->
+                    val explanation = source.sourceIssue?.let { historicalSourceIssueText(it) }
+                        ?: if (source.sourceLoaded) changeProofMissing else sourceMissing
+                    source.name + ": " + explanation
+                }.joinToString(" · ")
                 InfoNote(stringResource(Res.string.home_update_unverified_sources, descriptions))
             }
         }

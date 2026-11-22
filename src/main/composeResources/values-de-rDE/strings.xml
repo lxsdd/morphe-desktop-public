@@ -1090,6 +1090,17 @@
     <string name="home_update_reason_no_source">Patchquellen für diesen Eintrag ungeklärt</string>
     <string name="home_update_reason_source_unavailable">Patchquelle nicht geladen</string>
     <string name="home_update_reason_change_unverified">Änderungen für diese App nicht geprüft</string>
+    <string name="home_source_issue_unmatched">Historische Quelle nicht eindeutig zuordenbar – Quellenidentität prüfen</string>
+    <string name="home_source_issue_disabled">Historische Quelle deaktiviert – Quelleneinstellungen prüfen</string>
+    <string name="home_source_issue_inaccessible">Quelle nicht erreichbar, nicht auffindbar oder durch Richtlinie gesperrt – Original-Repository prüfen</string>
+    <string name="home_source_issue_restricted">Zugriff auf Quelle eingeschränkt (Anmeldung oder Berechtigungen) – Einstellungen prüfen</string>
+    <string name="home_source_issue_transient">Vorübergehender Netzwerk-/Serverfehler – Prüfung erneut versuchen</string>
+    <string name="home_source_issue_load">Quelle konnte nicht geladen werden – Fehler unter Quellen prüfen</string>
+    <string name="home_source_issue_unresolved">Quellenversion derzeit nicht auflösbar</string>
+    <string name="home_source_issue_offline">Nur zwischengespeicherte Quellendaten – kein aktueller Online-Nachweis</string>
+    <string name="home_source_issue_no_patches">Aktuelle Quelle weist keine kompatiblen Patches für diese App nach</string>
+    <string name="home_source_issue_changelog">App-bezogene Patchänderungen anhand des Änderungsverlaufs nicht nachweisbar</string>
+    <string name="home_source_issue_channel">Versionskanal der Patchquelle nicht bestätigt</string>
     <string name="device_update_counts_scope">Updatezahlen beziehen sich auf unterschiedliche App-Mengen: Geräte-Updates zählen jede installierte App nur einmal; App- und Patch-Updates können sich überschneiden. Signatur- und Build-Prüfungen sind keine Updates.</string>
     <string name="custom_desktop_update_check_unavailable">Custom-App-Updates konnten nicht geprüft werden. Es liegt kein verifiziertes Ergebnis vor.</string>
     <!-- Quellenfortschritt ist kein Nachweis eines App-Updates. -->

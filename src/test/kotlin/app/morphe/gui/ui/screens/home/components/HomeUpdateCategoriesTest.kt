@@ -1,6 +1,7 @@
 package app.morphe.gui.ui.screens.home.components
 
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.ui.screens.home.HistoricalSourceIssue
 import app.morphe.gui.ui.screens.home.PatchedAppState
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.gui.util.UpdateMetadataResolution
@@ -237,6 +238,36 @@ class HomeUpdateCategoriesTest {
         assertEquals("Community source",
             result.single { it.appName == "no-changelog" }.sourceName)
         assertEquals(0, entries.count { hasConfirmedPatchUpdate(mapping[it.packageName]) })
+    }
+
+    @Test
+    fun `actual inaccessible source and unmatched historical YouTube identity appear in shared UI evidence`() {
+        fun history(pkg: String) = PatchedAppRecord(
+            packageName = pkg, displayName = pkg, apkVersion = "1.0",
+            inputApkPath = "/not-read/input.apk", outputApkPath = "/not-read/output.apk",
+            patchedAt = 1L, patchedWithMorpheVersion = "test",
+        )
+        fun missing(name: String, blocker: HistoricalSourceIssue) = info(sources = listOf(
+            RecallUpdateInfo.SourceUpdate(
+                name = name, usedVersion = "1.0", resolvedVersion = null,
+                latestAvailableVersion = null, outdated = false,
+                checkIncomplete = true, metadataKnown = false, sourceIssue = blocker,
+            )
+        ))
+        val records = listOf(history("capcut"), history("soundcloud"), history("youtube"))
+        val mapping = mapOf(
+            "capcut" to missing("Riky patches", HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE),
+            "soundcloud" to missing("Hoodles patches", HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED),
+            "youtube" to missing("Recorded YouTube source", HistoricalSourceIssue.SOURCE_UNMATCHED),
+        )
+        val incomplete = incompleteAppChecks(records, mapping).associateBy { it.appName }
+        assertEquals(3, incomplete.size)
+        assertEquals(HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE, incomplete["capcut"]?.sourceIssue)
+        assertEquals(HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED, incomplete["soundcloud"]?.sourceIssue)
+        assertEquals(HistoricalSourceIssue.SOURCE_UNMATCHED, incomplete["youtube"]?.sourceIssue)
+        assertEquals(HistoricalSourceIssue.SOURCE_UNMATCHED,
+            incompleteUpdateSources(mapping["youtube"]).single().sourceIssue)
+        assertEquals(0, records.count { hasConfirmedPatchUpdate(mapping[it.packageName]) })
     }
 
     @Test

@@ -896,11 +896,13 @@ class HomeViewModel(
         apps: List<SupportedApp>,
     ): RecallUpdateInfo {
         val current = cachedSourcesResult?.usableResolvedSources.orEmpty()
-        val identities = current.map { it.source.id to it.source.name }
+        // Match historical identity against ALL configured sources, including disabled
+        // and failed ones. A failed 404 source cannot be identified from usable files.
+        val allSources = patchSourceManager.allSources.value
+        val identities = allSources.map { it.id to it.name }
         val changedSources = relevantSourceUpdates[record.packageName].orEmpty()
         val incompleteSources = incompleteSourceChecks[record.packageName].orEmpty()
         val checkedSources = checkedSourceChecks[record.packageName].orEmpty()
-        val allSources = patchSourceManager.allSources.value
         val sources = record.sourcesSnapshot
             // Include only sources that provided patches for this record.
             .filter { snap ->
@@ -910,11 +912,13 @@ class HomeViewModel(
             .map { snap ->
                 val id = matchHistoricalSourceId(snap, identities)
                 val resolved = current.firstOrNull { it.source.id == id }
-                val matchingSrc = allSources.firstOrNull { it.id == id }
-                val cleanName = resolved?.source?.name ?: matchingSrc?.name
+                val configured = allSources.firstOrNull { it.id == id }
+                val resolvedAttempt = cachedSourcesResult?.resolved?.firstOrNull { it.source.id == id }
+                val loadedAttempt = cachedSourcesResult?.loaded?.perSource?.firstOrNull { it.sourceId == id }
+                val cleanName = resolved?.source?.name ?: configured?.name
                     ?: PatchSourceNaming.sanitize(snap.sourceName, allSources)
                 val latest = resolved?.latestAvailableVersion ?: resolved?.resolvedVersion
-                // A source being loaded does not prove that this particular app was checked.
+                // A successfully loaded bundle does not itself prove this APP was checked.
                 val scoped = resolved != null && snap.sourceId in checkedSources &&
                     snap.sourceId !in incompleteSources
                 val sourceChannel = when (resolved?.channel) {
@@ -923,6 +927,18 @@ class HomeViewModel(
                     PatchResolver.Channel.LOCAL -> HomePatchBundleChannel.LOCAL
                     else -> HomePatchBundleChannel.UNKNOWN
                 }
+                val sourceIssue = historicalSourceIssue(
+                    configured = configured != null,
+                    enabled = configured?.enabled == true,
+                    resolved = resolved != null,
+                    error = resolvedAttempt?.error ?: loadedAttempt?.error?.message,
+                    offline = resolved?.isOffline == true,
+                    compatiblePatches = id != null && sourceContainsCompatiblePackage(
+                        cachedSourcesResult?.patchesBySource?.get(id), record.packageName,
+                    ),
+                    scopedCheckComplete = scoped,
+                    channelKnown = sourceChannel != HomePatchBundleChannel.UNKNOWN,
+                )
                 RecallUpdateInfo.SourceUpdate(
                     name = cleanName,
                     usedVersion = snap.version,
@@ -931,9 +947,10 @@ class HomeViewModel(
                     outdated = isNewerVersion(latest, snap.version),
                     hasRelevantChanges = snap.sourceId in changedSources,
                     sourceId = snap.sourceId,
-                    checkIncomplete = !scoped,
+                    checkIncomplete = sourceIssue != null,
                     channel = sourceChannel,
-                    metadataKnown = scoped && sourceChannel != HomePatchBundleChannel.UNKNOWN,
+                    metadataKnown = sourceIssue == null,
+                    sourceIssue = sourceIssue,
                 )
             }
         val app = apps.find { it.packageName == record.packageName }
@@ -1359,7 +1376,7 @@ class HomeViewModel(
         app: SupportedApp,
     ): PatchSourceAssessment {
         val usable = cachedSourcesResult?.usableResolvedSources.orEmpty()
-        val identities = usable.map { it.source.id to it.source.name }
+        val identities = patchSourceManager.allSources.value.map { it.id to it.name }
         val names = appNameCandidates(app)
         val changed = mutableSetOf<String>()
         val unknown = mutableSetOf<String>()
@@ -2209,6 +2226,8 @@ data class RecallUpdateInfo(
         val channel: HomePatchBundleChannel = HomePatchBundleChannel.UNKNOWN,
         /** True only after a definitive check for this app/source. */
         val metadataKnown: Boolean = false,
+        /** Read-only reason; independent of update badges and signing/install permissions. */
+        val sourceIssue: HistoricalSourceIssue? = null,
     )
 
     val patchesChanged: Boolean get() = sources.any { it.hasRelevantChanges }

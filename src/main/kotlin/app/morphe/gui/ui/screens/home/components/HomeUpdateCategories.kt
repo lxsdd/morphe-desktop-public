@@ -6,6 +6,7 @@ package app.morphe.gui.ui.screens.home.components
 
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.ui.screens.home.HistoricalSourceIssue
 import app.morphe.gui.ui.screens.home.PatchedAppState
 import app.morphe.gui.ui.screens.home.verifiedAppUpdates
 
@@ -79,6 +80,8 @@ internal data class IncompleteAppCheck(
     val appName: String,
     val sourceName: String?,
     val reason: IncompleteUpdateReason,
+    /** Specific proof loss from the real configured historical source, when available. */
+    val sourceIssue: HistoricalSourceIssue? = null,
 )
 
 internal fun incompleteAppChecks(
@@ -102,6 +105,7 @@ internal fun incompleteAppChecks(
         appName = displayNames[record.packageName]?.takeIf(String::isNotBlank) ?: record.displayName,
         sourceName = unresolved?.name,
         reason = reason,
+        sourceIssue = unresolved?.sourceIssue,
     )
 }.distinctBy { it.appName }.sortedBy { it.appName.lowercase() }.toList()
 
