@@ -10,6 +10,7 @@ import unittest
 ROOT = Path("src/main/kotlin/app/morphe/gui/ui/screens/home/components")
 SUPPORTED = ROOT / "SupportedAppsListPane.kt"
 YOURS = ROOT / "YourAppsPane.kt"
+DEVICE = ROOT / "DeviceInventoryPane.kt"
 
 
 class HomeScrollingContractTest(unittest.TestCase):
@@ -17,6 +18,7 @@ class HomeScrollingContractTest(unittest.TestCase):
     def setUpClass(cls):
         cls.supported = SUPPORTED.read_text(encoding="utf-8")
         cls.yours = YOURS.read_text(encoding="utf-8")
+        cls.device = DEVICE.read_text(encoding="utf-8")
 
     def test_all_apps_list_is_bounded_and_clipped(self):
         self.assertIn(".heightIn(", self.supported)
@@ -43,6 +45,20 @@ class HomeScrollingContractTest(unittest.TestCase):
         self.assertIn("scrollResetKey = Triple(filter, searchQuery, sortMode)", self.supported)
         self.assertIn("LaunchedEffect(scrollResetKey)", self.yours)
         self.assertIn("listState.scrollToItem(0)", self.yours)
+
+    def test_device_inventory_resets_on_filter_search_sort_and_diagnostics(self):
+        self.assertIn("LaunchedEffect(selectedDeviceSerial, filter, sort, searchQuery, diagnosticsVisible)", self.device)
+        self.assertIn("listState.scrollToItem(0)", self.device)
+        self.assertIn(".clipToBounds())", self.device)
+        self.assertLess(self.device.index(".clipToBounds())"), self.device.index("LazyColumn("))
+
+    def test_device_channel_and_signer_explanations_are_wired(self):
+        self.assertIn("latestCompatibleDeviceAppOffer(catalogApp, installedVersion)", self.device)
+        self.assertIn("targetOffer?.channel?.takeIf { newerVersion }", self.device)
+        self.assertIn("device_overview_experimental_target_hint", self.device)
+        self.assertIn("device_details_find_experimental_version", self.device)
+        self.assertIn("device_overview_signer_review_hint", self.device)
+        self.assertNotIn("PatchEngine.patch(", self.device)
 
     def test_scrolling_never_changes_update_eligibility(self):
         for name in ("hasConfirmedAppUpdate", "hasConfirmedPatchUpdate"):

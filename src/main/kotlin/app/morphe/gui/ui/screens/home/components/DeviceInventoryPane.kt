@@ -15,11 +15,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +35,7 @@ import app.morphe.gui.ui.components.MorpheAppAvatar
 import app.morphe.gui.ui.components.MorpheAvatarSize
 import app.morphe.gui.ui.components.MorpheChoiceChip
 import app.morphe.gui.util.rememberLocalLauncherIcon
+import app.morphe.gui.util.SupportedTargetChannel
 import app.morphe.gui.ui.components.MorpheDropdown
 import app.morphe.gui.ui.components.MorpheDropdownItem
 import app.morphe.gui.ui.components.MorpheScrollbarStyle
@@ -83,6 +86,7 @@ private data class DeviceOverviewRow(
     val displayName: String,
     val installedVersion: String?,
     val targetVersion: String?,
+    val targetChannel: SupportedTargetChannel?,
     val record: PatchedAppRecord?,
     val sourceCount: Int,
     val sourceCompatibility: DevicePatchCompatibility,
@@ -204,7 +208,8 @@ internal fun DeviceInventoryPane(
             val update = record?.let { updateInfoByPackage[it.packageName] }
             // Device recommendations are evaluated against this exact installed
             // version, never an original APK's or a cached history version.
-            val target = latestCompatibleDeviceAppTarget(catalogApp, installedVersion)
+            val targetOffer = latestCompatibleDeviceAppOffer(catalogApp, installedVersion)
+            val target = targetOffer?.version
             val facts = verifiedDeviceUpdateFacts(
                 installedPackageName = pkg,
                 installedVersion = installedVersion,
@@ -239,6 +244,7 @@ internal fun DeviceInventoryPane(
                 ),
                 installedVersion = installedVersion,
                 targetVersion = target?.takeIf { newerVersion },
+                targetChannel = targetOffer?.channel?.takeIf { newerVersion },
                 record = record,
                 sourceCount = sourceNamesByPackage[pkg]?.size ?: 0,
                 sourceCompatibility = compatibility,
@@ -461,8 +467,14 @@ internal fun DeviceInventoryPane(
             )
         } else {
             val listState = rememberLazyListState()
+            // A new filter/sort must not expose the clipped tail of a previous
+            // card; incremental label indexing must NOT disrupt user scrolling.
+            LaunchedEffect(selectedDeviceSerial, filter, sort, searchQuery, diagnosticsVisible) {
+                listState.scrollToItem(0)
+            }
             Box(modifier = Modifier.fillMaxWidth()
-                .heightIn(max = (paneMaxHeight - 175.dp).coerceAtLeast(120.dp))) {
+                .heightIn(max = (paneMaxHeight - 175.dp).coerceAtLeast(120.dp))
+                .clipToBounds()) {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().padding(end = 12.dp),
                     state = listState,
@@ -569,6 +581,15 @@ internal fun DeviceInventoryPane(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
+                                    if (row.status == DeviceOverviewStatus.SIGNER_CONFLICT) {
+                                        Text(
+                                            text = stringResource(Res.string.device_overview_signer_review_hint),
+                                            style = MorpheTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
                                     }
                                 }
                                 Column(
@@ -611,6 +632,14 @@ internal fun DeviceInventoryPane(
                                             "v" + target.removePrefix("v")),
                                             style = MorpheTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        if (row.targetChannel == SupportedTargetChannel.EXPERIMENTAL) {
+                                            Text(
+                                                stringResource(Res.string.device_overview_experimental_target_hint),
+                                                style = MorpheTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontWeight = FontWeight.Medium,
+                                            )
+                                        }
                                         val searchUrl = remember(row.packageName, target) {
                                             SupportedApp.getDownloadUrl(row.packageName, target)
                                         }
@@ -618,7 +647,9 @@ internal fun DeviceInventoryPane(
                                             !searchUrl.isNullOrBlank()) {
                                             OutlinedButton(onClick = { uriHandler.openUri(searchUrl) }) {
                                                 Text(stringResource(
-                                                    Res.string.home_guided_find_app_version,
+                                                    if (row.targetChannel == SupportedTargetChannel.EXPERIMENTAL)
+                                                        Res.string.device_details_find_experimental_version
+                                                    else Res.string.home_guided_find_app_version,
                                                     target.removePrefix("v")))
                                             }
                                         }

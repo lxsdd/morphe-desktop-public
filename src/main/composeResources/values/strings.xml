@@ -895,6 +895,8 @@
     <string name="device_overview_version_unknown">Version unknown</string>
     <string name="device_overview_local_version">Patched locally: %1$s</string>
     <string name="device_overview_target_version">Compatible target: %1$s</string>
+    <string name="device_overview_experimental_target_hint">Experimental patch target – not a stable recommendation</string>
+    <string name="device_overview_signer_review_hint">A different current signing key alone does not prove APK tampering. Verify the exact installed APK separately.</string>
     <string name="device_overview_refresh">Refresh device</string>
     <string name="device_overview_exact_other_key">Exact APK confirmed · current signing key differs</string>
     <string name="device_overview_original_separate">Stock app · separate Morphe package detected</string>

@@ -48,7 +48,7 @@ b450fa543702d0a10f04d456dae2075473a23784	src/main/composeResources/values-bg-rBG
 72a2164a60d352fc69268130f45cfd2dd0507cc9	src/main/composeResources/values-da-rDK/plurals.xml
 5f77b387ce9595c5534a697da6d00ff2d7d64b04	src/main/composeResources/values-da-rDK/strings.xml
 c3fb7ba6ce9e6f6cf8951093038a1e265e6d3ca0	src/main/composeResources/values-de-rDE/plurals.xml
-8a0bbd63ff3ad1321590738655b82274c7f88836	src/main/composeResources/values-de-rDE/strings.xml
+1002775480e62aa4f6be1be83f592f39321390f5	src/main/composeResources/values-de-rDE/strings.xml
 e5c2f8ac2b2fbd89440b1d987788dfcdc63dc0a3	src/main/composeResources/values-el-rGR/plurals.xml
 67cb49184d87f120ea4a15e88578b46f107fdac5	src/main/composeResources/values-el-rGR/strings.xml
 2b91a61a8118d80581eda65e9bb0338e05ebc862	src/main/composeResources/values-es-rES/plurals.xml
@@ -178,7 +178,7 @@ de32080815d24a51cbad8581b86c261583595386	src/main/composeResources/values-zh-rTW
 ed6308700985c6b2583f10b51031ed9edff37031	src/main/composeResources/values-zu-rZA/plurals.xml
 c88fa14d94ede80f458686ff7d00287153247a1e	src/main/composeResources/values-zu-rZA/strings.xml
 a9e7bc6f13d60978cd3cbce8f4b6d9e088f0fac5	src/main/composeResources/values/plurals.xml
-cf6e1f8bb319f869298afb97647200e6a95ca823	src/main/composeResources/values/strings.xml
+aed0c7a98c2ecab3ee79063c174a331d0392d57c	src/main/composeResources/values/strings.xml
 c79b45a8a6d06a3282282d38ad515449ff1b9eb6	src/main/kotlin/app/morphe/BootstrapProgressWindow.kt
 2d92c5383d872dad73671bc3e20680adab2e5c17	src/main/kotlin/app/morphe/desktop/command/CliHttpClient.kt
 e6e3f046767847093b1e8123f8e086e0ed38d4ec	src/main/kotlin/app/morphe/desktop/command/CommandUtils.kt
@@ -373,11 +373,11 @@ d27a4e401ad07aa26ab96cc15fc5135f9e0559fb	src/main/kotlin/app/morphe/gui/ui/compo
 52470e034130b576c7a5e06ed3aaa9317d3f598c	src/main/kotlin/app/morphe/gui/ui/screens/home/components/AppListSorting.kt
 cbe7bca51752840903be28e97bc8d8cbf4bdfc81	src/main/kotlin/app/morphe/gui/ui/screens/home/components/DeviceAppDetailsDialog.kt
 173609d1f33590409aca65bce3aa6d707c9bb3af	src/main/kotlin/app/morphe/gui/ui/screens/home/components/DeviceInventoryDisplayName.kt
-eea2b1ad1195e8ff7a595f7dd1203644a876dc4a	src/main/kotlin/app/morphe/gui/ui/screens/home/components/DeviceInventoryPane.kt
+c82e0fbb4647477e79fd054aac83fcc9d59c7696	src/main/kotlin/app/morphe/gui/ui/screens/home/components/DeviceInventoryPane.kt
 b966c2a973affaaae0821b922c38b3e969a08b55	src/main/kotlin/app/morphe/gui/ui/screens/home/components/DeviceInventorySort.kt
 1d54510a8dfc17c9c6bbde46d74baa5bd563df2a	src/main/kotlin/app/morphe/gui/ui/screens/home/components/DeviceOverviewStatus.kt
 5569a240a9dd8e84e9a93e82a1e26598ed0cddee	src/main/kotlin/app/morphe/gui/ui/screens/home/components/DevicePatchAvailability.kt
-f7da483e3ef042afa5270c0380d5f35be322b5bf	src/main/kotlin/app/morphe/gui/ui/screens/home/components/DeviceUpdateAssessment.kt
+e2114b3d30b9f74896693668af45b863f4094964	src/main/kotlin/app/morphe/gui/ui/screens/home/components/DeviceUpdateAssessment.kt
 aee6659a648d88e94cff94c4c331f0c8037d19cc	src/main/kotlin/app/morphe/gui/ui/screens/home/components/DirectExistingApkInstallFlow.kt
 649c0ff588c02ae51325b677b0ac4dc4c545d974	src/main/kotlin/app/morphe/gui/ui/screens/home/components/ExistingApkInstallDialog.kt
 b6b57801e86b481d07801b9bc230f52462990819	src/main/kotlin/app/morphe/gui/ui/screens/home/components/FullScreenDropZone.kt
@@ -596,7 +596,7 @@ c24b8cfc668a75e16c2fc73cae67f186a34ea183	src/test/kotlin/app/morphe/gui/ui/scree
 e10f49bfb1dfa98f4eb253c068602187a858dcfa	src/test/kotlin/app/morphe/gui/ui/screens/home/components/DeviceInventorySortTest.kt
 1668b2b318a57f31056a2d54351109f705921af0	src/test/kotlin/app/morphe/gui/ui/screens/home/components/DeviceOverviewStatusTest.kt
 c5298a4484bd2f784968ae902b510fdcd8ab9c36	src/test/kotlin/app/morphe/gui/ui/screens/home/components/DevicePatchAvailabilityTest.kt
-5d3f0fc0dae2e10fc0c10958d5b32b471567e474	src/test/kotlin/app/morphe/gui/ui/screens/home/components/DeviceUpdateAssessmentTest.kt
+f90b383cf6b065f309665e5b4dbff339d83870d8	src/test/kotlin/app/morphe/gui/ui/screens/home/components/DeviceUpdateAssessmentTest.kt
 eb4a9272529be9e19621a832d454957d98c60760	src/test/kotlin/app/morphe/gui/ui/screens/home/components/DeviceVersionCodeUpdateWarningTest.kt
 50ab2c6344b74b50d60621ee23f361a9d04836aa	src/test/kotlin/app/morphe/gui/ui/screens/home/components/ExperimentalVersionSearchLinksTest.kt
 37ad054438d50cb77e5e4e7a10cab337b6974f7e	src/test/kotlin/app/morphe/gui/ui/screens/home/components/HomeUpdateCategoriesTest.kt
@@ -650,7 +650,7 @@ c912b72adb89976497c9676e15615b3713f75a0d	src/test/kotlin/app/morphe/gui/util/Upd
 56d81df148b036150be901247d9c6f68842d5fcd	src/test/kotlin/app/morphe/gui/util/VersionUtilsTest.kt
 b880a616e14cfaf088664b1bb6bdd9bdf709292f	src/test/kotlin/app/morphe/WindowsRendererPolicyTest.kt
 ebbc781e7821a218ead1fd760bb4ed0de8e9a8a4	src/test/resources/nowinandroid-apk
-01b4394137bb1e51a24f82a739eab97766907e74	tools/test_home_scrolling_contract.py
+e3aea2e9b9e8eb670ec869d6f8d49fe348414221	tools/test_home_scrolling_contract.py
 6ec9f0482792c092cca8d5ff5e656b32393583d2	tools/test_public_preview_delivery_contract.py
 5c8cde7db22d406a9d1ae6703ad80661931dd0cc	tools/test_verify_compose_resource_keys.py
 87421d03a6c296c915038cf27dd9139421102de2	tools/verify_compose_resource_keys.py

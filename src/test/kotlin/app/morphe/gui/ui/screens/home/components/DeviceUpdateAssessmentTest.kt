@@ -4,9 +4,11 @@ import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.model.SupportedApp
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
 import app.morphe.gui.util.UpdateMetadataResolution
+import app.morphe.gui.util.SupportedTargetChannel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DeviceUpdateAssessmentTest {
@@ -49,6 +51,50 @@ class DeviceUpdateAssessmentTest {
         appSuggestedVersion = "21.45.82",
         appOutdated = false,
     )
+
+    @Test fun `experimental Reddit target keeps source channel and never claims stable`() {
+        val reddit = SupportedApp(
+            packageName = "com.reddit.frontpage",
+            displayName = "Reddit",
+            supportedVersions = listOf("2026.40.0"),
+            experimentalVersions = listOf("2026.46.0"),
+            recommendedVersion = "2026.40.0",
+        )
+        val offer = latestCompatibleDeviceAppOffer(reddit, "2026.45.0")
+        assertEquals("2026.46.0", offer?.version)
+        assertEquals(SupportedTargetChannel.EXPERIMENTAL, offer?.channel)
+        val deviceFacts = verifiedDeviceUpdateFacts(
+            reddit.packageName, "2026.45.0", offer?.version, null, null, null,
+        )
+        assertTrue(deviceFacts.confirmedAppVersionUpdate)
+        assertFalse(deviceFacts.confirmedPatchUpdate)
+        // Stable users get the stable target only; no forced experimental suggestion.
+        assertEquals("2026.40.0", latestCompatibleDeviceAppOffer(reddit, "2026.40.0")?.version)
+        assertEquals(SupportedTargetChannel.STABLE,
+            latestCompatibleDeviceAppOffer(reddit, "2026.40.0")?.channel)
+    }
+
+    @Test fun `stable, cloned, missing and unlisted targets do not fabricate a channel`() {
+        val youtube = app()
+        val stable = latestCompatibleDeviceAppOffer(youtube, "21.18.164")
+        assertEquals("21.30.216", stable?.version)
+        assertEquals(SupportedTargetChannel.STABLE, stable?.channel)
+        val experimental = latestCompatibleDeviceAppOffer(youtube, "21.45.82")
+        assertEquals("21.45.82", experimental?.version)
+        assertEquals(SupportedTargetChannel.EXPERIMENTAL, experimental?.channel)
+        val duplicate = app(stable = "21.45.82", experimental = listOf("21.45.82"))
+        assertEquals(SupportedTargetChannel.STABLE,
+            latestCompatibleDeviceAppOffer(duplicate, "21.45.82")?.channel)
+        assertNull(latestCompatibleDeviceAppOffer(null, "21.18.164"))
+        assertNull(latestCompatibleDeviceAppOffer(youtube, null))
+        val inconsistent = SupportedApp(
+            packageName = "example.invalid",
+            displayName = "Unknown",
+            supportedVersions = listOf("1.0"),
+            recommendedVersion = "3.0",
+        )
+        assertNull(latestCompatibleDeviceAppOffer(inconsistent, "1.0"))
+    }
 
     @Test fun `original YouTube update does not make renamed YouTube Morphe outdated`() {
         val catalog = app()

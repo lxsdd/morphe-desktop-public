@@ -10,6 +10,8 @@ import app.morphe.engine.util.isNewerVersion
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
 import app.morphe.gui.ui.screens.home.VerifiedUpdateFact
 import app.morphe.gui.ui.screens.home.verifiedAppUpdates
+import app.morphe.gui.util.SupportedAppTarget
+import app.morphe.gui.util.SupportedTargetChannel
 import app.morphe.gui.util.selectSupportedAppTarget
 
 /** Only this installed identity, version and full signed-APK proof can inherit history. */
@@ -28,22 +30,38 @@ private fun exactInstalledHistoryMatches(
     ) &&
     exactBuildVerified == true
 
-/** The installed package and version, never the old source APK's version, drive device offers. */
+/**
+ * The selected target remains tied to its actual patch-compatibility channel.
+ * A target offered only by experimental sources must not look like a stable update.
+ */
+internal fun latestCompatibleDeviceAppOffer(
+    app: SupportedApp?,
+    installedVersion: String?,
+): SupportedAppTarget? {
+    if (app == null || installedVersion.isNullOrBlank()) return null
+    val selected = selectSupportedAppTarget(
+        app.recommendedVersion, app.experimentalVersions, installedVersion,
+    )
+    val target = selected.version ?: return null
+    val stable = app.supportedVersions.any {
+        it.removePrefix("v").equals(target.removePrefix("v"), ignoreCase = true)
+    }
+    val experimental = app.experimentalVersions.any {
+        it.removePrefix("v").equals(target.removePrefix("v"), ignoreCase = true)
+    }
+    if (!stable && !experimental) return null
+    return SupportedAppTarget(
+        version = target,
+        channel = if (experimental && !stable) SupportedTargetChannel.EXPERIMENTAL
+            else SupportedTargetChannel.STABLE,
+    )
+}
+
+/** Existing version-only consumers use the same source-qualified target. */
 internal fun latestCompatibleDeviceAppTarget(
     app: SupportedApp?,
     installedVersion: String?,
-): String? {
-    if (app == null || installedVersion.isNullOrBlank()) return null
-    val candidate = selectSupportedAppTarget(
-        app.recommendedVersion, app.experimentalVersions, installedVersion,
-    ).version ?: return null
-    // An arbitrary newer app-store version is not a Morphe-supported target.
-    return candidate.takeIf { selected ->
-        (app.supportedVersions + app.experimentalVersions).any {
-            it.removePrefix("v").equals(selected.removePrefix("v"), ignoreCase = true)
-        }
-    }
-}
+): String? = latestCompatibleDeviceAppOffer(app, installedVersion)?.version
 
 /** Used without alteration by device counters, filters, status badge and update action. */
 internal fun verifiedDeviceUpdateFacts(

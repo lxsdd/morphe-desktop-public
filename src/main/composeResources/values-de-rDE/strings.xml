@@ -860,6 +860,8 @@
     <string name="device_overview_version_unknown">Version unbekannt</string>
     <string name="device_overview_local_version">Lokal gepatcht: %1$s</string>
     <string name="device_overview_target_version">Kompatibles Ziel: %1$s</string>
+    <string name="device_overview_experimental_target_hint">Experimentelles Patch-Ziel – keine stabile Empfehlung</string>
+    <string name="device_overview_signer_review_hint">Abweichender aktueller Signierschlüssel allein beweist keine APK-Manipulation. Die exakte installierte APK muss separat geprüft werden.</string>
     <string name="device_overview_refresh">Gerät neu einlesen</string>
     <string name="device_overview_exact_other_key">APK bytegenau bestätigt · anderer aktueller Schlüssel</string>
     <string name="device_overview_original_separate">Original-App · separates Morphe-Paket erkannt</string>
