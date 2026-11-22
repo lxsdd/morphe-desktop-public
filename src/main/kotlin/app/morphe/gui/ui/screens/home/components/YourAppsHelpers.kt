@@ -96,6 +96,7 @@ internal fun historicalSourceIssueText(issue: HistoricalSourceIssue): String = s
     HistoricalSourceIssue.SOURCE_UNMATCHED -> Res.string.home_source_issue_unmatched
     HistoricalSourceIssue.SOURCE_DISABLED -> Res.string.home_source_issue_disabled
     HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE -> Res.string.home_source_issue_inaccessible
+    HistoricalSourceIssue.SOURCE_POLICY_BLOCKED -> Res.string.home_source_issue_policy_blocked
     HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED -> Res.string.home_source_issue_restricted
     HistoricalSourceIssue.TRANSIENT_FAILURE -> Res.string.home_source_issue_transient
     HistoricalSourceIssue.SOURCE_LOAD_FAILURE -> Res.string.home_source_issue_load

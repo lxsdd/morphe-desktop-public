@@ -1092,7 +1092,8 @@
     <string name="home_update_reason_change_unverified">Änderungen für diese App nicht geprüft</string>
     <string name="home_source_issue_unmatched">Historische Quelle nicht eindeutig zuordenbar – Quellenidentität prüfen</string>
     <string name="home_source_issue_disabled">Historische Quelle deaktiviert – Quelleneinstellungen prüfen</string>
-    <string name="home_source_issue_inaccessible">Quelle nicht erreichbar, nicht auffindbar oder durch Richtlinie gesperrt – Original-Repository prüfen</string>
+    <string name="home_source_issue_inaccessible">Quelle nicht erreichbar oder nicht auffindbar – Original-Repository prüfen</string>
+    <string name="home_source_issue_policy_blocked">GitHub sperrt den Repository-Zugriff (Richtlinie/ToS). Erneutes Prüfen oder ein ungeprüfter Spiegelserver löst diese Sperre nicht.</string>
     <string name="home_source_issue_restricted">Zugriff auf Quelle eingeschränkt (Anmeldung oder Berechtigungen) – Einstellungen prüfen</string>
     <string name="home_source_issue_transient">Vorübergehender Netzwerk-/Serverfehler – Prüfung erneut versuchen</string>
     <string name="home_source_issue_load">Quelle konnte nicht geladen werden – Fehler unter Quellen prüfen</string>

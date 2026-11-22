@@ -5,7 +5,7 @@
 package app.morphe.gui.ui.screens.home
 
 enum class HistoricalSourceIssue {
-    SOURCE_UNMATCHED, SOURCE_DISABLED, SOURCE_NOT_ACCESSIBLE, SOURCE_ACCESS_RESTRICTED,
+    SOURCE_UNMATCHED, SOURCE_DISABLED, SOURCE_NOT_ACCESSIBLE, SOURCE_POLICY_BLOCKED, SOURCE_ACCESS_RESTRICTED,
     TRANSIENT_FAILURE, SOURCE_LOAD_FAILURE, SOURCE_NOT_RESOLVED, OFFLINE_CACHE,
     NO_COMPATIBLE_PATCHES, CHANGELOG_UNVERIFIED, CHANNEL_UNVERIFIED,
 }
@@ -30,8 +30,11 @@ internal fun historicalSourceIssue(
     if (!error.isNullOrBlank()) {
         val raw = error.lowercase()
         return when {
+            "repository access blocked" in raw || "terms of service" in raw ||
+                "github.com/tos" in raw || "tos violation" in raw ->
+                HistoricalSourceIssue.SOURCE_POLICY_BLOCKED
             Regex("""\b(404|410|451)\b""").containsMatchIn(raw) ||
-                "repository not found" in raw || "terms of service" in raw ||
+                "repository not found" in raw ||
                 "repository has been disabled" in raw || "not accessible" in raw ->
                 HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE
             Regex("""\b(401|403)\b""").containsMatchIn(raw) ||

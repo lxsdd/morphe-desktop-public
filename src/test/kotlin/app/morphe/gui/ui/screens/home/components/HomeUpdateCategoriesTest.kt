@@ -257,13 +257,13 @@ class HomeUpdateCategoriesTest {
         val records = listOf(history("capcut"), history("soundcloud"), history("youtube"))
         val mapping = mapOf(
             "capcut" to missing("Riky patches", HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE),
-            "soundcloud" to missing("Hoodles patches", HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED),
+            "soundcloud" to missing("Hoodles patches", HistoricalSourceIssue.SOURCE_POLICY_BLOCKED),
             "youtube" to missing("Recorded YouTube source", HistoricalSourceIssue.SOURCE_UNMATCHED),
         )
         val incomplete = incompleteAppChecks(records, mapping).associateBy { it.appName }
         assertEquals(3, incomplete.size)
         assertEquals(HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE, incomplete["capcut"]?.sourceIssue)
-        assertEquals(HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED, incomplete["soundcloud"]?.sourceIssue)
+        assertEquals(HistoricalSourceIssue.SOURCE_POLICY_BLOCKED, incomplete["soundcloud"]?.sourceIssue)
         assertEquals(HistoricalSourceIssue.SOURCE_UNMATCHED, incomplete["youtube"]?.sourceIssue)
         assertEquals(HistoricalSourceIssue.SOURCE_UNMATCHED,
             incompleteUpdateSources(mapping["youtube"]).single().sourceIssue)

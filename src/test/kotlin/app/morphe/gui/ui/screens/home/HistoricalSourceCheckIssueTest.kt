@@ -33,8 +33,10 @@ class HistoricalSourceCheckIssueTest {
             issue(error = "GitHub returned 404 Not Found"))
         assertEquals(HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE,
             issue(error = "451 Unavailable For Legal Reasons"))
-        assertEquals(HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE,
+        assertEquals(HistoricalSourceIssue.SOURCE_POLICY_BLOCKED,
             issue(error = "Repository has been disabled because of a Terms of Service violation"))
+        assertEquals(HistoricalSourceIssue.SOURCE_POLICY_BLOCKED,
+            issue(error = "403 Repository access blocked; reason: tos"))
         assertEquals(HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED,
             issue(error = "403 Forbidden"))
     }

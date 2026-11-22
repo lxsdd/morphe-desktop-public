@@ -217,6 +217,7 @@ internal fun SupportedAppsListPane(
                         app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_UNMATCHED,
                         app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_DISABLED,
                         app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE,
+                        app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_POLICY_BLOCKED,
                         app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED,
                     ) }) {
                     TextButton(onClick = onManageSources) {

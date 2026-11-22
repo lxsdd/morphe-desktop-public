@@ -1270,7 +1270,8 @@
     <string name="home_update_reason_change_unverified">Changes for this app not verified</string>
     <string name="home_source_issue_unmatched">Historical source cannot be matched to a configured source; check source identity</string>
     <string name="home_source_issue_disabled">Historical source is disabled; review source settings</string>
-    <string name="home_source_issue_inaccessible">Source returned unavailable/missing or policy-restricted evidence; check its original repository</string>
+    <string name="home_source_issue_inaccessible">Source returned missing/unavailable evidence; check its original repository</string>
+    <string name="home_source_issue_policy_blocked">GitHub blocks access to this repository (policy/ToS). Retrying or switching to an unverified mirror will not resolve this.</string>
     <string name="home_source_issue_restricted">Source access is restricted (authentication or permissions); review source settings</string>
     <string name="home_source_issue_transient">Temporary network/server problem; retry the check</string>
     <string name="home_source_issue_load">Source failed to load; inspect its error in Sources</string>
