@@ -9,6 +9,8 @@
 package app.morphe.desktop.command
 
 import app.morphe.engine.PatchEngine
+import app.morphe.engine.SaveOriginalApk
+import app.morphe.engine.OriginalApkStore
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_ALIAS
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_PASSWORD
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_SIGNER_NAME
@@ -226,6 +228,14 @@ internal object PatchCommand : Callable<Int> {
         showDefaultValue = ALWAYS,
     )
     private var disablePurge: Boolean = false
+
+    /** Explicit per-command opt-in. GUI settings never silently turn this on for CLI. */
+    @CommandLine.Option(
+        names = ["--save-original"],
+        description = ["Keep input bundle after successful patch: COPY, MOVE or OFF (default OFF). MOVE removes the input only after verifying the retained copy and history."],
+        defaultValue = "OFF",
+    )
+    private var saveOriginalOption: OriginalApkSaveOption = OriginalApkSaveOption.OFF
 
     @CommandLine.Parameters(
         description = ["APK file to patch."],
@@ -472,7 +482,10 @@ internal object PatchCommand : Callable<Int> {
             KeystoreService.shared.resolveSigningDetails(cliKeystoreDetails)
         }
 
-        val effectiveOutputFile = outputFilePath ?: savedConfig.resolvedDefaultOutputDirectory()?.let { defaultDir ->
+        val effectiveOutputFile = outputFilePath ?: (
+            savedConfig.resolvedDefaultOutputDirectory()
+                ?: runBlocking { OriginalApkStore.shared.outputBaseFor(apk) }
+            )?.let { defaultDir ->
             ApkOutputNaming.outputApkPath(
                 inputApk = apk,
                 patchesFile = bundleScopes.firstOrNull()?.bundleFile,
@@ -503,6 +516,7 @@ internal object PatchCommand : Callable<Int> {
             optionsFile = optionsFilePath,
             updateOptions = updateOptions,
             recordHistory = true,
+            saveOriginalApk = saveOriginalOption.mode,
         )
 
         try {
@@ -562,4 +576,11 @@ class OptionKeyConverter : CommandLine.ITypeConverter<String> {
 
 class OptionValueConverter : CommandLine.ITypeConverter<Any?> {
     override fun convert(value: String?): Any? = parseCliOptionValue(value)
+}
+
+/** Command-line retention never inherits implicit GUI file-writing preferences. */
+internal enum class OriginalApkSaveOption(val mode: SaveOriginalApk?) {
+    OFF(null),
+    COPY(SaveOriginalApk.COPY),
+    MOVE(SaveOriginalApk.MOVE),
 }

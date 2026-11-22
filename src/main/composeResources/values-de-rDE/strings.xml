@@ -1129,4 +1129,18 @@
     <string name="custom_about_update_provenance">Versionsankündigungen von Morphe, Patchquellen oder Patcher belegen kein Update für Morphe Desktop Custom. Dafür zählt ausschließlich ein bestätigtes Custom-Release.</string>
     <string name="custom_about_public_releases">Öffentliche Custom-Releases</string>
     <string name="custom_about_public_releases_desc">Veröffentlichte Custom-Downloads anzeigen; es startet kein automatischer Download.</string>
+    <string name="custom_original_title">Original-APKs aufbewahren</string>
+    <string name="custom_original_description">Nur nach erfolgreichem Patchen eine geprüfte Kopie behalten. Standardmäßig aus. Bereits gesicherte Versionen werden nicht automatisch überschrieben oder gelöscht.</string>
+    <string name="custom_original_mode">Aufbewahrung</string>
+    <string name="custom_original_off">Aus</string>
+    <string name="custom_original_copy">Kopieren</string>
+    <string name="custom_original_move">Verschieben</string>
+    <string name="custom_original_off_description">Original-APK-Dateien werden weder kopiert noch verschoben.</string>
+    <string name="custom_original_copy_description">Nach erfolgreichem Patchen eine separate Originaldatei aufbewahren. Die Quelldatei bleibt an ihrem Platz.</string>
+    <string name="custom_original_move_description">Nach erfolgreichem Patchen das Original kopieren, prüfen, in der Historie speichern und dann die unveränderte Quelldatei entfernen.</string>
+    <string name="custom_original_move_confirm_title">Künftige Original-APKs verschieben?</string>
+    <string name="custom_original_move_confirm_body">Bei künftigen erfolgreichen Patchläufen sichert und prüft Morphe das Original, aktualisiert die Historie und entfernt danach die unveränderte Quelldatei aus ihrem bisherigen Ordner. Bestehende Kopien werden nicht bereinigt. Mit „Kopieren“ bleibt die Quelldatei erhalten.</string>
+    <string name="custom_original_stored_count">Gespeicherte Originaldateien: %1$d. Vorhandene Versionen werden nie automatisch bereinigt.</string>
+    <string name="custom_original_open_folder">Original-APK-Ordner öffnen</string>
+    <string name="custom_original_delete_check">Auch die gespeicherte Original-APK löschen (nicht rückgängig zu machen)</string>
 </resources>

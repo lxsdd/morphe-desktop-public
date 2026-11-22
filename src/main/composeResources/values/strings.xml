@@ -1307,4 +1307,18 @@
     <string name="custom_about_update_provenance">Official Morphe, patch-source and Patcher version announcements are not proof of a newer Morphe Desktop Custom build. Only a verified Custom release establishes a Custom app update.</string>
     <string name="custom_about_public_releases">Public Custom releases</string>
     <string name="custom_about_public_releases_desc">Open the official published Custom downloads; no download is started automatically.</string>
+    <string name="custom_original_title">Keep original APKs</string>
+    <string name="custom_original_description">Retain a verified copy only after successful patching. Off by default. Already saved copies are never automatically overwritten or deleted.</string>
+    <string name="custom_original_mode">Retention</string>
+    <string name="custom_original_off">Off</string>
+    <string name="custom_original_copy">Copy</string>
+    <string name="custom_original_move">Move</string>
+    <string name="custom_original_off_description">No original APK files will be copied or moved.</string>
+    <string name="custom_original_copy_description">After a successful patch, retain a separate original. Your source file stays where it is.</string>
+    <string name="custom_original_move_description">After a successful patch, copy and verify the original, record it in history, then remove the unchanged source file.</string>
+    <string name="custom_original_move_confirm_title">Enable moving future original APKs?</string>
+    <string name="custom_original_move_confirm_body">For future successful patch runs, Morphe Desktop will retain and verify the original, update patch history, then remove the source file from its previous folder if unchanged. Existing copies are never purged. Choose Copy to keep the source in place.</string>
+    <string name="custom_original_stored_count">Stored original files: %1$d. Existing versions are never purged automatically.</string>
+    <string name="custom_original_open_folder">Open original APK folder</string>
+    <string name="custom_original_delete_check">Also delete the stored original APK (cannot be undone)</string>
 </resources>

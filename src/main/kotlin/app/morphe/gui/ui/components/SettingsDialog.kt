@@ -29,6 +29,7 @@ import androidx.compose.ui.window.DialogProperties
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_ALIAS
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_PASSWORD
 import app.morphe.engine.UpdateChecker
+import app.morphe.engine.SaveOriginalApk
 import app.morphe.engine.config.EngineConfigRepository
 import app.morphe.engine.util.Logger
 import app.morphe.gui.LocalAdbPreference
@@ -71,6 +72,8 @@ fun SettingsDialog(
     onThemeStyleChange: (ThemeStyle) -> Unit = {},
     autoCleanupTempFiles: Boolean,
     onAutoCleanupChange: (Boolean) -> Unit,
+    originalApkMode: SaveOriginalApk? = null,
+    onOriginalApkModeChange: (SaveOriginalApk?) -> Unit = {},
     defaultOutputDirectory: String?,
     onDefaultOutputDirectoryChange: (String?) -> Unit,
     useExpertMode: Boolean,
@@ -303,6 +306,8 @@ fun SettingsDialog(
                             "System" -> SystemTab(
                                 autoCleanupTempFiles = autoCleanupTempFiles,
                                 onAutoCleanupChange = onAutoCleanupChange,
+                                originalApkMode = originalApkMode,
+                                onOriginalApkModeChange = onOriginalApkModeChange,
                                 updateChannelPreference = updateChannelPreference,
                                 onUpdateChannelChange = onUpdateChannelChange,
                                 defaultOutputDirectory = defaultOutputDirectory,
@@ -362,6 +367,7 @@ fun SettingsDialogHost() {
 
     var customAccentColorArgb by LocalCustomAccentColor.current
     var autoCleanupTempFiles by remember { mutableStateOf(true) }
+    var originalApkMode by remember { mutableStateOf<SaveOriginalApk?>(null) }
     var defaultOutputDirectory by remember { mutableStateOf<String?>(null) }
     var keystorePath by remember { mutableStateOf<String?>(null) }
     var keystorePassword by remember { mutableStateOf<String?>(null) }
@@ -384,6 +390,7 @@ fun SettingsDialogHost() {
             Triple(cfg, engCfg, ch)
         }
         autoCleanupTempFiles = engineConfig.autoCleanupTempFiles
+        originalApkMode = engineConfig.resolvedOriginalApkMode()
         defaultOutputDirectory = engineConfig.resolvedDefaultOutputDirectory()?.absolutePath
         keystorePath = engineConfig.resolvedKeystorePath()?.absolutePath
         keystorePassword = engineConfig.keystorePassword
@@ -414,6 +421,13 @@ fun SettingsDialogHost() {
             currentThemeStyle = themeState.style,
             onThemeStyleChange = { themeState.onStyleChange(it) },
             autoCleanupTempFiles = autoCleanupTempFiles,
+            originalApkMode = originalApkMode,
+            onOriginalApkModeChange = { mode ->
+                if (!isPatching) {
+                    originalApkMode = mode
+                    scope.launch { engineConfigRepository.setOriginalApkRetention(mode) }
+                }
+            },
             onAutoCleanupChange = { enabled ->
                 autoCleanupTempFiles = enabled
                 scope.launch {

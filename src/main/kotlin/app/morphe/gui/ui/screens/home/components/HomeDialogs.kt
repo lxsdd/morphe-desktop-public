@@ -75,6 +75,9 @@ internal fun VersionWarningDialog(
 @Composable
 internal fun ForgetConfirmDialog(
     record: PatchedAppRecord,
+    hasKeptOriginal: Boolean = false,
+    deleteOriginal: Boolean = false,
+    onDeleteOriginalChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
@@ -82,6 +85,12 @@ internal fun ForgetConfirmDialog(
         MorpheDialogText(
             stringResource(Res.string.home_dialog_forget_message, record.displayName)
         )
+        if (hasKeptOriginal) {
+            KeptOriginalDeletionCheckbox(
+                checked = deleteOriginal,
+                onCheckedChange = onDeleteOriginalChange,
+            )
+        }
         DangerDialogActionRow(
             confirmLabel = stringResource(Res.string.home_dialog_forget_button),
             onDismiss = onDismiss,
@@ -96,6 +105,9 @@ internal fun UninstallConfirmDialog(
     record: PatchedAppRecord,
     alsoForget: Boolean,
     onAlsoForgetChange: (Boolean) -> Unit,
+    hasKeptOriginal: Boolean = false,
+    deleteOriginal: Boolean = false,
+    onDeleteOriginalChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
@@ -129,6 +141,12 @@ internal fun UninstallConfirmDialog(
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
+        if (alsoForget && hasKeptOriginal) {
+            KeptOriginalDeletionCheckbox(
+                checked = deleteOriginal,
+                onCheckedChange = onDeleteOriginalChange,
+            )
+        }
         DangerDialogActionRow(
             confirmLabel = stringResource(Res.string.home_dialog_uninstall_button),
             onDismiss = onDismiss,
@@ -159,3 +177,31 @@ private fun DangerDialogActionRow(
     }
 }
 
+/** Unchecked by default and never displayed when history has no retained original. */
+@Composable
+private fun KeptOriginalDeletionCheckbox(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+            .clip(MorpheTheme.shapes.small)
+            .handCursor()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 4.dp),
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = CheckboxDefaults.colors(checkedColor = MorpheTheme.colors.danger),
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = stringResource(Res.string.custom_original_delete_check),
+            style = MorpheTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}

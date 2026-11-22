@@ -131,6 +131,8 @@ object PatchEngine {
         val optionsFile: File? = null,
         val updateOptions: Boolean = false,
         val recordHistory: Boolean = true,
+        /** Original input is never retained without an explicitly selected mode. */
+        val saveOriginalApk: SaveOriginalApk? = null,
         val appDisplayName: String? = null,
         val historyMetadata: HistoryMetadata? = null,
     ) {
@@ -187,6 +189,7 @@ object PatchEngine {
             ApkOutputNaming.outputApkPath(
                 inputApk = config.inputApk,
                 patchesFile = primaryPatchesFile,
+                baseOutputDir = OriginalApkStore.shared.outputBaseFor(config.inputApk),
                 appDisplayName = displayName,
             )
         }
@@ -675,6 +678,23 @@ object PatchEngine {
                     try {
                         val (sha, size) = FileChecksum.fingerprintOrNull(finalOutputApk.absolutePath)
                         val manifest = runCatching { ApkInspector.inspect(finalOutputApk) }.getOrNull()
+                        val originalPackage = config.historyMetadata?.originalPackageName
+                            ?.takeIf { it.isNotBlank() } ?: packageName
+                        // Copy is deliberately performed only after a successful patch result.
+                        // Existing kept originals are never replaced or purged automatically.
+                        val kept = if (config.saveOriginalApk != null &&
+                            config.inputApk.isFile &&
+                            config.inputApk.canonicalFile != finalOutputApk.canonicalFile
+                        ) {
+                            try {
+                                OriginalApkStore.shared.save(config.inputApk, originalPackage, packageVersion)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                warn("Could not retain the original APK: " + (e.message ?: e::class.simpleName))
+                                null
+                            }
+                        } else null
                         val record = PatchedAppRecord(
                             packageName = config.historyMetadata?.originalPackageName?.takeIf { it.isNotBlank() } ?: packageName,
                             currentPackageName = manifest?.packageName,
@@ -683,7 +703,7 @@ object PatchEngine {
                                 ?: packageName,
                             apkVersion = manifest?.versionName?.takeIf { it.isNotBlank() } ?: packageVersion,
                             apkVersionCode = manifest?.versionCode,
-                            inputApkPath = config.inputApk.absolutePath,
+                            inputApkPath = (kept ?: config.inputApk).absolutePath,
                             outputApkPath = finalOutputApk.absolutePath,
                             outputApkSha256 = sha,
                             outputApkSize = if (size > 0L) size else finalOutputApk.length(),
@@ -695,6 +715,16 @@ object PatchEngine {
                         )
                         PatchedAppStore.shared.upsert(record)
                         historyRecord = record
+                        // MOVE is never an implicit cleanup. Only the explicitly chosen
+                        // MOVE mode may remove an input, and only after persisted history,
+                        // preserved bytes and unchanged input have been verified.
+                        if (config.saveOriginalApk == SaveOriginalApk.MOVE && kept != null &&
+                            PatchedAppStore.shared.get(record.packageName)?.inputApkPath == kept.absolutePath
+                        ) {
+                            if (!OriginalApkStore.shared.removeVerifiedSource(config.inputApk, kept)) {
+                                warn("Original preserved, but source file was not removed; check it manually.")
+                            }
+                        }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {

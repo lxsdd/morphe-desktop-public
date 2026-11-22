@@ -20,6 +20,7 @@ import app.morphe.engine.apk.ApkInspector
 import app.morphe.engine.apk.ApkOutputNaming
 import app.morphe.engine.apk.BundleFormats
 import app.morphe.engine.config.EngineConfigRepository
+import app.morphe.engine.OriginalApkStore
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.installation.AdbApkInstaller
 import app.morphe.engine.installation.AdbInstallRequest
@@ -191,7 +192,8 @@ class HomeViewModel(
         val outputPath = ApkOutputNaming.outputApkPath(
             inputApk = inputFile,
             patchesFile = primaryPatchFile,
-            baseOutputDir = engineConfigData.resolvedDefaultOutputDirectory(),
+            baseOutputDir = engineConfigData.resolvedDefaultOutputDirectory()
+                ?: OriginalApkStore.shared.outputBaseFor(inputFile),
             appDisplayName = apkInfo.appName,
             appVersion = apkInfo.versionName,
         )
@@ -261,6 +263,7 @@ class HomeViewModel(
             disablePurge = !engineConfigData.autoCleanupTempFiles,
             keystoreDetails = engineConfigData.toKeyStoreDetails(),
             recordHistory = true,
+            saveOriginalApk = engineConfigData.resolvedOriginalApkMode(),
             appDisplayName = apkInfo.appName,
             historyMetadata = PatchEngine.HistoryMetadata(
                 originalPackageName = apkInfo.packageName,
@@ -299,7 +302,9 @@ class HomeViewModel(
         val outputPath = ApkOutputNaming.outputApkPath(
             inputApk = inputFile,
             patchesFile = primaryPatchFile,
-            baseOutputDir = engineConfigData.resolvedDefaultOutputDirectory(),
+            baseOutputDir = engineConfigData.resolvedDefaultOutputDirectory()
+                ?: OriginalApkStore.shared.outputBaseFor(inputFile)
+                ?: File(record.outputApkPath).parentFile?.parentFile,
             appDisplayName = record.displayName,
             appVersion = selectedApkVersion,
         )
@@ -365,6 +370,7 @@ class HomeViewModel(
             disablePurge = !engineConfigData.autoCleanupTempFiles,
             keystoreDetails = engineConfigData.toKeyStoreDetails(),
             recordHistory = true,
+            saveOriginalApk = engineConfigData.resolvedOriginalApkMode(),
             appDisplayName = record.displayName,
             historyMetadata = PatchEngine.HistoryMetadata(
                 originalPackageName = record.packageName,
@@ -530,7 +536,12 @@ class HomeViewModel(
      * Uninstalls the patched app for [packageName] from the selected device.
      * When [alsoForget] is true, deletes its history record as well.
      */
-    fun uninstallPatchedApp(packageName: String, alsoForget: Boolean) {
+    fun uninstallPatchedApp(
+        packageName: String,
+        alsoForget: Boolean,
+        deleteOriginal: Boolean = false,
+        expectedOriginalPath: String? = null,
+    ) {
         val record = patchedRecordsByPackage[packageName] ?: return
         val target = DeviceMonitor.state.value.captureOperationTarget() ?: return
         if (_uiState.value.uninstallingPackage != null) return
@@ -546,6 +557,12 @@ class HomeViewModel(
             }
             if (result.isSuccess && alsoForget) {
                 patchedAppStore.delete(packageName)
+                if (deleteOriginal && expectedOriginalPath == record.inputApkPath &&
+                    patchedAppStore.get(packageName) == null &&
+                    !OriginalApkStore.shared.deleteUnreferencedAfterForget(record, expectedOriginalPath)
+                ) {
+                    Logger.warn("Kept original was not removed after confirmed uninstall; history or file changed.")
+                }
             }
             if (result.isSuccess) {
                 DevicePackageMutations.notify(target.serial, record.installedPackageName)
@@ -995,8 +1012,21 @@ class HomeViewModel(
     }
 
     /** Removes [packageName] from patched app history and updates state. */
-    fun forgetPatchedApp(packageName: String) {
-        viewModelScope.launch { patchedAppStore.delete(packageName) }
+    fun forgetPatchedApp(
+        packageName: String,
+        deleteOriginal: Boolean = false,
+        expectedOriginalPath: String? = null,
+    ) {
+        viewModelScope.launch {
+            val record = patchedAppStore.get(packageName) ?: return@launch
+            patchedAppStore.delete(packageName)
+            if (deleteOriginal && expectedOriginalPath == record.inputApkPath &&
+                patchedAppStore.get(packageName) == null &&
+                !OriginalApkStore.shared.deleteUnreferencedAfterForget(record, expectedOriginalPath)
+            ) {
+                Logger.warn("Kept original was not removed after confirmed forget; history or file changed.")
+            }
+        }
     }
 
     /** Refreshes patched state and device status from cache without reloading patches. */

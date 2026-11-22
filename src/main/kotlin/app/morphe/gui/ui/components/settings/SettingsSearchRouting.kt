@@ -81,6 +81,8 @@ internal fun settingsSearchItems(
             stringResource(Res.string.settings_toggle_auto_cleanup_desc)),
         item("System", system, stringResource(Res.string.settings_channel_label)),
         item("System", system, stringResource(Res.string.settings_section_output_folder)),
+        item("System", system, stringResource(Res.string.custom_original_title),
+            stringResource(Res.string.custom_original_description)),
         item("System", system, stringResource(Res.string.settings_toggle_auto_start_adb_label),
             stringResource(Res.string.settings_toggle_auto_start_adb_desc)),
         item("System", system, stringResource(Res.string.settings_section_storage)),
