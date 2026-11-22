@@ -158,5 +158,48 @@ class PublicPreviewDeliveryContractTest(unittest.TestCase):
 
 
 
+    def test_monotonic_release_guard_is_executed_before_publication(self):
+        self.assertIn("python tools/require_monotonic_public_beta.py", self.source)
+        self.assertIn("Public prerelease version is not strictly newer", self.source)
+        self.assertIn("PUBLIC_RELEASE_VERSION=PASS", pathlib.Path(
+            "tools/require_monotonic_public_beta.py"
+        ).read_text(encoding="utf-8"))
+        self.assertIn("CURRENT_PATCHER_VERSION=2.5.0", self.source)
+        self.assertNotIn("OFFICIAL_PATCHER_BASE=v2.4.0", self.source)
+
+    def test_monotonic_release_guard_rejects_same_older_and_malformed(self):
+        from require_monotonic_public_beta import require_newer_public_beta
+        latest = [{"tag_name": "custom-v2.2.0-beta.6-ca06be0b78a0", "draft": False}]
+        with self.assertRaisesRegex(ValueError, "strictly newer"):
+            require_newer_public_beta("2.2.0-beta.6", latest)
+        with self.assertRaisesRegex(ValueError, "strictly newer"):
+            require_newer_public_beta("2.2.0-beta.5", latest)
+        with self.assertRaisesRegex(ValueError, "Invalid full Custom version"):
+            require_newer_public_beta("2.2.0", latest)
+        with self.assertRaisesRegex(ValueError, "Ambiguous full Custom release tag"):
+            require_newer_public_beta("2.2.0-beta.7", [
+                {"tag_name": "custom-v2.2.0-beta.6-bad", "draft": False}
+            ])
+        with self.assertRaisesRegex(ValueError, "paginated"):
+            require_newer_public_beta("2.2.0-beta.7", latest * 100)
+
+    def test_monotonic_release_guard_accepts_new_beta_and_future_release_order(self):
+        from require_monotonic_public_beta import require_newer_public_beta
+        prior = [
+            {"tag_name": "custom-v2.2.0-beta.6-81fff4b45b94", "draft": False},
+            {"tag_name": "custom-v2.2.0-beta.6-ca06be0b78a0", "draft": False},
+            {"tag_name": "custom-v2.2-core-preview-970ddcf0b271", "draft": False},
+            {"tag_name": "custom-v2.2.0-rc.9-123456789abc", "draft": True},
+        ]
+        self.assertTrue(require_newer_public_beta("2.2.0-beta.7", prior))
+        self.assertTrue(require_newer_public_beta("2.2.0-rc.1", prior))
+        with self.assertRaisesRegex(ValueError, "strictly newer"):
+            require_newer_public_beta("2.2.0-beta.99", [
+                {"tag_name": "custom-v2.2.0-rc.1-123456789abc", "draft": False}
+            ])
+        self.assertTrue(require_newer_public_beta("2.2.1-beta.1", [
+            {"tag_name": "custom-v2.2.0-rc.99-123456789abc", "draft": False}
+        ]))
+
 if __name__ == "__main__":
     unittest.main()

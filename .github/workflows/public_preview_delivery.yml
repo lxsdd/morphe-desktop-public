@@ -99,8 +99,14 @@ jobs:
           $tag = "custom-v$releaseVersion-$short"
           # An absent release/tag is normal. Avoid a 404 gh api call: PowerShell
           # treats redirected native stderr as terminating with Stop preference.
-          $releaseInventory = & gh api "repos/$repo/releases?per_page=100" | ConvertFrom-Json
+          $releaseInventoryJson = & gh api "repos/$repo/releases?per_page=100"
           if ($LASTEXITCODE -ne 0) { throw 'Cannot enumerate existing public releases' }
+          $releaseInventory = $releaseInventoryJson | ConvertFrom-Json
+          if ($null -eq $releaseInventory) { throw 'Cannot parse public release inventory' }
+          $releaseInventoryPath = Join-Path $env:RUNNER_TEMP 'public-release-inventory.json'
+          $releaseInventoryJson | Set-Content -LiteralPath $releaseInventoryPath -Encoding utf8
+          & python tools/require_monotonic_public_beta.py --version $releaseVersion --releases-json $releaseInventoryPath
+          if ($LASTEXITCODE -ne 0) { throw 'Public prerelease version is not strictly newer than published full Custom releases' }
           if (@($releaseInventory | Where-Object { $_.tag_name -eq $tag }).Count -ne 0) {
             throw "Refusing to replace existing release $tag"
           }
@@ -172,7 +178,7 @@ jobs:
           @(
             'Unofficial full-feature Morphe Desktop Custom 2.2 beta; public CI source mirror.',
             "SOURCE_GIT_SHA=$env:EXACT_SHA", "JAR_SHA256=$jarHash",
-            'OFFICIAL_DESKTOP_BASE=v2.2.0', 'OFFICIAL_PATCHER_BASE=v2.4.0',
+            'OFFICIAL_DESKTOP_BASE=v2.2.0', 'CURRENT_PATCHER_VERSION=2.5.0',
             'Both repositories must contain byte-identical application sources; CI is public.',
             "Internal version: $env:RELEASE_VERSION (full Custom beta).",
             'No private credentials, user APKs or signing keys are distributed.'
@@ -195,7 +201,7 @@ jobs:
           @(
             '# Morphe Desktop Custom 2.2 - complete application beta',
             'Full Custom application, mirrored between private canonical and public CI repositories; unofficial Morphe fork.',
-            'Desktop 2.2, Patcher 2.4, all Custom device/import/signature/ownership controls, settings, icons, scoped updates and community discovery.',
+            'Full Custom 2.2 beta with selected Desktop 2.3 UI features and Patcher 2.5, device/import/signature/ownership controls, retained-original safeguards, scoped updates and community discovery.',
             'Experimental patch source releases do not automatically constitute app updates.',
             'Full application source parity and exact current version must be qualified before distribution.',
             "Source SHA: $env:EXACT_SHA", "JAR SHA256: $jarHash", "ZIP SHA256: $zipHash",
