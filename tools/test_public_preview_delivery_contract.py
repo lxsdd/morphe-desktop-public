@@ -127,15 +127,38 @@ class PublicPreviewDeliveryContractTest(unittest.TestCase):
         self.assertIn("experimentalReleasesAreSearchableFromTheStableTab", tests)
         self.assertIn("missingPinnedReleaseIsNotSilentlyReplaced", tests)
 
-    def test_zip_checksum_readback_and_rollbacks_retained(self):
+    def test_beta9_zip_checksum_readback_precedes_one_time_retirement(self):
         self.assertIn("gh release create", self.source)
         self.assertIn("--prerelease", self.source)
         self.assertIn("gh release download", self.source)
         self.assertIn("Published ZIP bytes do not match", self.source)
         self.assertIn("Published checksum manifest mismatch", self.source)
-        self.assertNotIn("gh release delete", self.source)
+        self.assertIn("if ($env:RELEASE_VERSION -eq '2.2.0-beta.9')", self.source)
+        self.assertIn("gh release delete $item.Tag --repo $repo --cleanup-tag --yes", self.source)
+        self.assertLess(self.source.index('Published checksum manifest mismatch'),
+                        self.source.index('gh release delete $item.Tag'))
+        self.assertLess(self.source.index('PUBLIC_PREVIEW=PASS'),
+                        self.source.index('gh release delete $item.Tag'))
+        self.assertIn("PUBLIC_OLDER_RELEASE_RETIREMENT=PASS", self.source)
         self.assertNotIn("git push", self.source)
         self.assertNotIn("gh pr merge", self.source)
+
+    def test_explicit_retirement_approves_only_exact_published_full_beta_releases(self):
+        for tag in (
+            "custom-v2.2.0-beta.8-c3e37e60b13f",
+            "custom-v2.2.0-beta.7-b0e088c87e47",
+            "custom-v2.2.0-beta.6-ca06be0b78a0",
+            "custom-v2.2.0-beta.6-81fff4b45b94",
+        ):
+            self.assertIn(tag, self.source)
+        self.assertEqual(4, self.source.count("@{ Tag = 'custom-v2.2.0-beta."))
+        self.assertIn("Cannot read release inventory before retirement", self.source)
+        self.assertIn("Unexpected older full-beta release count", self.source)
+        self.assertIn("digest differs; refuse retirement", self.source)
+        self.assertIn("Newly published beta.9 asset digest differs", self.source)
+        self.assertIn("Latest verified beta.9 release not preserved", self.source)
+        self.assertIn("github.actor == github.repository_owner", self.source)
+        self.assertIn("gh release delete $item.Tag --repo $repo --cleanup-tag --yes", self.source)
 
 
     def test_public_ci_real_mpp_fixtures_remain_sha_pinned_and_do_not_bypass_removed_sources(self):
