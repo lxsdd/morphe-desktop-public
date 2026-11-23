@@ -541,6 +541,9 @@
     <string name="source_error_patcher_requires_newer">Source requires Patcher %1$s; Morphe uses %2$s. Choose a compatible source release or a Morphe version that actually includes the required Patcher.</string>
     <string name="source_error_patcher_unknown">Source is incompatible with Patcher %1$s. Check its supported Patcher version; do not bypass compatibility or signer checks.</string>
     <string name="version_label_local">Local</string>
+    <string name="version_label_unknown">Channel unverified</string>
+    <string name="home_update_checks_incomplete_intro">%1$d patch-history entries not fully checked:</string>
+    <string name="home_update_checks_count_only_confirmed">Only confirmed updates are counted.</string>
     <string name="source_sheet_remote_label">Remote</string>
     <string name="add_source">Add source</string>
     <string name="source_sheet_title">Patch sources</string>

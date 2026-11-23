@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -196,36 +198,66 @@ internal fun SupportedAppsListPane(
                 val source = item.sourceName?.let { "$it: " } ?: ""
                 "${item.appName} ($source$reason)"
             }
+            // Every reason must be readable, including on a narrow split layout.
+            // The reasons scroll independently when they exceed the available
+            // space; the actions cannot compress or truncate the explanation.
+            val uncheckedScrollState = rememberScrollState()
             Spacer(modifier = Modifier.height(4.dp))
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text = stringResource(
-                        Res.string.home_update_checks_incomplete_named,
-                        uncheckedAppCount,
-                        uncheckedDescriptions.joinToString(", "),
-                    ),
+                    text = stringResource(Res.string.home_update_checks_incomplete_intro, uncheckedAppCount),
                     style = MorpheTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
                 )
-                if (uncheckedEntries.any { it.sourceIssue in setOf(
-                        app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_UNMATCHED,
-                        app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_DISABLED,
-                        app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE,
-                        app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_POLICY_BLOCKED,
-                        app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED,
-                    ) }) {
-                    TextButton(onClick = onManageSources) {
-                        Text(stringResource(Res.string.home_header_manage_sources_button))
+                Box(modifier = Modifier.fillMaxWidth().heightIn(max = 144.dp)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                            .verticalScroll(uncheckedScrollState)
+                            .padding(end = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        uncheckedDescriptions.forEach { description ->
+                            Text(
+                                text = "• $description",
+                                style = MorpheTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                softWrap = true,
+                            )
+                        }
                     }
+                    VerticalScrollbar(
+                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                        adapter = rememberScrollbarAdapter(uncheckedScrollState),
+                        style = MorpheScrollbarStyle(),
+                    )
                 }
-                TextButton(onClick = onRetry, enabled = !isLoading) {
-                    Text(stringResource(Res.string.home_update_retry_check))
+                Text(
+                    text = stringResource(Res.string.home_update_checks_count_only_confirmed),
+                    style = MorpheTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (uncheckedEntries.any { it.sourceIssue in setOf(
+                            app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_UNMATCHED,
+                            app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_DISABLED,
+                            app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE,
+                            app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_POLICY_BLOCKED,
+                            app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED,
+                        ) }) {
+                        TextButton(onClick = onManageSources) {
+                            Text(stringResource(Res.string.home_header_manage_sources_button))
+                        }
+                    }
+                    TextButton(onClick = onRetry, enabled = !isLoading) {
+                        Text(stringResource(Res.string.home_update_retry_check))
+                    }
                 }
             }
         }
@@ -256,6 +288,9 @@ internal fun SupportedAppsListPane(
         }
         Spacer(modifier = Modifier.height(10.dp))
 
+        // The expanded diagnostics header owns its height; leave more room
+        // below the fixed search row for the independently scrollable app list.
+        val diagnosticHeightAllowance = if (!isLoading && uncheckedAppCount > 0) 170.dp else 0.dp
         if (filter == AppListFilter.DEVICE) {
             DeviceInventoryPane(
                 installedPackages = deviceInstalledPackages,
@@ -272,7 +307,7 @@ internal fun SupportedAppsListPane(
                 sourceNamesByPackage = sourceNamesByPackage,
                 patchesBySource = patchesBySource,
                 searchQuery = searchQuery,
-                paneMaxHeight = paneMaxHeight,
+                paneMaxHeight = paneMaxHeight - diagnosticHeightAllowance,
                 onShowDetail = onShowDetail,
                 onShowDeviceApp = onShowDeviceApp,
                 onRefreshDeviceInfo = onRefreshDeviceInfo,
@@ -290,7 +325,7 @@ internal fun SupportedAppsListPane(
                 appIconColorByPackage = supportedApps.associate { it.packageName to (it.appIconColor ?: "") }.filterValues { it.isNotEmpty() },
                 displayNameByPackage = historyNames,
                 onShowDetail = onShowDetail,
-                paneMaxHeight = paneMaxHeight,
+                paneMaxHeight = paneMaxHeight - diagnosticHeightAllowance,
                 showSearch = searchVisible,
                 scrollResetKey = Triple(filter, searchQuery, sortMode),
                 updateCategory = filter == AppListFilter.APP_UPDATES || filter == AppListFilter.PATCH_UPDATES,
@@ -363,7 +398,7 @@ internal fun SupportedAppsListPane(
                 LaunchedEffect(filter, searchQuery, sortMode) {
                     listState.scrollToItem(0)
                 }
-                val headerSearchAllowance = 150.dp
+                val headerSearchAllowance = 150.dp + diagnosticHeightAllowance
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

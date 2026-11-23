@@ -844,7 +844,7 @@ private fun ChannelBadge(
         Channel.STABLE -> stringResource(Res.string.version_label_stable)
         Channel.PRERELEASE -> stringResource(Res.string.version_label_prerelease)
         Channel.LOCAL -> stringResource(Res.string.version_label_local)
-        else -> stringResource(Res.string.version_label_stable)
+        else -> stringResource(Res.string.version_label_unknown)
     }
     val color = channelColor(channel)
     MorpheBadge(

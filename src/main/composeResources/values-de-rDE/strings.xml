@@ -521,6 +521,9 @@
     <string name="source_error_patcher_requires_newer">Quelle benötigt Patcher %1$s, Morphe nutzt %2$s. Kompatible Quellversion oder Morphe mit passender Patcher-Version verwenden.</string>
     <string name="source_error_patcher_unknown">Quelle ist mit Patcher %1$s inkompatibel. Unterstützte Version prüfen; Kompatibilitäts- und Signaturprüfungen nicht umgehen.</string>
     <string name="version_label_local">Lokal</string>
+    <string name="version_label_unknown">Kanal ungeprüft</string>
+    <string name="home_update_checks_incomplete_intro">%1$d Einträge im Patchverlauf noch nicht vollständig geprüft:</string>
+    <string name="home_update_checks_count_only_confirmed">Gezählt werden nur bestätigte Updates.</string>
     <string name="source_sheet_remote_label">Remote</string>
     <string name="add_source">Quelle hinzufügen</string>
     <string name="source_sheet_title">Patch-Quellen</string>
