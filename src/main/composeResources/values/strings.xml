@@ -532,6 +532,7 @@
     <string name="source_error_local_not_found">Local patch path not found: %1$s</string>
     <string name="source_error_local_no_mpp">No .mpp files found in folder: %1$s</string>
     <string name="source_error_no_repository">No repository configured for source</string>
+    <string name="source_error_pinned_no_version">A pinned patch source has no version selected. Select its exact release; another version will not be used automatically.</string>
     <string name="source_error_fetch_releases">Could not fetch releases</string>
     <string name="source_error_failed_to_load">Failed to load</string>
     <string name="source_error_github_pat_required">A GitHub PAT is required to download pull request sources</string>

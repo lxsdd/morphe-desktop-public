@@ -20,6 +20,15 @@ private val comparableTag = Regex(
     RegexOption.IGNORE_CASE,
 )
 
+/** A published bundle must expose the same downloadable first .mpp asset used by the installer. */
+fun Release.isUsablePublishedBundleRelease(): Boolean =
+    !draft && (assets.firstOrNull { it.isPatchFile() }?.downloadUrl?.isNotBlank() == true)
+
+/** Preserve provider-specific tags, but never fall back to a draft or unusable asset. */
+fun fallbackPublishedBundleRelease(releases: List<Release>, prerelease: Boolean): Release? =
+    highestPublishedBundleRelease(releases, prerelease)
+        ?: releases.firstOrNull { it.isUsablePublishedBundleRelease() && it.isDevRelease() == prerelease }
+
 /** Preserve publisher choice; report only higher tagged, published .mpp release candidates. */
 fun additionalPublishedReleases(
     selectedTag: String?,
@@ -29,8 +38,7 @@ fun additionalPublishedReleases(
         return SourceReleaseCandidates()
     }
     val candidates = releases.asSequence().filter {
-        !it.draft && comparableTag.matches(it.tagName) &&
-            it.assets.any { asset -> asset.isPatchFile() } &&
+        it.isUsablePublishedBundleRelease() && comparableTag.matches(it.tagName) &&
             compareVersions(it.tagName, selectedTag) > 0
     }.toList()
     fun highest(dev: Boolean): String? =
@@ -46,6 +54,6 @@ fun additionalPublishedReleases(
 /** For manifest-free sources, use semantic release order rather than GitHub publish order. */
 fun highestPublishedBundleRelease(releases: List<Release>, prerelease: Boolean): Release? =
     releases.filter {
-        !it.draft && it.isDevRelease() == prerelease &&
-            comparableTag.matches(it.tagName) && it.assets.any { asset -> asset.isPatchFile() }
+        it.isUsablePublishedBundleRelease() && it.isDevRelease() == prerelease &&
+            comparableTag.matches(it.tagName)
     }.maxWithOrNull { a, b -> compareVersions(a.tagName, b.tagName) }

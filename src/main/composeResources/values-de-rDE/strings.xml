@@ -512,6 +512,7 @@
     <string name="source_error_local_not_found">Lokaler Patchpfad nicht gefunden: %1$s</string>
     <string name="source_error_local_no_mpp">Keine .mpp-Dateien im Ordner gefunden: %1$s</string>
     <string name="source_error_no_repository">Für die Quelle ist kein Repository konfiguriert</string>
+    <string name="source_error_pinned_no_version">Für diese festgelegte Patchquelle wurde keine Version ausgewählt. Wähle die genaue Version aus; es wird nicht automatisch eine andere verwendet.</string>
     <string name="source_error_fetch_releases">Releases konnten nicht abgerufen werden</string>
     <string name="source_error_failed_to_load">Laden fehlgeschlagen</string>
     <string name="source_error_github_pat_required">Zum Herunterladen von Pull-Request-Quellen ist ein GitHub-PAT erforderlich.</string>

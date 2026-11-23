@@ -220,13 +220,15 @@ object EnabledSourcesLoader {
             PatchSourceType.GITLAB -> {
                 if (repo == null) {
                     PatchResolver.ResolutionResult(error = PatchResolver.Error.NoRepository(source.name))
+                } else if (pref?.mode == FollowMode.PINNED && pref.pinnedTag.isNullOrBlank()) {
+                    PatchResolver.ResolutionResult(error = PatchResolver.Error.PinnedTagMissing)
                 } else {
                     val pinnedTag = if (pref?.mode == FollowMode.PINNED) pref.pinnedTag else null
                     PatchResolver.resolveRemote(
                         repo = repo,
                         usePreRelease = source.usePreRelease,
                         pinnedTag = pinnedTag,
-                        strictPin = false,
+                        strictPin = pref?.mode == FollowMode.PINNED,
                         onDownloadProgress = { pct ->
                             onDownloadProgress?.invoke(source.name, pct)
                         },
@@ -277,6 +279,7 @@ object EnabledSourcesLoader {
             is PatchResolver.Error.PrNoArtifact -> Res.string.source_error_pr_no_artifact to emptyList()
             is PatchResolver.Error.ReleaseFetchFailed -> Res.string.source_error_fetch_releases to emptyList()
             is PatchResolver.Error.SignerChanged -> Res.string.sources_signing_key_changed_named to listOf(source.name)
+            PatchResolver.Error.PinnedTagMissing -> Res.string.source_error_pinned_no_version to emptyList()
             is PatchResolver.Error.PinnedTagNotFound,
             is PatchResolver.Error.DownloadFailed -> null to emptyList()
         }

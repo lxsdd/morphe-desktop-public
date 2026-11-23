@@ -9,6 +9,7 @@ BASE = Path("src/main/kotlin/app/morphe")
 REPOSITORY = BASE / "engine/patches/PatchRepository.kt"
 DISCOVERY = BASE / "engine/patches/SourceReleaseDiscovery.kt"
 ENABLED = BASE / "gui/util/EnabledSourcesLoader.kt"
+RESOLVER = BASE / "engine/patches/PatchResolver.kt"
 HOME = BASE / "gui/ui/screens/home/HomeScreen.kt"
 SHEET = BASE / "gui/ui/components/SourceManagementSheet.kt"
 PAGE = BASE / "gui/ui/components/SourcesPage.kt"
@@ -19,6 +20,7 @@ class SourceDiscoveryProductionContractTest(unittest.TestCase):
     def setUpClass(cls):
         cls.files = {name: path.read_text(encoding="utf-8") for name, path in (
             ("repo", REPOSITORY), ("discovery", DISCOVERY), ("enabled", ENABLED),
+            ("resolver", RESOLVER),
             ("home", HOME), ("sheet", SHEET), ("page", PAGE),
         )}
 
@@ -27,8 +29,10 @@ class SourceDiscoveryProductionContractTest(unittest.TestCase):
         self.assertIn("highestPublishedBundleRelease(list, prerelease)", self.files["repo"])
         self.assertIn("suspend fun auditPublishedReleases()", self.files["repo"])
         self.assertIn("cachedReleases = fresh", self.files["repo"])
-        self.assertIn("!it.draft", self.files["discovery"])
-        self.assertIn("asset.isPatchFile()", self.files["discovery"])
+        self.assertIn("!draft && (assets.firstOrNull", self.files["discovery"])
+        self.assertIn("it.isUsablePublishedBundleRelease()", self.files["discovery"])
+        self.assertIn("fallbackPublishedBundleRelease(list, prerelease)", self.files["repo"])
+        self.assertIn("releases.filter { it.isUsablePublishedBundleRelease()", self.files["repo"])
         self.assertIn("compareVersions(it.tagName, selectedTag) > 0", self.files["discovery"])
 
     def test_extra_tags_are_discovered_only_on_explicit_refresh(self):
@@ -47,6 +51,17 @@ class SourceDiscoveryProductionContractTest(unittest.TestCase):
         self.assertIn("additionalReleases = sourceAdditionalReleases[source.id]", self.files["sheet"])
         self.assertIn("sourceAdditionalReleases = sourceAdditionalReleases", self.files["page"])
         self.assertIn("source_additional_release_warning", self.files["sheet"])
+
+    def test_pinned_version_cannot_silently_fall_back_to_another_bundle(self):
+        self.assertIn("pref?.mode == FollowMode.PINNED && pref.pinnedTag.isNullOrBlank()",
+                      self.files["enabled"])
+        self.assertIn("strictPin = pref?.mode == FollowMode.PINNED", self.files["enabled"])
+        self.assertNotIn("strictPin = false", self.files["enabled"])
+        self.assertIn("val releases = releasesResult.getOrNull()?.filter", self.files["resolver"])
+        self.assertIn("it.isUsablePublishedBundleRelease()", self.files["resolver"])
+        self.assertIn("if (matched == null && strictPin)", self.files["resolver"])
+        self.assertNotIn("release = matched ?: latestStable ?: releases.firstOrNull()",
+                         self.files["resolver"])
 
     def test_unknown_and_older_source_versions_do_not_become_updates(self):
         self.assertIn("if (isNewerVersion(latest, current))", self.files["enabled"])

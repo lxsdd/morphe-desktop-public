@@ -14,9 +14,10 @@ class SourceReleaseDiscoveryTest {
         prerelease: Boolean = false,
         draft: Boolean = false,
         asset: String = "patches.mpp",
+        url: String = "https://example.test/patches.mpp",
     ) = Release(
         tagName = tag, isPrerelease = prerelease, draft = draft,
-        assets = listOf(ReleaseAsset(name = asset, downloadUrl = "https://example.test/$tag/$asset")),
+        assets = listOf(ReleaseAsset(name = asset, downloadUrl = url)),
     )
 
     @Test fun `Froggo higher stable tag is discoverable despite earlier publication order`() {
@@ -69,4 +70,31 @@ class SourceReleaseDiscoveryTest {
         assertEquals("v2.0.0-rc.1", additionalPublishedReleases(
             "v1.0.0", listOf(release("v2.0.0-rc.1"))).experimentalTag)
     }
+    @Test fun `only usable published downloads can enter source catalogs`() {
+        assertFalse(release("v99.0.0", draft = true).isUsablePublishedBundleRelease())
+        assertFalse(release("v88.0.0", asset = "README.zip").isUsablePublishedBundleRelease())
+        assertFalse(release("v77.0.0", url = "").isUsablePublishedBundleRelease())
+        assertTrue(release("v1.2.4").isUsablePublishedBundleRelease())
+        assertFalse(additionalPublishedReleases("v1.0.0", listOf(
+            release("v9.0.0", url = ""),
+            release("v8.0.0", draft = true),
+        )).hasCandidates)
+    }
+
+    @Test fun `manifestless fallback preserves nonstandard tagged providers without accepting invalid releases`() {
+        val releases = listOf(
+            release("v99.0.0", draft = true),
+            release("v88.0.0", asset = "notes.txt"),
+            release("v77.0.0", url = ""),
+            release("custom-branch-2026"),
+            release("v1.2.4"),
+            release("v1.3.0-dev.2", prerelease = true),
+        )
+        assertEquals("v1.2.4", fallbackPublishedBundleRelease(releases, false)?.tagName)
+        assertEquals("v1.3.0-dev.2", fallbackPublishedBundleRelease(releases, true)?.tagName)
+        assertEquals("custom-branch-2026", fallbackPublishedBundleRelease(releases.dropLast(2), false)?.tagName)
+        assertNull(fallbackPublishedBundleRelease(releases.take(3), false))
+        assertNull(fallbackPublishedBundleRelease(releases.take(3), true))
+    }
+
 }
