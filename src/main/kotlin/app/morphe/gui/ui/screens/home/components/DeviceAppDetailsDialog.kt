@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.morphe.engine.model.SupportedApp
+import app.morphe.gui.util.FormatUtils
 import app.morphe.gui.ui.components.MorpheDialogTitleBar
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.morphe_desktop.generated.resources.*
@@ -64,7 +65,7 @@ internal fun experimentalVersionSearchLinks(app: SupportedApp?): List<Experiment
         .filter { it.isNotEmpty() && it !in stable }
         .distinct()
         .mapNotNull { version ->
-            SupportedApp.getDownloadUrl(app.packageName, version)
+            app.downloadUrl(version)
                 ?.takeIf { it.isNotBlank() }
                 ?.let { ExperimentalVersionSearchLink(version, it) }
         }
@@ -104,7 +105,7 @@ internal fun DeviceAppDetailsDialog(
     val appName = deviceAppDetailsTitle(packageName, app?.displayName, resolvedDisplayName)
     val installed = deviceInfo?.installedVersion?.takeIf(String::isNotBlank)
     val target = app?.recommendedVersion?.takeIf(String::isNotBlank)
-    val url = target?.let { SupportedApp.getDownloadUrl(packageName, it) }
+    val url = target?.let { app?.downloadUrl(it) }
     val experimentalLookups = experimentalVersionSearchLinks(app)
     Dialog(
         onDismissRequest = onDismiss,
@@ -220,7 +221,9 @@ internal fun DeviceAppDetailsDialog(
                         Text(
                             stringResource(
                                 Res.string.device_details_stable_versions,
-                                app.supportedVersions.joinToString(", ") { "v" + it.removePrefix("v") }
+                                app.supportedVersions.joinToString(", ") {
+                                    FormatUtils.formatVersionWithBuild("v" + it.removePrefix("v"), app.requiredBuildCodes(it))
+                                }
                                     .ifBlank { "–" },
                             ),
                         )
@@ -229,7 +232,7 @@ internal fun DeviceAppDetailsDialog(
                                 stringResource(
                                     Res.string.device_details_experimental_versions,
                                     app.experimentalVersions.joinToString(", ") {
-                                        "v" + it.removePrefix("v")
+                                        FormatUtils.formatVersionWithBuild("v" + it.removePrefix("v"), app.requiredBuildCodes(it))
                                     },
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
@@ -246,7 +249,7 @@ internal fun DeviceAppDetailsDialog(
                                     ) {
                                         Text(stringResource(
                                             Res.string.device_details_find_experimental_version,
-                                            lookup.version,
+                                            FormatUtils.formatVersionWithBuild(lookup.version, app.requiredBuildCodes(lookup.version)),
                                         ))
                                     }
                                 }
@@ -256,7 +259,7 @@ internal fun DeviceAppDetailsDialog(
                             Text(
                                 stringResource(
                                     Res.string.device_overview_target_version,
-                                    "v" + target.removePrefix("v"),
+                                    FormatUtils.formatVersionWithBuild("v" + target.removePrefix("v"), app.requiredBuildCodes(target)),
                                 ),
                                 color = MaterialTheme.colorScheme.primary,
                             )
@@ -264,7 +267,7 @@ internal fun DeviceAppDetailsDialog(
                                 OutlinedButton(onClick = { uriHandler.openUri(url) }) {
                                     Text(stringResource(
                                         Res.string.home_guided_find_app_version,
-                                        target.removePrefix("v"),
+                                        FormatUtils.formatVersionWithBuild(target.removePrefix("v"), app.requiredBuildCodes(target)),
                                     ))
                                 }
                             }

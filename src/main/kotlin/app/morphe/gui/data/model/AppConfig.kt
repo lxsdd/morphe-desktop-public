@@ -48,6 +48,12 @@ data class AppConfig(
     val themeStyle: String = ThemeStyle.MORPHE.name,
     val backgroundType: String = "CIRCLES",
     val enableParallax: Boolean = true,
+    /** Community discovery card is opt-in; never changes patch-supported update lists. */
+    val showMoreAppsCard: Boolean = false,
+    /** Local-only cosmetic launcher icons, visible in old configurations as before. */
+    val showLocalAppIcons: Boolean = true,
+    /** Set only after the owner explicitly accepts the third-party-source notice. */
+    val communityNoticeAcknowledged: Boolean = false,
     val customAccentColorArgb: Int? = null,
     val lastCliVersion: String? = null,
     /** Legacy single-source version pin kept for config migration. */
@@ -60,6 +66,8 @@ data class AppConfig(
     val cardFills: Map<String, MorpheFill> = emptyMap(),
     val globalCardFill: MorpheFill? = null,
     val useSharpCorners: Boolean = false,
+    /** Cosmetic outlines only. Selected, focused and invalid controls retain their indicators. */
+    val useOutlines: Boolean = true,
     val homeAppSortMode: String = "RECOMMENDED",
     val preferredPatchChannel: String = "STABLE",
     val useSimpleMode: Boolean = true,

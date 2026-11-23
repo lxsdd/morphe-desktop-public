@@ -25,6 +25,9 @@ import androidx.compose.ui.window.PopupProperties
 import app.morphe.gui.LocalBackgroundType
 import app.morphe.gui.LocalEnableParallax
 import app.morphe.gui.LocalSharpCorners
+import app.morphe.gui.LocalOutlines
+import app.morphe.gui.LocalShowLocalAppIcons
+import app.morphe.gui.LocalShowMoreAppsCard
 import app.morphe.gui.data.repository.ConfigRepository
 import app.morphe.gui.data.repository.LanguageRepository
 import app.morphe.gui.ui.components.AppCard
@@ -181,6 +184,20 @@ internal fun AppearanceTab(
         icon = MorpheIcons.RoundedCorner
     )
 
+    Spacer(Modifier.height(8.dp))
+
+    val outlinesState = LocalOutlines.current
+    SettingToggleRow(
+        label = stringResource(Res.string.settings_toggle_outlines_label),
+        description = stringResource(Res.string.settings_toggle_outlines_desc),
+        checked = outlinesState.value,
+        onCheckedChange = { enabled ->
+            outlinesState.value = enabled
+            scope.launch { configRepo.setUseOutlines(enabled) }
+        },
+        icon = MorpheIcons.Grid_3x3,
+    )
+
     SettingsDivider(borderColor)
 
     SectionLabel(stringResource(Res.string.settings_section_accent_color), icon = MorpheIcons.Palette)
@@ -313,6 +330,34 @@ internal fun AppearanceTab(
             }
         }
     }
+
+    SettingsDivider(borderColor)
+
+    val showIcons = LocalShowLocalAppIcons.current
+    SettingToggleRow(
+        label = stringResource(Res.string.settings_toggle_local_icons_label),
+        description = stringResource(Res.string.settings_toggle_local_icons_desc),
+        checked = showIcons.value,
+        onCheckedChange = { enabled ->
+            showIcons.value = enabled
+            scope.launch { configRepo.setShowLocalAppIcons(enabled) }
+        },
+        icon = MorpheIcons.Apps,
+    )
+
+    SettingsDivider(borderColor)
+
+    val showMoreAppsCard = LocalShowMoreAppsCard.current
+    SettingToggleRow(
+        label = stringResource(Res.string.settings_toggle_more_apps_label),
+        description = stringResource(Res.string.settings_toggle_more_apps_desc),
+        checked = showMoreAppsCard.value,
+        onCheckedChange = { enabled ->
+            showMoreAppsCard.value = enabled
+            scope.launch { configRepo.setShowMoreAppsCard(enabled) }
+        },
+        icon = MorpheIcons.Add,
+    )
 
     SettingsDivider(borderColor)
 

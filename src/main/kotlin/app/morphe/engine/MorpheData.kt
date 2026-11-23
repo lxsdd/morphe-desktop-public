@@ -32,8 +32,14 @@ object MorpheData {
     /** Directory for cached remote avatars. */
     val avatarsDir: File by lazy { File(root, "avatars").also { it.mkdirs() } }
 
+    /** Directory for cached app icons extracted from APKs. */
+    val appIconsDir: File by lazy { File(root, "app-icons").also { it.mkdirs() } }
+
     /** Directory for temporary patcher scratch files. */
     val tmpDir: File by lazy { File(root, "tmp").also { it.mkdirs() } }
+
+    /** Kept original APKs: never create this directory unless a user opts into saving. */
+    val originalApksDir: File get() = File(root, "original-apks")
 
     /** Configuration file path. */
     val configFile: File get() = File(root, "config.json")

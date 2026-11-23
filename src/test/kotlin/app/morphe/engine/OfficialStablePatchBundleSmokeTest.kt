@@ -2,6 +2,7 @@ package app.morphe.engine
 
 import app.morphe.engine.patches.RemotePatchSourceFactory
 import app.morphe.engine.patches.PatchBundleLoader
+import app.morphe.engine.patches.SupportedAppCatalog
 import app.morphe.gui.data.model.PatchSource
 import app.morphe.gui.data.model.PatchSourceType
 import app.morphe.gui.util.EnabledSourcesLoader
@@ -15,7 +16,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Real release assets downloaded and SHA-256 pinned by the private Ubuntu CI.
+ * Real release assets downloaded and SHA-256 pinned by PUBLIC Ubuntu CI.
  * These tests only load patch metadata/classes. They never patch an APK, change
  * signing trust, install on devices or touch the user's own data.
  */
@@ -26,7 +27,7 @@ class OfficialStablePatchBundleSmokeTest {
             ?.takeIf { it.isNotBlank() } ?: return@runBlocking
         val file = File(path)
         assertTrue(file.isFile && file.length() > 1024)
-        assertEquals("2.3.0", PatcherCompatibility.currentPatcherVersion)
+        assertEquals("2.5.0", PatcherCompatibility.currentPatcherVersion)
         assertEquals(
             RemotePatchSourceFactory.OFFICIAL_PATCHES_SIGNING_KEY,
             PatchBundleSignature.verify(file),
@@ -56,7 +57,11 @@ class OfficialStablePatchBundleSmokeTest {
         assertEquals(mixed.perSource[1].patches.toSet(), mixed.allPatches)
     }
 
-    /** Verify actual Patcher-1.8.0 community MPP releases against the current 2.3.0 loader. */
+    /** Verify Patcher-1.8.0 community MPP releases against the 2.4.0 loader.
+     * The removed riky-dev source is optional only when a locally verified fixture
+     * has been independently provided. Public CI still tests the signed official
+     * and unsigned Amazon legacy real MPP bytes without any bypass.
+     */
     @Test
     fun legacyCommunityBundlesLoadAlongsideOfficialAndRemainPerSource() = runBlocking {
         val officialPath = System.getenv("MORPHE_OFFICIAL_PATCHES_TEST_FILE")
@@ -74,7 +79,7 @@ class OfficialStablePatchBundleSmokeTest {
             MultiSourceLoader.SourceInput("official", "Morphe Patches", official),
         )
         assertTrue(fixtures.all { it.patchFile.isFile && it.patchFile.length() > 1024 })
-        assertEquals("2.3.0", PatcherCompatibility.currentPatcherVersion)
+        assertEquals("2.5.0", PatcherCompatibility.currentPatcherVersion)
         assertNull(PatchBundleSignature.verify(amazon), "Unexpected signer change requires trust review")
         assertEquals("1.8.0", PatcherCompatibility.requiredPatcherVersion(amazon))
         riky?.let { assertEquals("1.8.0", PatcherCompatibility.requiredPatcherVersion(it)) }
@@ -112,4 +117,83 @@ class OfficialStablePatchBundleSmokeTest {
             assertTrue(bundle.patches.isNotEmpty())
         }
     }
+
+    /**
+     * Load five available, independently pinned current MPP releases with Patcher 2.5.0.
+     * The previous SoundCloud fixture is excluded only because its source repository
+     * was blocked by GitHub; do not fetch from an untrusted substitute.
+     * A listed version is only qualified if actual loaded patch metadata exposes it.
+     * No APK, signer, device, or local user data is modified.
+     */
+    @Test
+    fun latestOfficialAndCommunityBundleRuntimeAndTargets() = runBlocking {
+        val sourceEnv = listOf(
+            Triple("official23", "Official Patches 2.3.0", "MORPHE_OFFICIAL_LATEST_PATCHES_TEST_FILE"),
+            Triple("piko", "Piko 3.11.1", "MORPHE_PIKO_PATCHES_TEST_FILE"),
+            Triple("froggo", "Froggo GitHub-latest 1.2.4", "MORPHE_FROGGO_PATCHES_TEST_FILE"),
+            Triple("patchedup", "Patched-Up 1.10.0", "MORPHE_PATCHEDUP_PATCHES_TEST_FILE"),
+            Triple("aliexpress", "AliExpress 1.0.7", "MORPHE_ALIEXPRESS_PATCHES_TEST_FILE"),
+        )
+        val files = sourceEnv.map { System.getenv(it.third)?.takeIf(String::isNotBlank) }
+        if (files.all { it == null }) return@runBlocking
+        assertTrue(files.all { it != null }, "Partially provisioned current-source fixtures")
+        val inputs = sourceEnv.mapIndexed { idx, (id, name, _) ->
+            MultiSourceLoader.SourceInput(id, name, File(files[idx]!!))
+        }
+        assertEquals("2.5.0", PatcherCompatibility.currentPatcherVersion)
+        assertTrue(inputs.all { it.patchFile.isFile && it.patchFile.length() > 1024 })
+        inputs.forEach { assertNull(PatcherCompatibility.incompatibilityMessage(it.patchFile)) }
+        val loaded = MultiSourceLoader.load(inputs)
+        assertEquals(inputs.map { it.sourceId }, loaded.perSource.map { it.sourceId })
+        val targets = mapOf(
+            "official23" to listOf(
+                "com.google.android.youtube" to "21.45.82",
+                "com.google.android.apps.youtube.music" to "9.46.51",
+                "com.reddit.frontpage" to "2026.46.0",
+            ),
+            "piko" to listOf("com.instagram.android" to "452.1.0.53.64"),
+            "froggo" to listOf("com.facebook.katana" to "573.0.0.37.74"),
+            "patchedup" to listOf("com.ebay.kleinanzeigen" to "2026.16.1"),
+            "aliexpress" to listOf("com.alibaba.aliexpresshd" to "8.162.8"),
+        )
+        loaded.perSource.forEach { source ->
+            assertTrue(source.isSuccess,
+                "${source.sourceName} failed to load: ${source.error?.readableMessage()}")
+            assertTrue(source.patches.isNotEmpty(), "${source.sourceName} returned no patches")
+            val byPackage = SupportedAppCatalog.extractSupportedApps(source.patches)
+                .associateBy { it.packageName }
+            targets.getValue(source.sourceId).forEach { (name, version) ->
+                val app = byPackage[name]
+                assertTrue(app != null, "${source.sourceName}: missing $name")
+                assertTrue(version in app.supportedVersions || version in app.experimentalVersions,
+                    "${source.sourceName}: missing $name $version")
+            }
+        }
+    }
+
+    /**
+     * Real official experimental MPP, independently SHA-256 pinned by public CI.
+     * Patcher 2.5.0 must load its metadata and preserve the official signing key.
+     * This is a compatibility qualification, not a patch recommendation or APK write.
+     */
+    @Test
+    fun experimentalOfficialBundleLoadsWithPatcher250AndKeepsSigner() = runBlocking {
+        val fixture = System.getenv("MORPHE_OFFICIAL_EXPERIMENTAL_PATCHES_TEST_FILE")
+            ?.takeIf { it.isNotBlank() } ?: return@runBlocking
+        val file = File(fixture)
+        assertTrue(file.isFile && file.length() > 1024)
+        assertEquals("2.5.0", PatcherCompatibility.currentPatcherVersion)
+        assertEquals(RemotePatchSourceFactory.OFFICIAL_PATCHES_SIGNING_KEY,
+            PatchBundleSignature.verify(file))
+        assertNull(PatcherCompatibility.incompatibilityMessage(file))
+        val loaded = MultiSourceLoader.load(
+            listOf(MultiSourceLoader.SourceInput("official-experimental", "Official Patches 2.4.0-dev.7", file))
+        )
+        val source = loaded.perSource.single()
+        assertTrue(source.isSuccess, "Experimental official MPP could not load: ${source.error?.readableMessage()}")
+        assertTrue(source.patches.isNotEmpty(), "Experimental official MPP has no patch metadata")
+        assertTrue(SupportedAppCatalog.extractSupportedApps(source.patches).isNotEmpty(),
+            "Experimental bundle has no supported apps to audit")
+    }
+
 }

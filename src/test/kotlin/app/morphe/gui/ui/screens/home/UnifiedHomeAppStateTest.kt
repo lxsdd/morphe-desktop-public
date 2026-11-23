@@ -76,6 +76,75 @@ class UnifiedHomeAppStateTest {
     }
 
     @Test
+    fun `production index carries scoped source channel into the repatch action`() {
+        val record = record(original = "stock.app", installed = "stock.app")
+        val update = RecallUpdateInfo(
+            sources = listOf(RecallUpdateInfo.SourceUpdate(
+                sourceId = "official-id", name = "Morphe Patches",
+                usedVersion = "2.2.0", resolvedVersion = "2.3.0",
+                latestAvailableVersion = "2.3.0", outdated = true,
+                hasRelevantChanges = true, channel = HomePatchBundleChannel.STABLE,
+                metadataKnown = true,
+            )),
+            appUsedVersion = "1", appChannel = RecallUpdateInfo.AppChannel.STABLE,
+            appSuggestedVersion = "1", appOutdated = false,
+        )
+        val index = buildUnifiedHomeAppStateIndex(
+            records = listOf(record),
+            patchedStates = mapOf("stock.app" to PatchedAppState.PATCHED_WITH_UPDATES),
+            updateInfoByPackage = mapOf("stock.app" to update),
+            deviceAppInfo = emptyMap(), supportedApps = listOf(supported("stock.app")),
+            selectedDeviceSerial = null, deviceDiscovery = null,
+        )
+        val state = index.forOriginalPackage("stock.app")!!
+        assertEquals(HomePatchBundleStatus.RELEVANT_STABLE_PATCH_AVAILABLE, state.patchBundle.status)
+        assertEquals(HomePatchBundleChannel.STABLE, state.patchBundle.sources.single().channel)
+        assertEquals(HomePrimaryAction.REPATCH_CURRENT_INPUT, state.primaryAction)
+    }
+
+    @Test
+    fun `unverified source never triggers an action even if it claims changes`() {
+        val source = HomePatchSourceAxis(
+            sourceId = "missing", sourceName = "Unverified source",
+            channel = HomePatchBundleChannel.STABLE, usedVersion = "1",
+            currentVersion = null, latestAvailableVersion = "2",
+            newerReleaseAvailable = true, hasRelevantAppChanges = true,
+            metadataKnown = false,
+        )
+        val state = resolveUnifiedHomeAppState(input(
+            selectedDeviceSerial = null, patchSources = listOf(source),
+        ))
+        assertEquals(HomePatchBundleStatus.UNKNOWN, state.patchBundle.status)
+        assertEquals(HomePrimaryAction.NONE, state.primaryAction)
+        assertEquals(HomePatchBundleStatus.UNKNOWN,
+            resolveUnifiedHomeAppState(input(selectedDeviceSerial = null)).patchBundle.status)
+    }
+
+    @Test
+    fun `irrelevant newer source cannot hide an unchecked source`() {
+        val irrelevant = source(HomePatchBundleChannel.STABLE, relevant = false)
+        val unknown = source(HomePatchBundleChannel.DEV, relevant = false)
+            .copy(sourceId = "unavailable", metadataKnown = false)
+        val mixed = resolveUnifiedHomeAppState(input(
+            selectedDeviceSerial = null, patchSources = listOf(irrelevant, unknown),
+        ))
+        assertEquals(HomePatchBundleStatus.UNKNOWN, mixed.patchBundle.status)
+        assertEquals(HomePrimaryAction.NONE, mixed.primaryAction)
+        val verified = resolveUnifiedHomeAppState(input(
+            selectedDeviceSerial = null, patchSources = listOf(irrelevant, unknown.copy(metadataKnown = true)),
+        ))
+        assertEquals(HomePatchBundleStatus.NEWER_RELEASE_BUT_NO_RELEVANT_APP_CHANGE,
+            verified.patchBundle.status)
+        val confirmed = resolveUnifiedHomeAppState(input(
+            selectedDeviceSerial = null,
+            patchSources = listOf(irrelevant.copy(hasRelevantAppChanges = true), unknown),
+        ))
+        assertEquals(HomePatchBundleStatus.RELEVANT_STABLE_PATCH_AVAILABLE,
+            confirmed.patchBundle.status)
+        assertEquals(HomePrimaryAction.REPATCH_CURRENT_INPUT, confirmed.primaryAction)
+    }
+
+    @Test
     fun `unsupported current apk requires newer apk`() {
         val state = resolveUnifiedHomeAppState(input(
             selectedDeviceSerial = null,

@@ -9,8 +9,11 @@ import app.morphe.engine.util.deleteRecursivelyInParallel
 import app.morphe.engine.workspace.WorkspaceManager
 import java.io.File
 
-/** Manages cache sizing and deletion across patches, logs, and workspace scratch. */
+/** Manages cache sizing and deletion, preserving patch-source signer trust data. */
 object CacheManager {
+
+    /** Read-only directory accounting; unlike cache clearing, never removes files. */
+    data class DirStats(val bytes: Long, val fileCount: Int)
 
     /** Summary of files and bytes cleared from a single directory. */
     data class DirResult(
@@ -33,13 +36,39 @@ object CacheManager {
     fun getCacheSizeBytes(): Long =
         getPatchDownloadSize(MorpheData.patchesDir) +
             getDirectorySize(MorpheData.logsDir) +
+            getDirectorySize(MorpheData.avatarsDir) +
+            getDirectorySize(MorpheData.appIconsDir) +
             WorkspaceManager.getScratchSize()
 
     /** Computes total byte size of files inside [dir]. */
-    fun getDirectorySize(dir: File): Long = try {
-        dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+    fun getDirectorySize(dir: File): Long = getDirectoryStats(dir).bytes
+
+    /** Count normal directory contents without applying deletion semantics. */
+    fun getDirectoryStats(dir: File): DirStats = try {
+        var bytes = 0L
+        var count = 0
+        dir.walkTopDown().filter { it.isFile }.forEach { file ->
+            bytes += file.length()
+            count++
+        }
+        DirStats(bytes, count)
     } catch (_: Exception) {
-        0L
+        DirStats(0L, 0)
+    }
+
+    /** Read-only counts of downloadable .mpp/.jar bundles only, excluding signer pins. */
+    fun getPatchDownloadStats(dir: File): DirStats = try {
+        var bytes = 0L
+        var count = 0
+        if (dir.isDirectory) dir.walkTopDown()
+            .filter { it.isFile && (it.extension.equals("mpp", true) || it.extension.equals("jar", true)) }
+            .forEach { file ->
+                bytes += file.length()
+                count++
+            }
+        DirStats(bytes, count)
+    } catch (_: Exception) {
+        DirStats(0L, 0)
     }
 
     /** Deletes cached patches, logs, and temporary scratch files. */
@@ -48,6 +77,8 @@ object CacheManager {
             clearPatchDownloads("Patches", MorpheData.patchesDir),
             clearDirectoryContents("Logs", MorpheData.logsDir),
             WorkspaceManager.clearScratch(),
+            clearDirectoryContents("Avatars", MorpheData.avatarsDir),
+            clearDirectoryContents("App icons", MorpheData.appIconsDir),
         ),
     )
 

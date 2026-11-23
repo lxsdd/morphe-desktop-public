@@ -19,9 +19,11 @@ jobs:
   source-build:
     if: github.repository == 'lxsdd/morphe-desktop-public'
     name: Source and tests (${{ matrix.os }})
-    # Keep the exact required macOS check name; use the supported, capacity-stable macOS 15 ARM runner.
-    # macos-latest (macOS 26 ARM) was cancelled after 15 minutes without a runner twice.
-    runs-on: ${{ matrix.os == 'macos-latest' && 'macos-15' || matrix.os }}
+    # Keep the exact required macOS check name; use standard macOS 15 Intel hosted runners.
+    # Nov 16: macos-15 ARM queued ~15 minutes then cancelled with zero steps on exact
+    # source SHA d004220d; macos-latest ARM had the same capacity symptom earlier.
+    # Only the runner assignment changes, never the matrix or native test contract.
+    runs-on: ${{ matrix.os == 'macos-latest' && 'macos-15-intel' || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +37,14 @@ jobs:
         if: github.event_name == 'pull_request'
         shell: bash
         run: python tools/verify_public_beta_source_manifest.py
+      - name: Verify public preview requires an explicit owner event and exact CI
+        if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: python -m unittest discover -s tools -p 'test_public_preview_delivery_contract.py'
+      - name: Guard fixed list scroll boundaries, category and sort transitions
+        if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: python -m unittest discover -s tools -p 'test_home_scrolling_contract.py'
       - name: Set up JetBrains JDK 21
         uses: actions/setup-java@v6.0.1
         with:
@@ -55,11 +65,45 @@ jobs:
             'https://github.com/rushiranpise/morphe-patches/releases/download/v1.23.1/patches-1.23.1.mpp' -o "$amazon"
           echo "75ede4e416edf147be8132b6c7693d78b37264a1a89dd2c4fa835efccefcdd9d  $amazon" | sha256sum -c -
           echo "MORPHE_THIRDPARTY_PATCHES_TEST_FILE=$amazon" >> "$GITHUB_ENV"
-          riky="$RUNNER_TEMP/legacy-riky-patches-2.3.2.mpp"
+          # 2026-11-21: archived riky-dev fixture returned HTTP 404 and the
+          # repository was removed. Do not bypass the dead source or substitute
+          # unaudited bytes. Its optional local smoke path remains available.
+          # Additional remote release fixtures: exact SHA-256 bound, read-only.
+          official23="$RUNNER_TEMP/official23-patches-2.3.0.mpp"
           curl -fL --retry 2 --connect-timeout 20 \
-            'https://github.com/riky-dev/morphe-patches/releases/download/v2.3.2/patches-2.3.2.mpp' -o "$riky"
-          echo "6c257bcae4023a73c92e9cb9d00589baeef4dbc6997f7137f6dead27bb35e764  $riky" | sha256sum -c -
-          echo "MORPHE_RIKY_PATCHES_TEST_FILE=$riky" >> "$GITHUB_ENV"
+            'https://github.com/MorpheApp/morphe-patches/releases/download/v2.3.0/patches-2.3.0.mpp' -o "$official23"
+          echo "1c37549274a2b6cf7f2e3e099d9b8cb641880b8a7dac323a95638a06bb4509a9  $official23" | sha256sum -c -
+          echo "MORPHE_OFFICIAL_LATEST_PATCHES_TEST_FILE=$official23" >> "$GITHUB_ENV"
+          # SHA-256 pinned official experimental bundle probes new Patcher 2.5.0 APIs.
+          # This fixture is read-only; it is NOT accepted as a user app-update.
+          experimental="$RUNNER_TEMP/official-patches-2.4.0-dev.7.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/MorpheApp/morphe-patches/releases/download/v2.4.0-dev.7/patches-2.4.0-dev.7.mpp' -o "$experimental"
+          echo "f904d0cb74ca98562d4e0e4f2ab61d7d62d72b7504ef3bc0d1ae0309074b9056  $experimental" | sha256sum -c -
+          echo "MORPHE_OFFICIAL_EXPERIMENTAL_PATCHES_TEST_FILE=$experimental" >> "$GITHUB_ENV"
+          piko="$RUNNER_TEMP/piko-patches-3.11.1.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/crimera/piko/releases/download/v3.11.1/patches-3.11.1.mpp' -o "$piko"
+          echo "dde8e119e2ab0d13f8245a63385581fc1a5eb8016d66f63c31ddd75f2729953b  $piko" | sha256sum -c -
+          echo "MORPHE_PIKO_PATCHES_TEST_FILE=$piko" >> "$GITHUB_ENV"
+          froggo="$RUNNER_TEMP/froggo-patches-1.2.4.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/SapitoSucio/FroggoMorphePatches/releases/download/v1.2.4/patches-1.2.4.mpp' -o "$froggo"
+          echo "826590e366b197ba703692595aa5754fdb25d739c001abcd9f6456c2b7eb3b06  $froggo" | sha256sum -c -
+          echo "MORPHE_FROGGO_PATCHES_TEST_FILE=$froggo" >> "$GITHUB_ENV"
+          # 2026-11-21: hoo-dles repository is blocked by GitHub (ToS).
+          # Never evade this block or download from an unverified mirror.
+          # Other independently SHA-pinned original fixtures remain required.
+          patchedup="$RUNNER_TEMP/patchedup-patches-1.10.0.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/docbt/patched-up/releases/download/v1.10.0/patches-1.10.0.mpp' -o "$patchedup"
+          echo "58d9ba04c70f65bc0e6af3f58ac0b632d9fe7afa7e821c6a851c9ca37558123a  $patchedup" | sha256sum -c -
+          echo "MORPHE_PATCHEDUP_PATCHES_TEST_FILE=$patchedup" >> "$GITHUB_ENV"
+          aliexpress="$RUNNER_TEMP/aliexpress-patches-1.0.7.mpp"
+          curl -fL --retry 2 --connect-timeout 20 \
+            'https://github.com/Quantro100/Morphe-patches/releases/download/v1.0.7/patches-1.0.7.mpp' -o "$aliexpress"
+          echo "ebd450b758c9bd4bb3d841c6e3bb2932518151e001ae9d7d46fe1ec2304dfcf8  $aliexpress" | sha256sum -c -
+          echo "MORPHE_ALIEXPRESS_PATCHES_TEST_FILE=$aliexpress" >> "$GITHUB_ENV"
       - name: Build and run tests; do not upload artifacts
         shell: bash
         env:

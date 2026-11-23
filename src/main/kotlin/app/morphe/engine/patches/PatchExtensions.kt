@@ -5,8 +5,17 @@
 
 package app.morphe.engine.patches
 
+import app.morphe.patcher.patch.FormFactor
 import app.morphe.patcher.patch.Patch
 import app.morphe.patcher.patch.SupportedAbi
+
+/** The CLI uses the source-declared form factor, not a guessed package/device type. */
+fun FormFactor?.displayLabel(): String? = when (this) {
+    FormFactor.TV -> "TV"
+    FormFactor.WEARABLE -> "Wear OS"
+    FormFactor.AUTOMOTIVE -> "Automotive"
+    FormFactor.MOBILE, null -> null
+}
 
 fun Patch.versionCodesFor(
     packageName: String?,

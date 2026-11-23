@@ -25,7 +25,9 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -126,6 +128,7 @@ internal fun YourAppsListBody(
     onShowDetail: (PatchedAppRecord) -> Unit,
     paneMaxHeight: Dp,
     showSearch: Boolean,
+    scrollResetKey: Any? = null,
     updateCategory: Boolean = false,
 ) {
     when {
@@ -143,11 +146,17 @@ internal fun YourAppsListBody(
         )
         else -> {
             val listState = rememberLazyListState()
+            LaunchedEffect(scrollResetKey) {
+                // Filter/sort/search transitions always begin at the first result.
+                listState.scrollToItem(0)
+            }
             val headerSearchAllowance = 150.dp // toolbar footprint stays stable across views
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = (paneMaxHeight - headerSearchAllowance).coerceAtLeast(120.dp)),
+                    .heightIn(max = (paneMaxHeight - headerSearchAllowance).coerceAtLeast(120.dp))
+                    // Partially scrolled rows stay within the list rather than behind search.
+                    .clipToBounds(),
             ) {
                 LazyColumn(
                     state = listState,

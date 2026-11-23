@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
+import app.morphe.gui.ui.screens.home.HistoricalSourceIssue
 import app.morphe.gui.ui.theme.MorpheTheme
 import app.morphe.gui.util.FormatUtils
 import app.morphe.gui.util.currentLocale
@@ -89,16 +90,38 @@ internal fun humanSize(bytes: Long): String {
 }
 
 /** A named, read-only explanation of why a source cannot confirm an app-scoped update. */
-internal data class IncompleteUpdateSource(val name: String, val sourceLoaded: Boolean)
+/** The same source evidence is used in the history banner and the technical detail. */
+@Composable
+internal fun historicalSourceIssueText(issue: HistoricalSourceIssue): String = stringResource(when (issue) {
+    HistoricalSourceIssue.SOURCE_UNMATCHED -> Res.string.home_source_issue_unmatched
+    HistoricalSourceIssue.SOURCE_DISABLED -> Res.string.home_source_issue_disabled
+    HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE -> Res.string.home_source_issue_inaccessible
+    HistoricalSourceIssue.SOURCE_POLICY_BLOCKED -> Res.string.home_source_issue_policy_blocked
+    HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED -> Res.string.home_source_issue_restricted
+    HistoricalSourceIssue.TRANSIENT_FAILURE -> Res.string.home_source_issue_transient
+    HistoricalSourceIssue.SOURCE_LOAD_FAILURE -> Res.string.home_source_issue_load
+    HistoricalSourceIssue.SOURCE_NOT_RESOLVED -> Res.string.home_source_issue_unresolved
+    HistoricalSourceIssue.OFFLINE_CACHE -> Res.string.home_source_issue_offline
+    HistoricalSourceIssue.NO_COMPATIBLE_PATCHES -> Res.string.home_source_issue_no_patches
+    HistoricalSourceIssue.CHANGELOG_UNVERIFIED -> Res.string.home_source_issue_changelog
+    HistoricalSourceIssue.CHANNEL_UNVERIFIED -> Res.string.home_source_issue_channel
+})
+
+internal data class IncompleteUpdateSource(
+    val name: String,
+    val sourceLoaded: Boolean,
+    val sourceIssue: HistoricalSourceIssue? = null,
+)
 
 internal fun incompleteUpdateSources(info: RecallUpdateInfo?): List<IncompleteUpdateSource> =
     info?.sources.orEmpty().asSequence()
-        .filter { it.checkIncomplete }
+        .filter { it.checkIncomplete || !it.metadataKnown }
         .map { source ->
             IncompleteUpdateSource(
                 name = source.name,
                 sourceLoaded = !source.resolvedVersion.isNullOrBlank() ||
                     !source.latestAvailableVersion.isNullOrBlank(),
+                sourceIssue = source.sourceIssue,
             )
         }
         .distinctBy { it.name }

@@ -79,7 +79,22 @@ object PatchEngine {
         val disabledPatchIndices: Set<Int> = emptySet(),
         val patchOptions: Map<String, Map<String, Any?>> = emptyMap(),
         val patchOptionIndices: Map<Int, Map<String, Any?>> = emptyMap(),
-    )
+    ) {
+        /** Resolve names ignoring case, then apply index-specific options without losing other fields. */
+        internal fun resolveOptions(patches: List<Patch>): Map<String, Map<String, Any?>> {
+            val resolved = patchOptions.entries.associate { (name, options) ->
+                val declaredName = patches.firstOrNull { it.name.equals(name, ignoreCase = true) }?.name ?: name
+                declaredName to options
+            }.toMutableMap()
+            patchOptionIndices.forEach { (index, options) ->
+                if (index in patches.indices) {
+                    val name = patches[index].name
+                    if (name != null) resolved[name] = resolved[name].orEmpty() + options
+                }
+            }
+            return resolved
+        }
+    }
 
     data class HistoryMetadata(
         val originalPackageName: String? = null,
@@ -116,6 +131,8 @@ object PatchEngine {
         val optionsFile: File? = null,
         val updateOptions: Boolean = false,
         val recordHistory: Boolean = true,
+        /** Original input is never retained without an explicitly selected mode. */
+        val saveOriginalApk: SaveOriginalApk? = null,
         val appDisplayName: String? = null,
         val historyMetadata: HistoryMetadata? = null,
     ) {
@@ -172,6 +189,7 @@ object PatchEngine {
             ApkOutputNaming.outputApkPath(
                 inputApk = config.inputApk,
                 patchesFile = primaryPatchesFile,
+                baseOutputDir = OriginalApkStore.shared.outputBaseFor(config.inputApk),
                 appDisplayName = displayName,
             )
         }
@@ -213,6 +231,8 @@ object PatchEngine {
         ) { session ->
             val tempDir = session.root
             var mergedApkToCleanup: File? = null
+            var obbDirToCleanup: File? = null
+            var obbFiles: Map<String, File> = emptyMap()
             val stepResults = mutableListOf<StepResult>()
             val appliedPatches = mutableListOf<String>()
             val failedPatches = mutableListOf<FailedPatch>()
@@ -267,11 +287,16 @@ object PatchEngine {
                     val stagedBundle = stageSplitBundleInput(inputApk, tempDir)
 
                     try {
-                        ApkMerger(JulLogger.getLogger("app.morphe.patcher.ApkMerger").toMorpheLogger()).merge(
+                        val merger = ApkMerger(JulLogger.getLogger("app.morphe.patcher.ApkMerger").toMorpheLogger())
+                        merger.merge(
                             inputFile = stagedBundle,
                             outputFile = mergedApk,
                             cleanMetaInf = false,
                         )
+                        val obbDir = File(tempDir, "obb")
+                        obbDirToCleanup = obbDir
+                        obbFiles = merger.extractObbFiles(inputApk, obbDir)
+                        if (obbFiles.isNotEmpty()) info("Extracted ${obbFiles.size} OBB file(s) from the bundle")
                     } finally {
                         if (stagedBundle != inputApk) {
                             runCatching { Files.deleteIfExists(stagedBundle.toPath()) }
@@ -308,6 +333,7 @@ object PatchEngine {
                 progress = { task, done, total ->
                     if (scopeContext.isActive) onEvent(PatchEvent.TaskProgress(task, done, total))
                 },
+                obbFiles = obbFiles,
             )
 
             report(PatchEvent.StepStarted(PatchStep.LOADING_PATCHES))
@@ -426,16 +452,7 @@ object PatchEngine {
                         val jsonOpts = jsonOptionsByFile[lb.sourceFile] ?: emptyMap()
 
                         val patchesList = lb.patches.toList()
-                        val resolvedScopeOptions = scope.patchOptions.toMutableMap()
-                        scope.patchOptionIndices.forEach { (idx, opts) ->
-                            if (idx in patchesList.indices) {
-                                val name = patchesList[idx].name
-                                if (name != null) {
-                                    val existing = resolvedScopeOptions[name] ?: emptyMap()
-                                    resolvedScopeOptions[name] = existing + opts
-                                }
-                            }
-                        }
+                        val resolvedScopeOptions = scope.resolveOptions(patchesList)
 
                         val effectiveEnabledNames = scope.enabledPatchNames.ifEmpty { config.enabledPatches }
                         val effectiveDisabledNames = scope.disabledPatchNames.ifEmpty { config.disabledPatches }
@@ -661,6 +678,25 @@ object PatchEngine {
                     try {
                         val (sha, size) = FileChecksum.fingerprintOrNull(finalOutputApk.absolutePath)
                         val manifest = runCatching { ApkInspector.inspect(finalOutputApk) }.getOrNull()
+                        val originalPackage = config.historyMetadata?.originalPackageName
+                            ?.takeIf { it.isNotBlank() } ?: packageName
+                        // Copy is deliberately performed only after a successful patch result.
+                        // Existing kept originals are never replaced or purged automatically.
+                        val kept = if (config.saveOriginalApk != null &&
+                            config.inputApk.isFile &&
+                            config.inputApk.canonicalFile != finalOutputApk.canonicalFile
+                        ) {
+                            try {
+                                info("Saving user-requested original APK copy...")
+                                OriginalApkStore.shared.save(config.inputApk, originalPackage, packageVersion)
+                                    .also { if (it != null) info("Original APK copy verified and retained.") }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                warn("Could not retain the original APK: " + (e.message ?: e::class.simpleName))
+                                null
+                            }
+                        } else null
                         val record = PatchedAppRecord(
                             packageName = config.historyMetadata?.originalPackageName?.takeIf { it.isNotBlank() } ?: packageName,
                             currentPackageName = manifest?.packageName,
@@ -669,7 +705,7 @@ object PatchEngine {
                                 ?: packageName,
                             apkVersion = manifest?.versionName?.takeIf { it.isNotBlank() } ?: packageVersion,
                             apkVersionCode = manifest?.versionCode,
-                            inputApkPath = config.inputApk.absolutePath,
+                            inputApkPath = (kept ?: config.inputApk).absolutePath,
                             outputApkPath = finalOutputApk.absolutePath,
                             outputApkSha256 = sha,
                             outputApkSize = if (size > 0L) size else finalOutputApk.length(),
@@ -681,6 +717,18 @@ object PatchEngine {
                         )
                         PatchedAppStore.shared.upsert(record)
                         historyRecord = record
+                        // MOVE is never an implicit cleanup. Only the explicitly chosen
+                        // MOVE mode may remove an input, and only after persisted history,
+                        // preserved bytes and unchanged input have been verified.
+                        if (config.saveOriginalApk == SaveOriginalApk.MOVE && kept != null) {
+                            if (!OriginalApkStore.shared.removeVerifiedSourceAfterHistory(
+                                    config.inputApk, kept, record.packageName
+                                )) {
+                                warn("Original preserved, but source file was not removed; check it manually.")
+                            } else {
+                                info("Explicitly requested original APK move completed after history verification.")
+                            }
+                        }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -727,6 +775,7 @@ object PatchEngine {
             patcherLogger.useParentHandlers = prevUseParentHandlers
             if (!session.retain) {
                 mergedApkToCleanup?.delete()
+                obbDirToCleanup?.deleteRecursively()
             }
 
             if (config.optionsFile != null && config.updateOptions && patchesSnapshotForFinally.isNotEmpty()) {

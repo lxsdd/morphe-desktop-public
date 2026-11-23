@@ -61,6 +61,7 @@ import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.PatchedAppState
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
 import app.morphe.gui.ui.theme.MorpheTheme
+import app.morphe.gui.util.FormatUtils
 import app.morphe.gui.util.LocalPatchSourceHeader
 import app.morphe.gui.util.MorpheFilePicker
 import app.morphe.morphe_desktop.generated.resources.*
@@ -139,9 +140,11 @@ internal fun IdentityBand(
             if (unfinished.isNotEmpty()) {
                 val sourceMissing = stringResource(Res.string.home_update_source_not_loaded)
                 val changeProofMissing = stringResource(Res.string.home_update_source_proof_missing)
-                val descriptions = unfinished.joinToString(" · ") { source ->
-                    source.name + ": " + if (source.sourceLoaded) changeProofMissing else sourceMissing
-                }
+                val descriptions = unfinished.map { source ->
+                    val explanation = source.sourceIssue?.let { historicalSourceIssueText(it) }
+                        ?: if (source.sourceLoaded) changeProofMissing else sourceMissing
+                    source.name + ": " + explanation
+                }.joinToString(" · ")
                 InfoNote(stringResource(Res.string.home_update_unverified_sources, descriptions))
             }
         }
@@ -255,14 +258,14 @@ internal fun ApkSourceSection(
             label = stringResource(Res.string.version_label_stable),
             color = accents.primary,
             versions = app.supportedVersions,
-            packageName = app.packageName,
+            app = app,
             onOpenUrl = uriHandler::openUri,
         )
         VersionChipGroup(
             label = stringResource(Res.string.version_label_experimental),
             color = accents.warning,
             versions = app.experimentalVersions,
-            packageName = app.packageName,
+            app = app,
             onOpenUrl = uriHandler::openUri,
         )
     }
@@ -525,7 +528,7 @@ private fun VersionChipGroup(
     label: String,
     color: Color,
     versions: List<String>,
-    packageName: String,
+    app: SupportedApp,
     onOpenUrl: (String) -> Unit,
 ) {
     if (versions.isEmpty()) return
@@ -536,13 +539,15 @@ private fun VersionChipGroup(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         versions.forEach { v ->
-            val url = remember(v) { SupportedApp.getDownloadUrl(packageName, v) }
+            val url = app.downloadUrl(v)
+            val label = FormatUtils.formatVersionWithBuild(v, app.requiredBuildCodes(v))
             MorpheCardChip(
-                text = v,
+                text = label,
+                tooltip = label.takeIf { it != v },
                 icon = if (url != null) MorpheIcons.OpenInNew else null,
                 onCard = false,
                 // Followed here rather than by the browser, which cannot send the patch source header
-                onClick = { url?.let { openUrlAndFollowRedirects(it, patchSourceHeader(packageName), onOpenUrl) } },
+                onClick = { url?.let { openUrlAndFollowRedirects(it, patchSourceHeader(app.packageName), onOpenUrl) } },
             )
         }
     }

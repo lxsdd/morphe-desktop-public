@@ -20,11 +20,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.morphe.engine.model.SupportedApp
 import app.morphe.engine.util.DownloadUrlResolver.openUrlAndFollowRedirects
+import app.morphe.gui.util.FormatUtils
 import app.morphe.gui.util.LocalPatchSourceHeader
 import app.morphe.gui.ui.components.AppCard
 import app.morphe.gui.ui.components.LocalCardFills
 import app.morphe.gui.ui.components.MorpheAppAvatar
 import app.morphe.gui.ui.components.MorpheAvatarSize
+import app.morphe.gui.ui.components.FormFactorBadge
+import app.morphe.gui.ui.components.hasVisibleFormFactorBadge
 import app.morphe.gui.ui.components.MorpheBadge
 import app.morphe.gui.ui.components.MorpheBadgeTone
 import app.morphe.gui.ui.components.MorpheCardChip
@@ -95,6 +98,10 @@ fun SupportedAppListRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            if (app.formFactor.hasVisibleFormFactorBadge()) {
+                Spacer(Modifier.width(8.dp))
+                FormFactorBadge(formFactor = app.formFactor, onGradient = !cardColors.isMonochrome)
+            }
             if (patchedState != PatchedAppState.NEVER_PATCHED) {
                 Spacer(Modifier.width(8.dp))
                 PatchedStateBadge(patchedState)
@@ -112,6 +119,7 @@ fun SupportedAppListRow(
                 downloadUrl = app.apkDownloadUrl,
                 packageName = app.packageName,
                 nullLabel = stringResource(Res.string.home_app_row_any),
+                buildCodes = app.recommendedVersion?.let(app::requiredBuildCodes).orEmpty(),
             )
             if (!isSimple) {
                 VersionCardChip(
@@ -120,6 +128,7 @@ fun SupportedAppListRow(
                     downloadUrl = app.experimentalDownloadUrl,
                     packageName = app.packageName,
                     nullLabel = stringResource(Res.string.home_app_row_na),
+                    buildCodes = latestExperimental?.let(app::requiredBuildCodes).orEmpty(),
                 )
             }
         }
@@ -186,12 +195,15 @@ private fun VersionCardChip(
     downloadUrl: String?,
     packageName: String,
     nullLabel: String,
+    buildCodes: Set<Int> = emptySet(),
 ) {
     val uriHandler = LocalUriHandler.current
     val patchSourceHeader = LocalPatchSourceHeader.current
-    val shown = version?.let { if (it.startsWith("v")) it else "v$it" } ?: nullLabel
+    val baseShown = version?.let { if (it.startsWith("v")) it else "v$it" } ?: nullLabel
+    val shown = if (version == null) baseShown else FormatUtils.formatVersionWithBuild(baseShown, buildCodes)
     MorpheCardChip(
         text = "$channelLabel · $shown",
+        tooltip = if (buildCodes.isNotEmpty()) "$channelLabel · $shown" else null,
         icon = if (downloadUrl != null) MorpheIcons.OpenInNew else null,
         onClick = downloadUrl?.let {
             {
@@ -234,7 +246,7 @@ private fun ExpandedBody(
                 label = stringResource(Res.string.version_label_stable),
                 color = chipInk,
                 versions = app.supportedVersions,
-                packageName = app.packageName,
+                app = app,
                 onOpenUrl = uriHandler::openUri,
             )
 
@@ -242,7 +254,7 @@ private fun ExpandedBody(
                 label = stringResource(Res.string.version_label_experimental),
                 color = chipInk,
                 versions = app.experimentalVersions,
-                packageName = app.packageName,
+                app = app,
                 onOpenUrl = uriHandler::openUri,
             )
         }
@@ -254,7 +266,7 @@ private fun VersionChipSection(
     label: String,
     color: Color,
     versions: List<String>,
-    packageName: String,
+    app: SupportedApp,
     onOpenUrl: (String) -> Unit,
     maxPills: Int = 16,
 ) {
@@ -266,12 +278,14 @@ private fun VersionChipSection(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         versions.take(maxPills).forEach { v ->
-            val url = remember(v) { SupportedApp.getDownloadUrl(packageName, v) }
+            val url = app.downloadUrl(v)
+            val label = FormatUtils.formatVersionWithBuild(v, app.requiredBuildCodes(v))
             MorpheCardChip(
-                text = v,
+                text = label,
+                tooltip = label.takeIf { it != v },
                 icon = if (url != null) MorpheIcons.OpenInNew else null,
                 // Followed here rather than by the browser, which cannot send the patch source header
-                onClick = url?.let { { openUrlAndFollowRedirects(it, patchSourceHeader(packageName), onOpenUrl) } },
+                onClick = url?.let { { openUrlAndFollowRedirects(it, patchSourceHeader(app.packageName), onOpenUrl) } },
             )
         }
         if (versions.size > maxPills) {

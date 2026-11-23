@@ -23,6 +23,7 @@ import app.morphe.gui.data.repository.ConfigRepository
 import app.morphe.gui.data.repository.PatchSourceManager
 import app.morphe.morphe_desktop.generated.resources.*
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +44,8 @@ class PatchesViewModel(
 
     private val _uiState = MutableStateFlow(PatchesUiState())
     val uiState: StateFlow<PatchesUiState> = _uiState.asStateFlow()
+    private val releaseLoadEpoch = AtomicLong(0)
+    private val downloadEpoch = AtomicLong(0)
 
     init {
         loadReleases()
@@ -60,8 +63,12 @@ class PatchesViewModel(
     }
 
     fun loadReleases() {
+        val loadEpoch = releaseLoadEpoch.incrementAndGet()
+        downloadEpoch.incrementAndGet() // A previous source's download must not update this screen.
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                isLoading = true, error = null, isDownloading = false, downloadProgress = 0f,
+            )
 
             // For local sources, use the file directly.
             if (localPatchFilePath != null) {
@@ -82,6 +89,8 @@ class PatchesViewModel(
             }
 
             val result = patchRepository.fetchReleases()
+            // An older remote response must never overwrite the current source's versions.
+            if (releaseLoadEpoch.get() != loadEpoch) return@launch
 
             result.fold(
                 onSuccess = { releases ->
@@ -91,7 +100,12 @@ class PatchesViewModel(
                     val activeSource = patchSourceManager?.getActiveSource()
                     val activeSourceId = activeSource?.id
                     val pref = activeSourceId?.let { configRepository.getSourceVersionPrefs()[it] }
-                    val usePreRelease = activeSource?.usePreRelease == true
+                    // Persisted source mode is authoritative even if old channel flags drift.
+                    val usePreRelease = when (pref?.mode) {
+                        FollowMode.FOLLOW_DEV -> true
+                        FollowMode.FOLLOW_STABLE -> false
+                        FollowMode.PINNED, null -> activeSource?.usePreRelease == true
+                    }
 
                     val savedVersion = when (pref?.mode) {
                         FollowMode.PINNED -> pref.pinnedTag
@@ -102,18 +116,12 @@ class PatchesViewModel(
                         }
                     }
 
-                    // Resolve saved release or fall back to latest release.
-                    val initialRelease = if (savedVersion != null) {
-                        stableReleases.find { it.tagName == savedVersion }
-                            ?: devReleases.find { it.tagName == savedVersion }
-                            ?: stableReleases.firstOrNull()
-                    } else {
-                        if (usePreRelease) {
-                            newerRelease(devReleases.firstOrNull(), stableReleases.firstOrNull())
-                        } else {
-                            stableReleases.firstOrNull()
-                        }
-                    }
+                    // Never preselect a substitute when the configured source pin is missing.
+                    val initialRelease = initialSourceRelease(
+                        pref, savedVersion, stableReleases + devReleases,
+                        if (usePreRelease) newerRelease(devReleases.firstOrNull(), stableReleases.firstOrNull())
+                        else stableReleases.firstOrNull(),
+                    )
 
                     val initialChannel = if (initialRelease != null && initialRelease.isDevRelease()) {
                         ReleaseChannel.DEV
@@ -137,7 +145,11 @@ class PatchesViewModel(
                         selectedChannel = initialChannel,
                         selectedRelease = initialRelease,
                         downloadedPatchFile = cachedFile,
-                        cachedReleaseVersions = cachedVersions
+                        cachedReleaseVersions = cachedVersions,
+                        sourceId = activeSourceId,
+                        sourceName = activeSource?.name,
+                        sourceTrackingMode = pref?.mode,
+                        inUseTag = sourceInUseTag(pref, usePreRelease, stableReleases, devReleases),
                     )
                     Logger.info("Loaded ${stableReleases.size} stable and ${devReleases.size} dev releases, saved=$savedVersion, selected=${initialRelease?.tagName}, cached: ${cachedFile != null}")
                 },
@@ -148,7 +160,11 @@ class PatchesViewModel(
                         val activeSource = patchSourceManager?.getActiveSource()
                         val activeSourceId = activeSource?.id
                         val pref = activeSourceId?.let { configRepository.getSourceVersionPrefs()[it] }
-                        val usePreRelease = activeSource?.usePreRelease == true
+                        val usePreRelease = when (pref?.mode) {
+                            FollowMode.FOLLOW_DEV -> true
+                            FollowMode.FOLLOW_STABLE -> false
+                            FollowMode.PINNED, null -> activeSource?.usePreRelease == true
+                        }
 
                         val savedVersion = when (pref?.mode) {
                             FollowMode.PINNED -> pref.pinnedTag
@@ -162,11 +178,8 @@ class PatchesViewModel(
                             }
                         }
 
-                        // Select saved version or fall back to most recent offline release.
-                        val initialRelease = if (savedVersion != null) {
-                            offlineReleases.find { it.tagName == savedVersion }
-                        } else null
-                        val selected = initialRelease ?: if (usePreRelease) {
+                        // A cached offline release must not silently replace a missing source pin.
+                        val offlineFallback = if (usePreRelease) {
                             newerRelease(
                                 offlineReleases.firstOrNull { it.isDevRelease() },
                                 offlineReleases.firstOrNull { !it.isDevRelease() },
@@ -174,6 +187,9 @@ class PatchesViewModel(
                         } else {
                             offlineReleases.firstOrNull { !it.isDevRelease() } ?: offlineReleases.firstOrNull()
                         }
+                        val selected = initialSourceRelease(
+                            pref, savedVersion, offlineReleases, offlineFallback,
+                        )
 
                         val cachedFile = selected?.let { PatchCache.getCachedFile(patchRepository.repoPath, it) }
 
@@ -184,6 +200,14 @@ class PatchesViewModel(
                             selectedRelease = selected,
                             downloadedPatchFile = cachedFile,
                             cachedReleaseVersions = offlineReleases.map { it.tagName }.toSet(),
+                            sourceId = activeSourceId,
+                            sourceName = activeSource?.name,
+                            sourceTrackingMode = pref?.mode,
+                            inUseTag = sourceInUseTag(
+                                pref, usePreRelease,
+                                offlineReleases.filterNot { it.isDevRelease() },
+                                offlineReleases.filter { it.isDevRelease() },
+                            ),
                             error = null
                         )
                         Logger.info("Offline, found ${offlineReleases.size} cached release(s), selected=${selected?.tagName}")
@@ -200,65 +224,98 @@ class PatchesViewModel(
         }
     }
 
+    fun setVersionQuery(query: String) {
+        _uiState.value = _uiState.value.copy(versionQuery = query)
+    }
+
     fun selectRelease(release: Release) {
+        val previous = _uiState.value
+        val changed = previous.selectedRelease?.tagName != release.tagName
+        if (changed) downloadEpoch.incrementAndGet()
         val cachedFile = PatchCache.getCachedFile(patchRepository.repoPath, release)
 
-        _uiState.value = _uiState.value.copy(
+        _uiState.value = previous.copy(
             selectedRelease = release,
-            downloadedPatchFile = cachedFile
+            selectedChannel = releaseChannel(release),
+            downloadedPatchFile = cachedFile,
+            isDownloading = if (changed) false else previous.isDownloading,
+            downloadProgress = if (changed) 0f else previous.downloadProgress,
         )
         Logger.info("Selected release: ${release.tagName}, cached: ${cachedFile != null}")
     }
 
     fun setChannel(channel: ReleaseChannel) {
+        val previous = _uiState.value
         val newRelease = when (channel) {
-            ReleaseChannel.STABLE -> _uiState.value.stableReleases.firstOrNull()
-            ReleaseChannel.DEV -> _uiState.value.devReleases.firstOrNull()
+            ReleaseChannel.STABLE -> previous.stableReleases.firstOrNull()
+            ReleaseChannel.DEV -> previous.devReleases.firstOrNull()
         }
-
+        val changed = previous.selectedRelease?.tagName != newRelease?.tagName
+        if (changed) downloadEpoch.incrementAndGet()
         val cachedFile = newRelease?.let { PatchCache.getCachedFile(patchRepository.repoPath, it) }
-
-        _uiState.value = _uiState.value.copy(
+        _uiState.value = previous.copy(
             selectedChannel = channel,
             selectedRelease = newRelease,
-            downloadedPatchFile = cachedFile
+            downloadedPatchFile = cachedFile,
+            isDownloading = if (changed) false else previous.isDownloading,
+            downloadProgress = if (changed) 0f else previous.downloadProgress,
         )
     }
 
     fun downloadPatches() {
-        val release = _uiState.value.selectedRelease ?: return
+        val requestState = _uiState.value
+        val release = requestState.selectedRelease ?: return
+        if (requestState.isDownloading) return
+
+        // A source ID is part of the download's identity, not just its tag/version.
+        val requestedSourceId = requestState.sourceId
+        val loadGeneration = releaseLoadEpoch.get()
+        val requestGeneration = downloadEpoch.incrementAndGet()
+        fun isCurrentRequest(): Boolean = canApplySourceDownload(
+            _uiState.value, release, requestedSourceId, requestedSourceId,
+            downloadEpoch.get() == requestGeneration && releaseLoadEpoch.get() == loadGeneration,
+        )
 
         viewModelScope.launch {
+            // The live source resolver is suspend; only query it inside this coroutine.
+            if (!isCurrentRequest() || patchSourceManager?.getActiveSource()?.id != requestedSourceId) {
+                return@launch
+            }
             _uiState.value = _uiState.value.copy(
                 isDownloading = true,
                 downloadProgress = 0f,
-                error = null
+                error = null,
             )
 
             val result = patchRepository.downloadPatches(release) { progress ->
-                _uiState.value = _uiState.value.copy(downloadProgress = progress)
+                // A late callback must not paint progress over another source/release.
+                if (isCurrentRequest()) {
+                    _uiState.value = _uiState.value.copy(downloadProgress = progress)
+                }
             }
-
+            // Re-read the live source after suspension before adopting/persisting a result.
+            if (!isCurrentRequest() || patchSourceManager?.getActiveSource()?.id != requestedSourceId) {
+                return@launch
+            }
             result.fold(
                 onSuccess = { patchFile ->
                     _uiState.value = _uiState.value.copy(
                         isDownloading = false,
                         downloadedPatchFile = patchFile,
                         downloadProgress = 1f,
-                        cachedReleaseVersions = _uiState.value.cachedReleaseVersions + release.tagName
+                        cachedReleaseVersions = _uiState.value.cachedReleaseVersions + release.tagName,
                     )
                     Logger.info("Patches downloaded: ${patchFile.absolutePath}")
-
-                    // Persist release preference for this source.
                     persistReleasePreference(release, "Saved")
                 },
                 onFailure = { e ->
+                    if (e is CancellationException) throw e
                     _uiState.value = _uiState.value.copy(
                         isDownloading = false,
-                        error = e.message ?: getString(Res.string.patches_error_failed_to_download_patches)
+                        error = e.message ?: getString(Res.string.patches_error_failed_to_download_patches),
                     )
                     Logger.error("Failed to download patches", e)
-                }
+                },
             )
         }
     }
@@ -283,8 +340,17 @@ class PatchesViewModel(
     private suspend fun persistReleasePreference(release: Release, actionDescription: String) {
         val activeSource = patchSourceManager?.getActiveSource() ?: return
         val activeSourceId = activeSource.id
+        // Source changes may race with the old screen's pending Select action.
+        if (_uiState.value.sourceId != activeSourceId) return
         val pref = versionPrefFor(release)
         configRepository.setSourceVersionPref(activeSourceId, pref)
+        // Only this exact source's successfully saved selection becomes its "in use" tag.
+        if (_uiState.value.sourceId == activeSourceId) {
+            _uiState.value = _uiState.value.copy(
+                inUseTag = release.tagName,
+                sourceTrackingMode = pref.mode,
+            )
+        }
 
         val newestDevTag = _uiState.value.devReleases.firstOrNull()?.tagName
         val isDevSelected = release.isDevRelease() && release.tagName == newestDevTag
@@ -346,6 +412,13 @@ data class PatchesUiState(
     val devReleases: List<Release> = emptyList(),
     val selectedChannel: ReleaseChannel = ReleaseChannel.STABLE,
     val selectedRelease: Release? = null,
+    /** Source-scoped persisted release, not the unsaved selection or a generic app update. */
+    val sourceId: String? = null,
+    val sourceName: String? = null,
+    val sourceTrackingMode: FollowMode? = null,
+    val inUseTag: String? = null,
+    /** Searching spans stable and experimental releases but never rewrites preferences. */
+    val versionQuery: String = "",
     val isDownloading: Boolean = false,
     val downloadProgress: Float = 0f,
     val downloadedPatchFile: File? = null,

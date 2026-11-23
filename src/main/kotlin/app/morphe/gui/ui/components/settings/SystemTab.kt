@@ -9,15 +9,30 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
+import java.awt.Desktop
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.unit.dp
+import app.morphe.engine.SaveOriginalApk
+import app.morphe.engine.MorpheData
 import app.morphe.gui.data.constants.AppConstants
 import app.morphe.gui.data.model.UpdateChannelPreference
+import app.morphe.gui.ui.components.MorpheAlertDialog
+import app.morphe.gui.ui.components.MorpheButton
+import app.morphe.gui.ui.components.MorpheButtonVariant
 import app.morphe.gui.ui.components.MorpheDropdown
 import app.morphe.gui.ui.components.MorpheDropdownItem
 import app.morphe.gui.ui.icons.MorpheIcons
@@ -30,6 +45,8 @@ import org.jetbrains.compose.resources.stringResource
 internal fun SystemTab(
     autoCleanupTempFiles: Boolean,
     onAutoCleanupChange: (Boolean) -> Unit,
+    originalApkMode: SaveOriginalApk?,
+    onOriginalApkModeChange: (SaveOriginalApk?) -> Unit,
     updateChannelPreference: UpdateChannelPreference,
     onUpdateChannelChange: (UpdateChannelPreference) -> Unit,
     defaultOutputDirectory: String?,
@@ -73,6 +90,14 @@ internal fun SystemTab(
 
     SettingsDivider(borderColor)
 
+    OriginalApkRetentionSection(
+        current = originalApkMode,
+        onChange = onOriginalApkModeChange,
+        enabled = !isPatching,
+    )
+
+    SettingsDivider(borderColor)
+
     SettingToggleRow(
         label = stringResource(Res.string.settings_toggle_auto_start_adb_label),
         description = stringResource(Res.string.settings_toggle_auto_start_adb_desc),
@@ -80,6 +105,13 @@ internal fun SystemTab(
         onCheckedChange = onAutoStartAdbChange,
         enabled = !isPatching,
         icon = MorpheIcons.ADB
+    )
+
+    SettingsDivider(borderColor)
+
+    StorageOverview(
+        enabled = !isPatching,
+        borderColor = borderColor,
     )
 
     SettingsDivider(borderColor)
@@ -170,7 +202,7 @@ private fun UpdateChannelRow(
     }
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().settingsJumpAnchor(stringResource(Res.string.settings_channel_label)),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -219,3 +251,111 @@ private val UpdateChannelPreference.displayNameRes: StringResource
         UpdateChannelPreference.DEV -> Res.string.version_label_prerelease
         UpdateChannelPreference.OFF -> Res.string.off
     }
+
+/** An explicit, reversible user preference. MOVE is gated by an extra warning. */
+@Composable
+private fun OriginalApkRetentionSection(
+    current: SaveOriginalApk?,
+    onChange: (SaveOriginalApk?) -> Unit,
+    enabled: Boolean,
+) {
+    var confirmMove by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val originalsDir = MorpheData.originalApksDir
+    val storedCount by produceState(0) {
+        value = withContext(Dispatchers.IO) {
+            originalsDir.listFiles()?.count { it.isFile && !java.nio.file.Files.isSymbolicLink(it.toPath()) } ?: 0
+        }
+    }
+    val title = stringResource(Res.string.custom_original_title)
+    val label = when (current) {
+        null -> stringResource(Res.string.custom_original_off)
+        SaveOriginalApk.COPY -> stringResource(Res.string.custom_original_copy)
+        SaveOriginalApk.MOVE -> stringResource(Res.string.custom_original_move)
+    }
+    SectionLabel(title, icon = MorpheIcons.FolderOpen)
+    Spacer(Modifier.height(6.dp))
+    Text(
+        text = stringResource(Res.string.custom_original_description),
+        style = MorpheTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(8.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = stringResource(Res.string.custom_original_mode),
+            style = MorpheTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f).settingsJumpAnchor(title),
+        )
+        MorpheDropdown(
+            label = label,
+            items = listOf(
+                MorpheDropdownItem(label = stringResource(Res.string.custom_original_off),
+                    onClick = { onChange(null) }),
+                MorpheDropdownItem(label = stringResource(Res.string.custom_original_copy),
+                    onClick = { onChange(SaveOriginalApk.COPY) }),
+                MorpheDropdownItem(label = stringResource(Res.string.custom_original_move),
+                    onClick = { confirmMove = true }),
+            ),
+            enabled = enabled,
+            modifier = Modifier.width(150.dp),
+        )
+    }
+    Text(
+        text = when (current) {
+            null -> stringResource(Res.string.custom_original_off_description)
+            SaveOriginalApk.COPY -> stringResource(Res.string.custom_original_copy_description)
+            SaveOriginalApk.MOVE -> stringResource(Res.string.custom_original_move_description)
+        },
+        style = MorpheTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Text(
+        text = stringResource(Res.string.custom_original_stored_count, storedCount),
+        style = MorpheTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    if (storedCount > 0 && originalsDir.isDirectory) {
+        MorpheButton(
+            label = stringResource(Res.string.custom_original_open_folder),
+            onClick = {
+                scope.launch(Dispatchers.IO) {
+                    runCatching {
+                        if (originalsDir.isDirectory && Desktop.isDesktopSupported()) {
+                            Desktop.getDesktop().open(originalsDir)
+                        }
+                    }
+                }
+            },
+            variant = MorpheButtonVariant.OUTLINED,
+        )
+    }
+    if (confirmMove) {
+        MorpheAlertDialog(
+            onDismiss = { confirmMove = false },
+            title = { Text(stringResource(Res.string.custom_original_move_confirm_title)) },
+            text = { Text(stringResource(Res.string.custom_original_move_confirm_body)) },
+            confirmButton = {
+                MorpheButton(
+                    label = stringResource(Res.string.custom_original_move),
+                    onClick = {
+                        confirmMove = false
+                        if (enabled) onChange(SaveOriginalApk.MOVE)
+                    },
+                    variant = MorpheButtonVariant.DANGER,
+                )
+            },
+            dismissButton = {
+                MorpheButton(
+                    label = stringResource(Res.string.cancel),
+                    onClick = { confirmMove = false },
+                    variant = MorpheButtonVariant.OUTLINED,
+                )
+            },
+        )
+    }
+}

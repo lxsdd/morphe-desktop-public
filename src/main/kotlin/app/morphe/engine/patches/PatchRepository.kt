@@ -94,13 +94,32 @@ class PatchRepository(
             }
         }
 
+    /**
+     * Explicit online release audit, separate from choosing a trusted bundle.
+     * Never return stale releases as if the current remote catalog were verified.
+     * A successful response also refreshes the versions browser's 5-minute cache.
+     */
+    suspend fun auditPublishedReleases(): Result<List<Release>> = withContext(Dispatchers.IO) {
+        val online = remoteSource.listReleases()
+        val fresh = online.getOrNull()
+        if (fresh != null) {
+            fetchMutex.withLock {
+                cachedReleases = fresh
+                lastFailureResult = null
+                cacheTimestamp = System.currentTimeMillis()
+                lastCacheHitLogTimestamp = cacheTimestamp
+            }
+        }
+        online
+    }
+
     /** Stable releases only (non-prerelease). */
     suspend fun fetchStableReleases(forceRefresh: Boolean = false): Result<List<Release>> =
-        fetchReleases(forceRefresh = forceRefresh).map { releases -> releases.filter { !it.isDevRelease() } }
+        fetchReleases(forceRefresh = forceRefresh).map { releases -> releases.filter { it.isUsablePublishedBundleRelease() && !it.isDevRelease() } }
 
     /** Dev / prerelease versions only. */
     suspend fun fetchDevReleases(forceRefresh: Boolean = false): Result<List<Release>> =
-        fetchReleases(forceRefresh = forceRefresh).map { releases -> releases.filter { it.isDevRelease() } }
+        fetchReleases(forceRefresh = forceRefresh).map { releases -> releases.filter { it.isUsablePublishedBundleRelease() && it.isDevRelease() } }
 
     suspend fun getLatestStableRelease(forceRefresh: Boolean = false): Result<Release?> =
         latestFromManifestOrApi(prerelease = false, forceRefresh = forceRefresh)
@@ -122,14 +141,14 @@ class PatchRepository(
                 return@withContext Result.success(release)
             }
             if (prerelease) fetchDevReleases(forceRefresh = forceRefresh).map { list ->
-                list.firstOrNull()?.let {
+                fallbackPublishedBundleRelease(list, prerelease)?.let {
                     if (repoPath.equals(RemotePatchSourceFactory.DEFAULT_REPO_PATH, ignoreCase = true)) {
                         it.copy(publicKey = it.publicKey ?: RemotePatchSourceFactory.OFFICIAL_PATCHES_SIGNING_KEY)
                     } else it
                 }
             }
             else fetchStableReleases(forceRefresh = forceRefresh).map { list ->
-                list.firstOrNull()?.let {
+                fallbackPublishedBundleRelease(list, prerelease)?.let {
                     if (repoPath.equals(RemotePatchSourceFactory.DEFAULT_REPO_PATH, ignoreCase = true)) {
                         it.copy(publicKey = it.publicKey ?: RemotePatchSourceFactory.OFFICIAL_PATCHES_SIGNING_KEY)
                     } else it

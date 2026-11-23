@@ -31,6 +31,7 @@ import app.morphe.gui.ui.screens.home.DeviceAppInfo
 import app.morphe.gui.ui.screens.home.PatchedAppState
 import app.morphe.gui.ui.screens.home.RecallUpdateInfo
 import app.morphe.gui.ui.theme.MorpheTheme
+import app.morphe.gui.util.rememberLocalLauncherIcon
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
@@ -46,6 +47,8 @@ fun YourAppRow(
     appIconColorHex: String? = null,
 ) {
     val cardFills = LocalCardFills.current
+    // Never pull source APKs from a device for cosmetic rendering.
+    val localIcon = rememberLocalLauncherIcon(record.outputApkPath, record.inputApkPath)
 
     // Device signer/hash checks belong to technical details, not the
     // ordinary inventory. A candidate version is shown ONLY after the
@@ -82,6 +85,7 @@ fun YourAppRow(
                 name = displayName,
                 size = MorpheAvatarSize.MEDIUM,
                 onGradient = !cardColors.isMonochrome,
+                iconBitmap = localIcon,
             )
             Spacer(Modifier.width(12.dp))
             Column(
@@ -111,7 +115,11 @@ fun YourAppRow(
                 }
                 if (hasAppUpdate) {
                     MorpheBadge(
-                        text = stringResource(Res.string.home_your_apps_app_update_status),
+                        text = if (isExperimentalAppUpdate(updateInfo)) {
+                            stringResource(Res.string.home_your_apps_experimental_update_status)
+                        } else {
+                            stringResource(Res.string.home_your_apps_app_update_status)
+                        },
                         tone = MorpheBadgeTone.Primary,
                     )
                 }

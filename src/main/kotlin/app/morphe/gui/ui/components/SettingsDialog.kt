@@ -6,6 +6,7 @@
 package app.morphe.gui.ui.components
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,6 +29,7 @@ import androidx.compose.ui.window.DialogProperties
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_ALIAS
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_PASSWORD
 import app.morphe.engine.UpdateChecker
+import app.morphe.engine.SaveOriginalApk
 import app.morphe.engine.config.EngineConfigRepository
 import app.morphe.engine.util.Logger
 import app.morphe.gui.LocalAdbPreference
@@ -42,6 +44,9 @@ import app.morphe.gui.data.model.UpdateChannelPreference
 import app.morphe.gui.data.repository.ConfigRepository
 import app.morphe.gui.data.repository.LanguageRepository
 import app.morphe.gui.data.repository.UpdateCheckRepository
+import app.morphe.gui.ui.components.settings.LocalSettingsJumpTarget
+import app.morphe.gui.ui.components.settings.SettingsSearchRouting
+import app.morphe.gui.ui.components.settings.settingsSearchItems
 import app.morphe.gui.ui.components.settings.AdvancedTab
 import app.morphe.gui.ui.components.settings.AppearanceTab
 import app.morphe.gui.ui.components.settings.SystemTab
@@ -67,6 +72,8 @@ fun SettingsDialog(
     onThemeStyleChange: (ThemeStyle) -> Unit = {},
     autoCleanupTempFiles: Boolean,
     onAutoCleanupChange: (Boolean) -> Unit,
+    originalApkMode: SaveOriginalApk? = null,
+    onOriginalApkModeChange: (SaveOriginalApk?) -> Unit = {},
     defaultOutputDirectory: String?,
     onDefaultOutputDirectoryChange: (String?) -> Unit,
     useExpertMode: Boolean,
@@ -100,20 +107,25 @@ fun SettingsDialog(
 ) {
     val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = MorpheTheme.alphas.borderMuted)
     var selectedCategory by remember { mutableStateOf("Appearance") }
+    var searchQuery by remember { mutableStateOf("") }
+    var jumpLabel by remember { mutableStateOf<String?>(null) }
+    // Only static localized UI metadata is indexed; credentials and user paths are excluded.
+    val searchItems = settingsSearchItems(
+        cardColorsAvailable = currentThemeStyle != ThemeStyle.MONOCHROME,
+        advancedLinkOptionsVisible = autoRouteLinksAfterInstall,
+    )
+    val searchMatches = SettingsSearchRouting.find(searchQuery, searchItems)
     val contentScroll = remember(selectedCategory) { ScrollState(0) }
     var showChangelogDialog by remember { mutableStateOf(false) }
-    var showAppInfoDialog by remember { mutableStateOf(false) }
+    var showLicensesDialog by remember { mutableStateOf(false) }
 
     if (showChangelogDialog) {
         ChangelogDialog(
             onDismiss = { showChangelogDialog = false }
         )
     }
-
-    if (showAppInfoDialog) {
-        AppInfoDialog(
-            onDismiss = { showAppInfoDialog = false }
-        )
+    if (showLicensesDialog) {
+        LicensesDialog(onDismiss = { showLicensesDialog = false })
     }
 
     val windowSize = LocalWindowInfo.current.containerSize
@@ -143,14 +155,64 @@ fun SettingsDialog(
             ) {
                 Column(
                     modifier = Modifier
-                        .width(160.dp)
+                        .width(220.dp)
                         .fillMaxHeight(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    SlimSearchField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it; jumpLabel = null },
+                        placeholder = stringResource(Res.string.settings_search_settings_placeholder),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    if (searchQuery.isNotBlank()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().weight(1f)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            if (searchMatches.isEmpty()) {
+                                Text(
+                                    text = stringResource(Res.string.settings_search_no_results),
+                                    style = MorpheTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                                )
+                            }
+                            searchMatches.forEach { item ->
+                                Column(
+                                    modifier = Modifier.fillMaxWidth()
+                                        .clip(MorpheTheme.shapes.small)
+                                        .clickable {
+                                            selectedCategory = item.category
+                                            jumpLabel = item.targetLabel
+                                            // Search does not mutate setting values; only expand its UI panel.
+                                            item.expandSection?.let { onCollapsibleSectionToggle(it, true) }
+                                            searchQuery = ""
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 9.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Text(
+                                        text = item.label,
+                                        style = MorpheTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Text(
+                                        text = item.categoryLabel,
+                                        style = MorpheTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    } else {
                     val navItems = listOf(
                         Triple("Appearance", Res.string.settings_nav_appearance, MorpheIcons.Palette),
                         Triple("Advanced", Res.string.settings_nav_advanced, MorpheIcons.Tune),
-                        Triple("System", Res.string.settings_nav_system, MorpheIcons.Monitor)
+                        Triple("System", Res.string.settings_nav_system, MorpheIcons.Monitor),
+                        Triple("About", Res.string.settings_section_about, MorpheIcons.Info)
                     )
                     navItems.forEach { (category, labelRes, icon) ->
                         val isSelected = selectedCategory == category
@@ -165,7 +227,7 @@ fun SettingsDialog(
                                 )
                                 .hoverable(hoverInteraction)
                                 .handCursor()
-                                .clickable { selectedCategory = category }
+                                .clickable { selectedCategory = category; jumpLabel = null }
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -185,6 +247,7 @@ fun SettingsDialog(
                             )
                         }
                     }
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -199,6 +262,7 @@ fun SettingsDialog(
                             .padding(end = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
+                        CompositionLocalProvider(LocalSettingsJumpTarget provides jumpLabel) {
                         when (selectedCategory) {
                             "Appearance" -> AppearanceTab(
                                 currentLanguage = currentLanguage,
@@ -235,9 +299,15 @@ fun SettingsDialog(
                                 isPatching = isPatching,
                                 borderColor = borderColor,
                             )
+                            "About" -> CustomAboutPane(
+                                onShowChangelog = { showChangelogDialog = true },
+                                onShowLicenses = { showLicensesDialog = true },
+                            )
                             "System" -> SystemTab(
                                 autoCleanupTempFiles = autoCleanupTempFiles,
                                 onAutoCleanupChange = onAutoCleanupChange,
+                                originalApkMode = originalApkMode,
+                                onOriginalApkModeChange = onOriginalApkModeChange,
                                 updateChannelPreference = updateChannelPreference,
                                 onUpdateChannelChange = onUpdateChannelChange,
                                 defaultOutputDirectory = defaultOutputDirectory,
@@ -246,9 +316,10 @@ fun SettingsDialog(
                                 onAutoStartAdbChange = onAutoStartAdbChange,
                                 isPatching = isPatching,
                                 borderColor = borderColor,
-                                onShowAppInfo = { showAppInfoDialog = true },
+                                onShowAppInfo = { selectedCategory = "About"; jumpLabel = null },
                                 onShowChangelog = { showChangelogDialog = true },
                             )
+                        }
                         }
                     }
                     VerticalScrollbar(
@@ -296,6 +367,7 @@ fun SettingsDialogHost() {
 
     var customAccentColorArgb by LocalCustomAccentColor.current
     var autoCleanupTempFiles by remember { mutableStateOf(true) }
+    var originalApkMode by remember { mutableStateOf<SaveOriginalApk?>(null) }
     var defaultOutputDirectory by remember { mutableStateOf<String?>(null) }
     var keystorePath by remember { mutableStateOf<String?>(null) }
     var keystorePassword by remember { mutableStateOf<String?>(null) }
@@ -318,6 +390,7 @@ fun SettingsDialogHost() {
             Triple(cfg, engCfg, ch)
         }
         autoCleanupTempFiles = engineConfig.autoCleanupTempFiles
+        originalApkMode = engineConfig.resolvedOriginalApkMode()
         defaultOutputDirectory = engineConfig.resolvedDefaultOutputDirectory()?.absolutePath
         keystorePath = engineConfig.resolvedKeystorePath()?.absolutePath
         keystorePassword = engineConfig.keystorePassword
@@ -348,6 +421,13 @@ fun SettingsDialogHost() {
             currentThemeStyle = themeState.style,
             onThemeStyleChange = { themeState.onStyleChange(it) },
             autoCleanupTempFiles = autoCleanupTempFiles,
+            originalApkMode = originalApkMode,
+            onOriginalApkModeChange = { mode ->
+                if (!isPatching) {
+                    originalApkMode = mode
+                    scope.launch { engineConfigRepository.setOriginalApkRetention(mode) }
+                }
+            },
             onAutoCleanupChange = { enabled ->
                 autoCleanupTempFiles = enabled
                 scope.launch {

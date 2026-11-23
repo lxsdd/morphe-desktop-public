@@ -11,6 +11,9 @@ import app.morphe.engine.model.PatchMetadata
 import app.morphe.engine.patches.PatchBundleLoader
 import app.morphe.engine.patches.PatchBundleSignerChangedException
 import app.morphe.engine.patches.PatchRepository
+import app.morphe.engine.patches.PullRequestPatchSource
+import app.morphe.engine.patches.SourceReleaseCandidates
+import app.morphe.engine.patches.additionalPublishedReleases
 import app.morphe.engine.patches.PatchResolver
 import app.morphe.engine.patches.SupportedAppCatalog.toMetadata
 import app.morphe.engine.util.Logger
@@ -20,10 +23,13 @@ import app.morphe.gui.data.model.PatchSourceType
 import app.morphe.gui.data.model.SourceVersionPref
 import app.morphe.morphe_desktop.generated.resources.*
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.StringResource
@@ -41,6 +47,8 @@ object EnabledSourcesLoader {
         val isOffline: Boolean = false,
         val error: String? = null,
         val channel: PatchResolver.Channel = PatchResolver.Channel.UNKNOWN,
+        /** Unselected alternatives from an explicit online refresh, not app update proof. */
+        val otherPublishedReleases: SourceReleaseCandidates? = null,
         val errorRes: StringResource? = null,
         val errorArgs: List<Any> = emptyList(),
         val signingKey: String? = null,
@@ -50,6 +58,14 @@ object EnabledSourcesLoader {
         suspend fun getUserErrorMessage(): String? =
             errorRes?.let { getString(it, *errorArgs.toTypedArray()) } ?: error
     }
+
+    /** Source resolution progress, NOT evidence of an app or patch update. */
+    data class SourceLoadProgress(
+        val completed: Int,
+        val total: Int,
+        val activeSource: PatchSource?,
+        val downloadFraction: Float? = null,
+    )
 
     data class Result(
         /** Resolution outcome per source (success or failure). */
@@ -82,11 +98,43 @@ object EnabledSourcesLoader {
         excludedMppPatterns: List<String> = emptyList(),
         onDownloadProgress: ((String, Float) -> Unit)? = null,
         forceRefresh: Boolean = false,
+        onSourceProgress: ((SourceLoadProgress) -> Unit)? = null,
     ): Result = withContext(Dispatchers.IO) { supervisorScope {
+        val total = enabled.size
+        val completed = AtomicInteger(0)
+        val active = ConcurrentHashMap<String, PatchSource>().apply {
+            enabled.forEach { (source, _) -> put(source.id, source) }
+        }
+        val fractions = ConcurrentHashMap<String, Float>()
+        if (total > 0) {
+            onSourceProgress?.invoke(SourceLoadProgress(0, total, enabled.first().first))
+        }
         val resolved = enabled.map { (source, repo) ->
             async(Dispatchers.IO) {
                 try {
-                    val resolvedSource = resolve(source, repo, prefsBySource[source.id], excludedMppPatterns, onDownloadProgress, forceRefresh)
+                    val resolvedSource = resolve(
+                        source = source,
+                        repo = repo,
+                        pref = prefsBySource[source.id],
+                        excludedMppPatterns = excludedMppPatterns,
+                        onDownloadProgress = { name, pct ->
+                            onDownloadProgress?.invoke(name, pct)
+                            if (pct.isFinite() && pct in 0f..1f) {
+                                fractions[source.id] = pct
+                            } else {
+                                fractions.remove(source.id)
+                            }
+                            onSourceProgress?.invoke(
+                                SourceLoadProgress(
+                                    completed = completed.get(),
+                                    total = total,
+                                    activeSource = source,
+                                    downloadFraction = pct.takeIf { it.isFinite() && it > 0f && it < 1f },
+                                )
+                            )
+                        },
+                        forceRefresh = forceRefresh,
+                    )
                     val file = resolvedSource.patchFile
                     val manifestName = file?.let { PatchBundleLoader.extractName(it) }
                     val effectiveName = manifestName?.takeUnless { it.isBlank() || PatchSourceNaming.isRawOrCorruptedName(it) }
@@ -101,6 +149,21 @@ object EnabledSourcesLoader {
                     throw e
                 } catch (e: Exception) {
                     ResolvedSource(source = source, error = e.message ?: e.javaClass.simpleName)
+                } finally {
+                    active.remove(source.id)
+                    fractions.remove(source.id)
+                    val done = completed.incrementAndGet()
+                    if (isActive) {
+                        val next = enabled.firstOrNull { active.containsKey(it.first.id) }?.first
+                        onSourceProgress?.invoke(
+                            SourceLoadProgress(
+                                completed = done,
+                                total = total,
+                                activeSource = next,
+                                downloadFraction = next?.let { fractions[it.id] }?.takeIf { it > 0f && it < 1f },
+                            )
+                        )
+                    }
                 }
             }
         }.awaitAll()
@@ -157,13 +220,15 @@ object EnabledSourcesLoader {
             PatchSourceType.GITLAB -> {
                 if (repo == null) {
                     PatchResolver.ResolutionResult(error = PatchResolver.Error.NoRepository(source.name))
+                } else if (pref?.mode == FollowMode.PINNED && pref.pinnedTag.isNullOrBlank()) {
+                    PatchResolver.ResolutionResult(error = PatchResolver.Error.PinnedTagMissing)
                 } else {
                     val pinnedTag = if (pref?.mode == FollowMode.PINNED) pref.pinnedTag else null
                     PatchResolver.resolveRemote(
                         repo = repo,
                         usePreRelease = source.usePreRelease,
                         pinnedTag = pinnedTag,
-                        strictPin = false,
+                        strictPin = pref?.mode == FollowMode.PINNED,
                         onDownloadProgress = { pct ->
                             onDownloadProgress?.invoke(source.name, pct)
                         },
@@ -172,7 +237,16 @@ object EnabledSourcesLoader {
                 }
             }
         }
-        engineResult.toResolvedSource(source, repo)
+        val selected = engineResult.toResolvedSource(source, repo)
+        // Preserve the manifest-selected, signed bundle. Explicit refresh only:
+        // audit alternative release tags without downloading or trusting them.
+        if (!forceRefresh || repo == null || selected.patchFile == null ||
+            selected.isOffline || repo.remoteSource is PullRequestPatchSource
+        ) return@withContext selected
+        val liveReleases = repo.auditPublishedReleases().getOrNull()
+            ?: return@withContext selected
+        selected.copy(otherPublishedReleases =
+            additionalPublishedReleases(selected.resolvedVersion, liveReleases))
     }
 
     private fun PatchResolver.ResolutionResult.toResolvedSource(
@@ -205,6 +279,7 @@ object EnabledSourcesLoader {
             is PatchResolver.Error.PrNoArtifact -> Res.string.source_error_pr_no_artifact to emptyList()
             is PatchResolver.Error.ReleaseFetchFailed -> Res.string.source_error_fetch_releases to emptyList()
             is PatchResolver.Error.SignerChanged -> Res.string.sources_signing_key_changed_named to listOf(source.name)
+            PatchResolver.Error.PinnedTagMissing -> Res.string.source_error_pinned_no_version to emptyList()
             is PatchResolver.Error.PinnedTagNotFound,
             is PatchResolver.Error.DownloadFailed -> null to emptyList()
         }
@@ -253,7 +328,13 @@ fun EnabledSourcesLoader.Result?.sourceUpdateMap(): Map<String, String> =
     this?.resolved?.mapNotNull { r ->
         val current = r.resolvedVersion ?: return@mapNotNull null
         val latest = r.latestAvailableVersion ?: return@mapNotNull null
-        if (latest != current) r.source.id to latest else null
+        if (isNewerVersion(latest, current)) r.source.id to latest else null
+    }?.toMap() ?: emptyMap()
+
+/** Published release tags are NOT confirmed app-specific patch updates. */
+fun EnabledSourcesLoader.Result?.sourceAdditionalReleaseMap(): Map<String, SourceReleaseCandidates> =
+    this?.resolved?.mapNotNull { result ->
+        result.otherPublishedReleases?.takeIf { it.hasCandidates }?.let { result.source.id to it }
     }?.toMap() ?: emptyMap()
 
 /** Maps source IDs to load-failure messages across resolve and load phases. */

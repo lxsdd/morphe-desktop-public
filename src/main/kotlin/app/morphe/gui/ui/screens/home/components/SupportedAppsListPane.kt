@@ -22,13 +22,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.model.PatchMetadata
 import app.morphe.engine.model.SupportedApp
+import app.morphe.gui.LocalShowMoreAppsCard
+import app.morphe.gui.data.constants.AppConstants
+import app.morphe.gui.data.repository.ConfigRepository
 import app.morphe.gui.ui.components.MorpheButton
 import app.morphe.gui.ui.components.MorpheButtonSize
 import app.morphe.gui.ui.components.MorpheButtonVariant
@@ -44,6 +52,8 @@ import app.morphe.gui.ui.components.MorpheDropdown
 import app.morphe.gui.ui.components.MorpheDropdownItem
 import app.morphe.morphe_desktop.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
+import kotlinx.coroutines.launch
 
 /** Pane displaying a searchable, sortable list of supported applications. */
 @Composable
@@ -81,6 +91,13 @@ internal fun SupportedAppsListPane(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var expandedPackage by remember { mutableStateOf<String?>(null) }
+    var showIncompleteDetails by remember { mutableStateOf(false) }
+    var diagnosticHeightPx by remember { mutableIntStateOf(0) }
+    var showCommunityNotice by remember { mutableStateOf(false) }
+    val communityCardEnabled = LocalShowMoreAppsCard.current.value
+    val configRepository: ConfigRepository = koinInject()
+    val uriHandler = LocalUriHandler.current
+    val scope = rememberCoroutineScope()
 
     val matching = remember(searchQuery, supportedApps) {
         if (searchQuery.isBlank()) supportedApps
@@ -120,9 +137,10 @@ internal fun SupportedAppsListPane(
     val confirmedAppUpdates = remember(patchedRecords, updateInfoByPackage) {
         patchedRecords.count { hasConfirmedAppUpdate(updateInfoByPackage[it.packageName]) }
     }
-    val uncheckedAppCount = remember(patchedRecords, updateInfoByPackage) {
-        incompleteUpdateChecks(patchedRecords, updateInfoByPackage)
+    val uncheckedEntries = remember(patchedRecords, updateInfoByPackage, historyNames) {
+        incompleteAppChecks(patchedRecords, updateInfoByPackage, historyNames)
     }
+    val uncheckedAppCount = uncheckedEntries.size
     val confirmedPatchUpdates = remember(patchedRecords, updateInfoByPackage, patchedStates) {
         patchedRecords.count {
             hasConfirmedPatchUpdate(updateInfoByPackage[it.packageName], patchedStates[it.packageName])
@@ -165,14 +183,42 @@ internal fun SupportedAppsListPane(
             deviceCount = verifiedDeviceInventoryCount(deviceInstalledPackages.size, deviceInventorySerial),
             modifier = Modifier.fillMaxWidth(),
         )
-        if (!isLoading && uncheckedAppCount > 0) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(Res.string.home_update_checks_incomplete, uncheckedAppCount),
-                style = MorpheTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp),
-            )
+        if (uncheckedAppCount > 0) {
+            // Reuse the real historical provenance and update evidence. The
+            // collapsed notice does not classify these as available updates.
+            val descriptions = uncheckedEntries.map { item ->
+                val reason = item.sourceIssue?.let { historicalSourceIssueText(it) } ?: when (item.reason) {
+                    IncompleteUpdateReason.METADATA_UNAVAILABLE ->
+                        stringResource(Res.string.home_update_reason_metadata_unavailable)
+                    IncompleteUpdateReason.NO_SOURCE_PROOF ->
+                        stringResource(Res.string.home_update_reason_no_source)
+                    IncompleteUpdateReason.SOURCE_UNAVAILABLE ->
+                        stringResource(Res.string.home_update_reason_source_unavailable)
+                    IncompleteUpdateReason.CHANGE_PROOF_UNAVAILABLE ->
+                        stringResource(Res.string.home_update_reason_change_unverified)
+                }
+                IncompleteCheckDescription(
+                    appName = item.appName,
+                    sourceName = item.sourceName,
+                    reason = reason,
+                )
+            }
+            Box(
+                modifier = Modifier.fillMaxWidth()
+                    .onSizeChanged { diagnosticHeightPx = it.height }
+                    .padding(start = 8.dp, end = 12.dp, top = 6.dp),
+            ) {
+                IncompleteChecksNotice(
+                    entries = descriptions,
+                    expanded = showIncompleteDetails,
+                    onToggleExpanded = { showIncompleteDetails = !showIncompleteDetails },
+                    isLoading = isLoading,
+                    showManageSources = shouldOfferSourceManagement(uncheckedEntries),
+                    onRetry = onRetry,
+                    onManageSources = onManageSources,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
         Spacer(modifier = Modifier.height(8.dp))
         val searchVisible = true
@@ -201,6 +247,11 @@ internal fun SupportedAppsListPane(
         }
         Spacer(modifier = Modifier.height(10.dp))
 
+        // Allocate only the measured compact/expanded notice height. Never
+        // reserve a fixed 170dp when the panel is collapsed or absent.
+        val diagnosticHeightAllowance = if (uncheckedAppCount > 0) {
+            with(LocalDensity.current) { diagnosticHeightPx.toDp() }
+        } else 0.dp
         if (filter == AppListFilter.DEVICE) {
             DeviceInventoryPane(
                 installedPackages = deviceInstalledPackages,
@@ -217,7 +268,7 @@ internal fun SupportedAppsListPane(
                 sourceNamesByPackage = sourceNamesByPackage,
                 patchesBySource = patchesBySource,
                 searchQuery = searchQuery,
-                paneMaxHeight = paneMaxHeight,
+                paneMaxHeight = paneMaxHeight - diagnosticHeightAllowance,
                 onShowDetail = onShowDetail,
                 onShowDeviceApp = onShowDeviceApp,
                 onRefreshDeviceInfo = onRefreshDeviceInfo,
@@ -235,8 +286,9 @@ internal fun SupportedAppsListPane(
                 appIconColorByPackage = supportedApps.associate { it.packageName to (it.appIconColor ?: "") }.filterValues { it.isNotEmpty() },
                 displayNameByPackage = historyNames,
                 onShowDetail = onShowDetail,
-                paneMaxHeight = paneMaxHeight,
+                paneMaxHeight = paneMaxHeight - diagnosticHeightAllowance,
                 showSearch = searchVisible,
+                scrollResetKey = Triple(filter, searchQuery, sortMode),
                 updateCategory = filter == AppListFilter.APP_UPDATES || filter == AppListFilter.PATCH_UPDATES,
             )
         } else when {
@@ -302,14 +354,21 @@ internal fun SupportedAppsListPane(
             }
             else -> {
                 val listState = rememberLazyListState()
-                val headerSearchAllowance = 150.dp
+                // A different filter/search/sort is a new result list; never retain a
+                // scrolled index from the previously visible result category.
+                LaunchedEffect(filter, searchQuery, sortMode) {
+                    listState.scrollToItem(0)
+                }
+                val headerSearchAllowance = 150.dp + diagnosticHeightAllowance
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(
                             max = (paneMaxHeight - headerSearchAllowance)
                                 .coerceAtLeast(120.dp)
-                        ),
+                        )
+                        // The scrolled list must never paint over its fixed toolbar.
+                        .clipToBounds(),
                 ) {
                     LazyColumn(
                         state = listState,
@@ -330,6 +389,27 @@ internal fun SupportedAppsListPane(
                                 deviceInfo = deviceInstalledAppInfo[app.packageName],
                             )
                         }
+                        if (shouldOfferCommunityPatches(
+                                enabled = communityCardEnabled,
+                                filter = filter,
+                                search = searchQuery,
+                                loading = isLoading,
+                                error = loadError,
+                                supportedCount = supportedApps.size,
+                            )
+                        ) {
+                            item(key = "community_patches_discovery") {
+                                MoreAppsCard(onClick = {
+                                    scope.launch {
+                                        if (configRepository.loadConfig().communityNoticeAcknowledged) {
+                                            uriHandler.openUri(AppConstants.COMMUNITY_PATCHES_URL)
+                                        } else {
+                                            showCommunityNotice = true
+                                        }
+                                    }
+                                })
+                            }
+                        }
                     }
                     Box(
                         modifier = Modifier.matchParentSize(),
@@ -345,6 +425,18 @@ internal fun SupportedAppsListPane(
             }
         }
       }
+    }
+    if (showCommunityNotice) {
+        CommunityPatchesNoticeDialog(
+            onDismiss = { showCommunityNotice = false },
+            onConfirm = {
+                showCommunityNotice = false
+                scope.launch {
+                    configRepository.setCommunityNoticeAcknowledged()
+                    uriHandler.openUri(AppConstants.COMMUNITY_PATCHES_URL)
+                }
+            },
+        )
     }
 }
 

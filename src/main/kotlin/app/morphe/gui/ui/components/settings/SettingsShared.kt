@@ -16,6 +16,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
@@ -25,6 +27,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -123,6 +128,23 @@ internal fun AccentSwatch(
     }
 }
 
+/** Only static, localized setting labels may be used as jump targets, never secrets. */
+internal val LocalSettingsJumpTarget = compositionLocalOf<String?> { null }
+
+/** Brings the actual existing settings row into view after a search-result selection. */
+@Composable
+internal fun Modifier.settingsJumpAnchor(label: String): Modifier {
+    val target = LocalSettingsJumpTarget.current
+    val requester = remember { BringIntoViewRequester() }
+    LaunchedEffect(target, label) {
+        if (target == label) {
+            withFrameNanos { } // wait until the newly selected tab is laid out
+            requester.bringIntoView()
+        }
+    }
+    return this.bringIntoViewRequester(requester)
+}
+
 @Composable
 internal fun AboutRow(
     title: String,
@@ -135,6 +157,7 @@ internal fun AboutRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .settingsJumpAnchor(title)
             .clip(MorpheTheme.shapes.small)
             .background(
                 if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = MorpheTheme.alphas.hover)
@@ -176,7 +199,7 @@ internal fun SectionLabel(
     icon: ImageVector? = null
 ) {
     if (icon != null) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.settingsJumpAnchor(text), verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
@@ -193,6 +216,7 @@ internal fun SectionLabel(
     } else {
         Text(
             text = text,
+            modifier = Modifier.settingsJumpAnchor(text),
             style = MorpheTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -217,6 +241,7 @@ internal fun CollapsibleSection(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .settingsJumpAnchor(title)
             .clip(MorpheTheme.shapes.small)
             .hoverable(hoverInteraction)
             .background(
@@ -292,7 +317,7 @@ internal fun SettingToggleRow(
 ) {
     val alpha = if (enabled) 1f else 0.5f
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().settingsJumpAnchor(label),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -38,9 +38,9 @@ class AppUpdateStatusTest {
     }
 
     @Test
-    fun `incomplete dimensions only claim the independently proven app update`() {
+    fun `incomplete dimensions retain independently confirmed updates`() {
         assertEquals(
-            AppUpdateStatus.UNKNOWN,
+            AppUpdateStatus.PATCH_UPDATE,
             classifyAppUpdate(true, null, "1.0", null).status,
         )
         assertEquals(
@@ -137,9 +137,72 @@ class AppUpdateStatusTest {
         )
 
         assertEquals(AppUpdateStatus.UNKNOWN, checking.classification(null).status)
+        // The newer source release alone is not an app-scoped patch change.
+        assertEquals(
+            AppUpdateStatus.NEWER_APP_VERSION,
+            checking.copy(metadataResolution = UpdateMetadataResolution.READY).classification(null).status,
+        )
+    }
+
+    @Test
+    fun `unrelated newer bundle never triggers a patch-only update or combined update`() {
+        val source = RecallUpdateInfo.SourceUpdate(
+            sourceId = "source", name = "Community Patches",
+            usedVersion = "1.0", resolvedVersion = "2.0",
+            latestAvailableVersion = "2.0", outdated = true,
+            hasRelevantChanges = false, checkIncomplete = false, metadataKnown = true,
+        )
+        val noNewApk = RecallUpdateInfo(
+            sources = listOf(source),
+            appUsedVersion = "10", appChannel = RecallUpdateInfo.AppChannel.STABLE,
+            appSuggestedVersion = "10", appOutdated = false,
+        )
+        assertEquals(AppUpdateStatus.UP_TO_DATE, noNewApk.classification(null).status)
+        assertEquals(
+            AppUpdateStatus.NEWER_APP_VERSION,
+            noNewApk.copy(appSuggestedVersion = "11", appOutdated = true).classification(null).status,
+        )
+        val scoped = noNewApk.copy(sources = listOf(source.copy(hasRelevantChanges = true)))
+        assertEquals(AppUpdateStatus.PATCH_UPDATE, scoped.classification(null).status)
         assertEquals(
             AppUpdateStatus.APP_AND_PATCH_UPDATE,
-            checking.copy(metadataResolution = UpdateMetadataResolution.READY).classification(null).status,
+            scoped.copy(appSuggestedVersion = "11", appOutdated = true).classification(null).status,
+        )
+    }
+
+    @Test
+    fun `incomplete source proof cannot become zero updates but confirmed change survives`() {
+        val unknown = RecallUpdateInfo.SourceUpdate(
+            sourceId = "unknown", name = "Unavailable Patches",
+            usedVersion = "1.0", resolvedVersion = "1.0",
+            latestAvailableVersion = "2.0", outdated = true,
+            hasRelevantChanges = false, checkIncomplete = true,
+        )
+        val clean = unknown.copy(
+            sourceId = "clean", name = "Checked Patches", checkIncomplete = false, metadataKnown = true,
+            outdated = false, latestAvailableVersion = "1.0",
+        )
+        val baseline = RecallUpdateInfo(
+            sources = listOf(unknown, clean),
+            appUsedVersion = "10", appChannel = RecallUpdateInfo.AppChannel.STABLE,
+            appSuggestedVersion = "10", appOutdated = false,
+        )
+        assertEquals(AppUpdateStatus.UNKNOWN, baseline.classification(null).status)
+        assertEquals(AppUpdateStatus.UNKNOWN, baseline.copy(sources = emptyList()).classification(null).status)
+        assertEquals(
+            AppUpdateStatus.NEWER_APP_VERSION,
+            baseline.copy(appSuggestedVersion = "11", appOutdated = true).classification(null).status,
+        )
+        assertEquals(
+            AppUpdateStatus.PATCH_UPDATE,
+            baseline.copy(sources = listOf(unknown, clean.copy(hasRelevantChanges = true)))
+                .classification(null).status,
+        )
+        // An unavailable source cannot assert that its own app patches changed.
+        assertEquals(
+            AppUpdateStatus.UNKNOWN,
+            baseline.copy(sources = listOf(unknown.copy(hasRelevantChanges = true)))
+                .classification(null).status,
         )
     }
 

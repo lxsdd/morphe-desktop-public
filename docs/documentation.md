@@ -417,6 +417,7 @@ The gear icon opens Settings – Morphe's persistent preferences. Think of it as
 | **Expert mode**                | Switch between Simple mode and Expert mode                                                                | Off (Simple mode)                                                                    | –                                                                                          |
 | **Background animation**       | Choose an animated background style (e.g. Circles, Rings, Mesh, Space)                                    | Circles                                                                              | –                                                                                          |
 | **Parallax effect**            | Smooth background shifting when moving the mouse                                                          | On                                                                                   | –                                                                                          |
+| **Keep original APKs**         | Off, Copy (keep input), or Move (remove only after verified copy and history)                         | Off                                                                                  | `--save-original COPY|MOVE|OFF` (CLI defaults Off)                                         |
 | **Auto-cleanup temp files**    | Delete scratch files after patching                                                                       | On                                                                                   | On by default; `--disable-purge` to turn off                                               |
 | **Auto-start ADB**             | Start the ADB daemon on launch so devices are monitored                                                   | Off                                                                                  | enables `-i` / install features                                                            |
 | **Update channel**             | Stable or Prerelease app updates (dropdown menu)                                                          | Smart (Prerelease on dev builds, else Stable)                                        | `--prerelease` (loosely)                                                                   |
@@ -436,6 +437,7 @@ A couple of items worth expanding on:
 - **About section & Changelogs** - The settings dialog includes an `About` tab that displays the application version, developer info, and a **View changelog** button. The Changelog dialog features structured release notes parsed into categorized sections (*App support*, *Fixes*, *Improvements*, *New*, *Performance*, *Changes*) with change counters, clickable links, inline code chips, and release status badges (*Installed*, *Latest*, *Pre-release*).
 - **Auto-start ADB** - when off, Morphe never starts the ADB server and all install/push features are disabled. Turn it on to install patched APKs to your phone from Morphe.
 - **Update channel** - *Prerelease* surfaces pre-releases; *Stable* only stable ones. If you've never chosen, Morphe defaults smartly (Prerelease when you're running a dev build).
+- **Keep original APKs (Custom, opt-in)** - Under **Settings → System**, choose **Off** (default, no new file writes), **Copy** (retain a verified original under `morphe-data/original-apks/` after a successful patch; keep the selected source in place), or **Move** (requires an extra confirmation; only removes the unchanged selected input after a byte-verified retained copy and saved patch history). Older retained versions are never overwritten or automatically purged, even after a newer version is patched. When you **Forget** a patch history entry or **Uninstall** and also forget it, an additional unchecked box can explicitly delete that entry's retained original, provided no other history entry references it. Stale or already-changed input files are not deleted. A stored original can be reused for repatching, retaining the previous patched output directory when known. The CLI is independently **Off** unless `patch --save-original COPY|MOVE|OFF` is explicitly supplied; GUI settings do not silently enable it. No existing user APK is migrated automatically.
 - **Route links to patched app** - when on, every ADB install is followed by routing the app's supported web links to the patched app (the [Link handling](#gui-expert-links) step, run automatically). A nested **Disable stock app's links** option also stops the original app from opening those links – only relevant when a rename patch was used and the stock app is still installed. Both are reversible and need a connected device.
 
 <h4 id="gui-settings-signing">Signing</h4>
@@ -611,6 +613,7 @@ Here is a quick lookup for all the flags under this subcommand:
 | `--signer`                     | Signer name in the APK signature                                                   |
 | `--unsigned`                   | Skip signing the final APK                                                         |
 | `-t`, `--temporary-files-path` | Path to store temp files                                                           |
+| `--save-original`             | Opt into keeping a verified original: `COPY`, `MOVE` or `OFF` (default)           |
 | `--disable-purge`              | Keep this run's scratch files (deleted after patching by default)                  |
 | `--striplibs`                  | Architectures to keep, comma-separated (e.g.`arm64-v8a,x86`)                       |
 | `--bytecode-mode`              | Bytecode mode:`FULL`, `STRIP_SAFE`, or `STRIP_FAST`                                |
@@ -971,6 +974,14 @@ Path to a directory where Morphe stores temporary files during patching.
 
 ```
 java -jar morphe-desktop-*-all.jar patch -p patches.mpp -t /tmp/morphe-temp your_app.apk
+```
+
+#### `--save-original`:
+
+Optional; defaults to **OFF** on the CLI, regardless of GUI settings. `COPY` preserves your downloaded APK and keeps a verified copy under `morphe-data/original-apks/` after a successful patch. `MOVE` additionally removes the original only after the retained copy and patch history have been verified. Previous retained versions never get automatically deleted or replaced. Explicit deletion is available in the history Forget/Uninstall confirmation.
+
+```
+java -jar morphe-desktop-*-all.jar patch -p patches.mpp --save-original COPY your_app.apk
 ```
 
 #### `--disable-purge`:

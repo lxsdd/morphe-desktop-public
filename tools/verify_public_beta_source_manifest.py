@@ -11,6 +11,13 @@ EXTRA = {
     "proguard-rules.pro", "LICENSE", "NOTICE",
     "tools/verify_compose_resource_keys.py",
     "tools/test_verify_compose_resource_keys.py",
+    "tools/verify_public_beta_source_manifest.py",
+    "tools/test_public_preview_delivery_contract.py",
+    "tools/require_monotonic_public_beta.py",
+    "tools/test_home_scrolling_contract.py",
+    "tools/test_source_release_discovery_contract.py",
+    ".github/workflows/build_pull_request.yml",
+    ".github/workflows/public_preview_delivery.yml",
 }
 
 def is_releasable(path):

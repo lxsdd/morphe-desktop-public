@@ -5,12 +5,7 @@
 
 package app.morphe.gui.ui.screens.patches
 
-import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,7 +16,6 @@ import app.morphe.gui.ui.components.MorpheBanners
 import app.morphe.gui.ui.components.MorpheButton
 import app.morphe.gui.ui.components.MorpheButtonSize
 import app.morphe.gui.ui.components.MorpheButtonVariant
-import app.morphe.gui.ui.components.MorpheScrollbarStyle
 import app.morphe.gui.ui.components.OfflineBanner
 import app.morphe.gui.ui.components.ScreenErrorDialog
 import app.morphe.gui.ui.screens.patches.components.patches.*
@@ -75,16 +69,6 @@ fun PatchesScreenContent(viewModel: PatchesViewModel) {
                     modifier = Modifier.padding(16.dp)
                 )
             } else {
-                if (!uiState.isOffline) {
-                    ChannelSelector(
-                        selectedChannel = uiState.selectedChannel,
-                        onChannelSelected = { viewModel.setChannel(it) },
-                        stableCount = uiState.stableReleases.size,
-                        devCount = uiState.devReleases.size,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                    )
-                }
-
                 if (uiState.isOffline && uiState.currentReleases.isNotEmpty()) {
                     MorpheBanners(inset = 16.dp) {
                         OfflineBanner(onRetry = { viewModel.loadReleases() })
@@ -115,7 +99,7 @@ fun PatchesScreenContent(viewModel: PatchesViewModel) {
                         }
                     }
                 }
-                uiState.currentReleases.isEmpty() && !uiState.isLoading -> {
+                uiState.stableReleases.isEmpty() && uiState.devReleases.isEmpty() && uiState.offlineReleases.isEmpty() && !uiState.isLoading -> {
                     Box(
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         contentAlignment = Alignment.Center
@@ -137,41 +121,43 @@ fun PatchesScreenContent(viewModel: PatchesViewModel) {
                     }
                 }
                 else -> {
-                    val releasesListState = rememberLazyListState()
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
+                    // Single 2.3-inspired version browser. No duplicate download/use controls:
+                    // the original Custom BottomActionBar below remains the only action path.
+                    BoxWithConstraints(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
                     ) {
-                        LazyColumn(
-                            state = releasesListState,
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            val latestStableTag = uiState.stableReleases.firstOrNull()?.tagName
-                            val latestDevTag = uiState.devReleases.firstOrNull()?.tagName
-                            items(
-                                items = uiState.currentReleases,
-                                key = { it.tagName }
-                            ) { release ->
-                                ReleaseCard(
-                                    release = release,
-                                    isSelected = release.tagName == uiState.selectedRelease?.tagName,
-                                    isDownloaded = release.tagName in uiState.cachedReleaseVersions,
-                                    isOffline = uiState.isOffline,
-                                    isLatest = release.tagName == latestStableTag ||
-                                               release.tagName == latestDevTag,
-                                    onClick = { viewModel.selectRelease(release) }
+                        if (maxWidth >= 800.dp) {
+                            Row(modifier = Modifier.fillMaxSize()) {
+                                CustomVersionRail(
+                                    state = uiState,
+                                    onChannelSelect = viewModel::setChannel,
+                                    onVersionQueryChange = viewModel::setVersionQuery,
+                                    onReleaseSelect = viewModel::selectRelease,
+                                    modifier = Modifier.width(336.dp).fillMaxHeight(),
+                                )
+                                VerticalDivider()
+                                CustomVersionDetail(
+                                    state = uiState,
+                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                )
+                            }
+                        } else {
+                            // Compact windows retain both navigation and release details.
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                CustomVersionRail(
+                                    state = uiState,
+                                    onChannelSelect = viewModel::setChannel,
+                                    onVersionQueryChange = viewModel::setVersionQuery,
+                                    onReleaseSelect = viewModel::selectRelease,
+                                    modifier = Modifier.weight(0.53f).fillMaxWidth(),
+                                )
+                                HorizontalDivider()
+                                CustomVersionDetail(
+                                    state = uiState,
+                                    modifier = Modifier.weight(0.47f).fillMaxWidth(),
                                 )
                             }
                         }
-
-                        VerticalScrollbar(
-                            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
-                            adapter = rememberScrollbarAdapter(releasesListState),
-                            style = MorpheScrollbarStyle()
-                        )
                     }
 
                     val exportOptionsTitle = stringResource(Res.string.patches_export_options_title)
@@ -192,8 +178,9 @@ fun PatchesScreenContent(viewModel: PatchesViewModel) {
                                 ) ?: return@launch
                                 viewModel.exportOptionsJson(dest)
                             }
-                        }
+                        },
                     )
+
                 }
             }
         }

@@ -7,6 +7,8 @@ package app.morphe.engine.model
 
 import app.morphe.engine.util.DownloadUrlResolver
 import app.morphe.engine.util.compareVersions
+import app.morphe.patcher.patch.FormFactor
+import app.morphe.patcher.patch.SupportedAbi
 
 /** App target aggregated from patch bundle compatibility metadata. */
 data class SupportedApp(
@@ -18,8 +20,20 @@ data class SupportedApp(
     val apkDownloadUrl: String? = null,
     val experimentalDownloadUrl: String? = null,
     val appIconColor: String? = null,
-    val versionBuildCodes: Map<String, Set<Int>> = emptyMap()
+    val versionBuildCodes: Map<String, Set<Int>> = emptyMap(),
+    val versionAbiBuildCodes: Map<String, Map<SupportedAbi, Int>> = emptyMap(),
+    val formFactor: FormFactor? = null,
 ) {
+    /** Select the supported ABI build and form factor for this version only, never promote experimental to stable. */
+    fun downloadUrl(version: String?): String? {
+        val codes = version?.let { versionAbiBuildCodes[it.removePrefix("v")] ?: versionAbiBuildCodes[it] }
+        // A unique build restriction is useful even when the ABI mapping is absent.
+        // Multiple unqualified codes are ambiguous: never choose one arbitrarily.
+        val buildCode = codes?.let { it[SupportedAbi.ARM64_V8A] ?: it.values.firstOrNull() }
+            ?: version?.let { requiredBuildCodes(it).singleOrNull() }
+        return getDownloadUrl(packageName, version, buildCode, formFactor)
+    }
+
     fun buildCodeSupported(version: String, versionCode: Int?): Boolean {
         val codes = versionBuildCodes[version.removePrefix("v")]
             ?: versionBuildCodes[version]
@@ -66,9 +80,19 @@ data class SupportedApp(
                 .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
         }
 
-        fun getDownloadUrl(packageName: String, version: String?): String? {
+        fun getDownloadUrl(
+            packageName: String,
+            version: String?,
+            buildCode: Int? = null,
+            formFactor: FormFactor? = null,
+        ): String? {
             if (version == null) return null
-            return DownloadUrlResolver.getWebSearchDownloadLink(packageName, version)
+            return DownloadUrlResolver.getWebSearchDownloadLink(
+                packageName = packageName,
+                version = version,
+                buildCode = buildCode,
+                formFactor = formFactor,
+            )
         }
 
         fun getRecommendedVersion(versions: List<String>): String? {

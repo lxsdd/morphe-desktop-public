@@ -29,6 +29,7 @@ object PatchResolver {
         data class GitHubPatRequired(override val message: String) : Error(message)
         data class PrNoArtifact(override val message: String) : Error(message)
         data class PinnedTagNotFound(val tag: String, val repoPath: String) : Error("Version $tag not found in $repoPath")
+        data object PinnedTagMissing : Error("Pinned patch source has no version selected")
         data class ReleaseFetchFailed(override val message: String = "Failed to fetch releases") : Error(message)
         data class DownloadFailed(override val message: String) : Error(message)
         data class SignerChanged(
@@ -89,14 +90,15 @@ object PatchResolver {
 
         if (pinnedTag != null) {
             val releasesResult = repo.fetchReleases(forceRefresh = forceRefresh)
-            val releases = releasesResult.getOrNull()
+            val releases = releasesResult.getOrNull()?.filter { it.isUsablePublishedBundleRelease() }
             if (releases.isNullOrEmpty()) {
                 if (isPrSource) {
                     return@withContext classifyPrOrFetchError(releasesResult.exceptionOrNull())
                 }
                 return@withContext offlinePinnedOrFallback(repo, pinnedTag, strictPin, releasesResult.exceptionOrNull())
             }
-            val latestStable = releases.firstOrNull { !it.isDevRelease() }
+            val latestStable = fallbackPublishedBundleRelease(releases, prerelease = false)
+            val latestDev = fallbackPublishedBundleRelease(releases, prerelease = true)
             val matched = releases.find {
                 it.tagName == pinnedTag ||
                     it.tagName.normalizeVersion().equals(pinnedTag.normalizeVersion(), ignoreCase = true)
@@ -104,12 +106,12 @@ object PatchResolver {
             if (matched == null && strictPin) {
                 return@withContext ResolutionResult(error = Error.PinnedTagNotFound(pinnedTag, repo.repoPath))
             }
-            release = matched ?: latestStable ?: releases.firstOrNull()
+            release = matched ?: latestStable ?: latestDev
             latestStableTag = latestStable?.tagName
-            latestDevTag = releases.firstOrNull { it.isDevRelease() }?.tagName
+            latestDevTag = latestDev?.tagName
         } else if (isPrSource) {
             val prReleasesResult = repo.fetchReleases(forceRefresh = forceRefresh)
-            val prRelease = prReleasesResult.getOrNull()?.firstOrNull()
+            val prRelease = prReleasesResult.getOrNull()?.firstOrNull { it.isUsablePublishedBundleRelease() }
                 ?: return@withContext classifyPrOrFetchError(prReleasesResult.exceptionOrNull())
             release = prRelease
             latestStableTag = null

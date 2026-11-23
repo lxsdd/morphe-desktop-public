@@ -24,7 +24,7 @@ open class GitHubPatchSource(
 
     override val provider = PatchProvider.GITHUB
 
-    private val releasesEndpoint = "$API_BASE/repos/$repoPath/releases"
+    private val releasesEndpoint = "$API_BASE/repos/$repoPath/releases?per_page=100"
 
     @Suppress("UastIncorrectHttpHeaderInspection")
     override suspend fun listReleases(): Result<List<Release>> = withContext(Dispatchers.IO) {

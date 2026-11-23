@@ -8,6 +8,7 @@ package app.morphe.gui.ui.screens.patches
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.morphe.engine.PatchEngine
+import app.morphe.engine.OriginalApkStore
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_ALIAS
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_PASSWORD
 import app.morphe.engine.apk.AndroidArchitectures
@@ -138,8 +139,9 @@ class PatchSelectionViewModel(
         viewModelScope.launch {
             val config = engineConfigRepository.loadConfig()
             autoCleanupTempFiles = config.autoCleanupTempFiles
-            // Resolved default output directory path.
+            // Never patch *into* original-apks when a retained input was chosen.
             defaultOutputDirectory = config.resolvedDefaultOutputDirectory()?.absolutePath
+                ?: OriginalApkStore.shared.outputBaseFor(File(apkPath))?.absolutePath
             // Derive architectures from the APK if not provided.
             val arches = apkArchitectures.ifEmpty {
                 withContext(Dispatchers.IO) {
@@ -623,6 +625,8 @@ class PatchSelectionViewModel(
             failOnError = !continueOnError,
             disablePurge = !autoCleanupTempFiles,
             recordHistory = true,
+            // Read the live persisted preference at action time, never a cached MOVE mode.
+            saveOriginalApk = engineConfigRepository.configFlow.value?.resolvedOriginalApkMode(),
             appDisplayName = apkName,
             historyMetadata = PatchEngine.HistoryMetadata(
                 originalPackageName = packageName,

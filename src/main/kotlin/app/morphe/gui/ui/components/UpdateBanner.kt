@@ -39,7 +39,13 @@ fun UpdateBanner(
             },
             modifier = Modifier.weight(1f),
         )
-        if (onShowChangelog != null) {
+        // A Custom release must show its own notes, not upstream Morphe's changelog.
+        if (info.releaseNotesLink != null) {
+            MorpheBannerAction(
+                label = stringResource(Res.string.changelog_dialog_title),
+                onClick = { uriHandler.openUri(info.releaseNotesLink) },
+            )
+        } else if (onShowChangelog != null) {
             MorpheBannerAction(
                 label = stringResource(Res.string.changelog_dialog_title),
                 onClick = onShowChangelog,

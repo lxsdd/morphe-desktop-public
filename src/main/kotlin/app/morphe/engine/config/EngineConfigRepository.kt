@@ -6,6 +6,7 @@
 package app.morphe.engine.config
 
 import app.morphe.engine.MorpheData
+import app.morphe.engine.SaveOriginalApk
 import app.morphe.engine.util.Logger
 import app.morphe.engine.util.PortablePaths
 import java.io.File
@@ -104,6 +105,9 @@ open class EngineConfigRepository(
 
     suspend fun setAutoCleanupTempFiles(enabled: Boolean) =
         saveConfig { it.copy(autoCleanupTempFiles = enabled) }
+
+    suspend fun setOriginalApkRetention(mode: SaveOriginalApk?) =
+        saveConfig { it.copy(originalApkRetention = mode?.name ?: "OFF") }
 
     suspend fun setAutoStartAdb(enabled: Boolean) =
         saveConfig { it.copy(autoStartAdb = enabled) }

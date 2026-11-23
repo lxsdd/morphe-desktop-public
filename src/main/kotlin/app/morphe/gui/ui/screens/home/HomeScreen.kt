@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.currentBackStackEntryAsState
+import app.morphe.engine.OriginalApkStore
 import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.model.VersionResolution
 import app.morphe.engine.model.VersionStatus
@@ -71,6 +72,7 @@ import app.morphe.gui.util.sourceSignerChangedMap
 import app.morphe.gui.util.sourceSigningKeyFingerprintMap
 import app.morphe.gui.util.sourceSigningKeyMap
 import app.morphe.gui.util.sourceUpdateMap
+import app.morphe.gui.util.sourceAdditionalReleaseMap
 import app.morphe.gui.util.sourceVersionMap
 import app.morphe.gui.ui.screens.home.components.proceedToPatching
 import app.morphe.gui.ui.theme.Defaults
@@ -184,13 +186,24 @@ fun HomeScreenContent(
     }
 
     var forgetConfirm by remember { mutableStateOf<PatchedAppRecord?>(null) }
-    val onForget: (String) -> Unit = { pkg -> forgetConfirm = viewModel.getPatchedRecord(pkg) }
+    var forgetDeleteOriginal by remember { mutableStateOf(false) }
+    val onForget: (String) -> Unit = { pkg ->
+        forgetDeleteOriginal = false
+        forgetConfirm = viewModel.getPatchedRecord(pkg)
+    }
     forgetConfirm?.let { record ->
         ForgetConfirmDialog(
             record = record,
+            hasKeptOriginal = OriginalApkStore.shared.keptOriginalOf(record) != null,
+            deleteOriginal = forgetDeleteOriginal,
+            onDeleteOriginalChange = { forgetDeleteOriginal = it },
             onDismiss = { forgetConfirm = null },
             onConfirm = {
-                viewModel.forgetPatchedApp(record.packageName)
+                viewModel.forgetPatchedApp(
+                    record.packageName,
+                    deleteOriginal = forgetDeleteOriginal,
+                    expectedOriginalPath = record.inputApkPath,
+                )
                 forgetConfirm = null
             },
         )
@@ -263,18 +276,31 @@ fun HomeScreenContent(
 
     var uninstallConfirm by remember { mutableStateOf<PatchedAppRecord?>(null) }
     var uninstallAlsoForget by remember { mutableStateOf(false) }
+    var uninstallDeleteOriginal by remember { mutableStateOf(false) }
     val onUninstall: (String) -> Unit = { pkg ->
         uninstallAlsoForget = false
+        uninstallDeleteOriginal = false
         uninstallConfirm = viewModel.getPatchedRecord(pkg)
     }
     uninstallConfirm?.let { record ->
         UninstallConfirmDialog(
             record = record,
             alsoForget = uninstallAlsoForget,
-            onAlsoForgetChange = { uninstallAlsoForget = it },
+            onAlsoForgetChange = {
+                uninstallAlsoForget = it
+                if (!it) uninstallDeleteOriginal = false
+            },
+            hasKeptOriginal = OriginalApkStore.shared.keptOriginalOf(record) != null,
+            deleteOriginal = uninstallDeleteOriginal,
+            onDeleteOriginalChange = { uninstallDeleteOriginal = it },
             onDismiss = { uninstallConfirm = null },
             onConfirm = {
-                viewModel.uninstallPatchedApp(record.packageName, alsoForget = uninstallAlsoForget)
+                viewModel.uninstallPatchedApp(
+                    record.packageName,
+                    alsoForget = uninstallAlsoForget,
+                    deleteOriginal = uninstallAlsoForget && uninstallDeleteOriginal,
+                    expectedOriginalPath = record.inputApkPath,
+                )
                 uninstallConfirm = null
             },
         )
@@ -488,6 +514,7 @@ fun HomeScreenContent(
             sourceVersions = snapshot.sourceVersionMap(),
             sourceChannels = snapshot.sourceChannelMap(),
             sourceUpdates = snapshot.sourceUpdateMap(),
+            sourceAdditionalReleases = snapshot.sourceAdditionalReleaseMap(),
             sourceErrors = snapshot.sourceErrorMap(),
             sourceSigningKeyFingerprints = snapshot.sourceSigningKeyFingerprintMap(),
             sourceSigningKeys = snapshot.sourceSigningKeyMap(),
@@ -696,9 +723,12 @@ fun HomeScreenContent(
                             uiState = uiState,
                             onDismissUpdateSession = { viewModel.dismissUpdateForSession() },
                             onDismissUpdateVersion = { viewModel.dismissUpdateForVersion() },
+                            onRetryUpdateCheck = { viewModel.refreshUpdateCheck() },
+                            onDismissUpdateCheckFailure = { viewModel.dismissUpdateCheckFailure() },
                             onDismissMultiSourceHint = { viewModel.dismissMultiSourceHint() },
                             onManageSources = { openPage(HomePage.SOURCES) },
                             onDismissSourcesFailed = { viewModel.dismissSourcesFailedBanner() },
+                            onDismissSourceUpdate = { viewModel.dismissSourceUpdateBanner() },
                             onShowChangelog = { showChangelogDialog = true },
                         )
                         HorizontalPager(
@@ -714,6 +744,7 @@ fun HomeScreenContent(
                                         sourceVersions = snapshot.sourceVersionMap(),
                                         sourceChannels = snapshot.sourceChannelMap(),
                                         sourceUpdates = snapshot.sourceUpdateMap(),
+            sourceAdditionalReleases = snapshot.sourceAdditionalReleaseMap(),
                                         sourceErrors = snapshot.sourceErrorMap(),
                                         sourceSigningKeyFingerprints = snapshot.sourceSigningKeyFingerprintMap(),
                                         sourceSigningKeys = snapshot.sourceSigningKeyMap(),

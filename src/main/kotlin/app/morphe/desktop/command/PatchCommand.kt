@@ -9,6 +9,8 @@
 package app.morphe.desktop.command
 
 import app.morphe.engine.PatchEngine
+import app.morphe.engine.SaveOriginalApk
+import app.morphe.engine.OriginalApkStore
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_ALIAS
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_KEYSTORE_PASSWORD
 import app.morphe.engine.PatchEngine.Config.Companion.DEFAULT_SIGNER_NAME
@@ -28,6 +30,7 @@ import app.morphe.patcher.resource.CpuArchitecture
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.Callable
+import java.util.concurrent.FutureTask
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
@@ -226,6 +229,14 @@ internal object PatchCommand : Callable<Int> {
     )
     private var disablePurge: Boolean = false
 
+    /** Explicit per-command opt-in. GUI settings never silently turn this on for CLI. */
+    @CommandLine.Option(
+        names = ["--save-original"],
+        description = ["Keep input bundle after successful patch: COPY, MOVE or OFF (default OFF). MOVE removes the input only after verifying the retained copy and history."],
+        defaultValue = "OFF",
+    )
+    private var saveOriginalOption: OriginalApkSaveOption = OriginalApkSaveOption.OFF
+
     @CommandLine.Parameters(
         description = ["APK file to patch."],
         arity = "1",
@@ -377,8 +388,9 @@ internal object PatchCommand : Callable<Int> {
     private var updateOptions: Boolean = false
 
     override fun call(): Int {
-        // Check for any newer version
-        UpdateChecker.check()?.let { Logger.info(it) }
+        // Check for any newer version while patching, and show it at the end.
+        val updateCheck = FutureTask(UpdateChecker::check)
+        Thread(updateCheck, "Update check").apply { isDaemon = true }.start()
 
         if (mount && deviceSerial == null) {
             Logger.error("--mount requires --install <exact ADB serial>.")
@@ -470,7 +482,10 @@ internal object PatchCommand : Callable<Int> {
             KeystoreService.shared.resolveSigningDetails(cliKeystoreDetails)
         }
 
-        val effectiveOutputFile = outputFilePath ?: savedConfig.resolvedDefaultOutputDirectory()?.let { defaultDir ->
+        val effectiveOutputFile = outputFilePath ?: (
+            savedConfig.resolvedDefaultOutputDirectory()
+                ?: runBlocking { OriginalApkStore.shared.outputBaseFor(apk) }
+            )?.let { defaultDir ->
             ApkOutputNaming.outputApkPath(
                 inputApk = apk,
                 patchesFile = bundleScopes.firstOrNull()?.bundleFile,
@@ -501,6 +516,7 @@ internal object PatchCommand : Callable<Int> {
             optionsFile = optionsFilePath,
             updateOptions = updateOptions,
             recordHistory = true,
+            saveOriginalApk = saveOriginalOption.mode,
         )
 
         try {
@@ -549,6 +565,7 @@ internal object PatchCommand : Callable<Int> {
             adbManager?.let {
                 runBlocking { it.killServerIfOwned() }
             }
+            updateCheck.get()?.let { Logger.info(it) }
         }
     }
 }
@@ -559,4 +576,11 @@ class OptionKeyConverter : CommandLine.ITypeConverter<String> {
 
 class OptionValueConverter : CommandLine.ITypeConverter<Any?> {
     override fun convert(value: String?): Any? = parseCliOptionValue(value)
+}
+
+/** Command-line retention never inherits implicit GUI file-writing preferences. */
+internal enum class OriginalApkSaveOption(val mode: SaveOriginalApk?) {
+    OFF(null),
+    COPY(SaveOriginalApk.COPY),
+    MOVE(SaveOriginalApk.MOVE),
 }

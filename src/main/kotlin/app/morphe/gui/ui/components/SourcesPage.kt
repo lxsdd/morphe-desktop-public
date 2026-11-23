@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import app.morphe.engine.patches.PatchBundleSignerChangedException
 import app.morphe.engine.patches.PatchResolver.Channel
+import app.morphe.engine.patches.SourceReleaseCandidates
 import app.morphe.gui.data.model.PatchSource
 import app.morphe.gui.ui.icons.MorpheIcons
 import app.morphe.gui.ui.theme.MorpheTheme
@@ -38,6 +39,7 @@ fun SourcesPage(
     sourceVersions: Map<String, String?> = emptyMap(),
     sourceChannels: Map<String, Channel?> = emptyMap(),
     sourceUpdates: Map<String, String> = emptyMap(),
+    sourceAdditionalReleases: Map<String, SourceReleaseCandidates> = emptyMap(),
     isLoading: Boolean = false,
     sourceErrors: Map<String, String> = emptyMap(),
     sourceSigningKeyFingerprints: Map<String, String> = emptyMap(),
@@ -96,6 +98,7 @@ fun SourcesPage(
                 sourceVersions = sourceVersions,
                 sourceChannels = sourceChannels,
                 sourceUpdates = sourceUpdates,
+                sourceAdditionalReleases = sourceAdditionalReleases,
                 isLoading = isLoading,
                 sourceErrors = sourceErrors,
                 sourceSigningKeyFingerprints = sourceSigningKeyFingerprints,

@@ -48,6 +48,7 @@ import app.morphe.engine.model.PatchedAppRecord
 import app.morphe.engine.model.SupportedApp
 import app.morphe.engine.util.isNewerVersion
 import app.morphe.gui.data.model.PatchSource
+import app.morphe.gui.ui.components.FormFactorBadge
 import app.morphe.gui.ui.components.LocalCardFills
 import app.morphe.gui.ui.components.MorpheButton
 import app.morphe.gui.ui.components.MorpheButtonSize
@@ -337,7 +338,16 @@ fun PatchedAppDetailDialog(
                 MorpheDialogTitleBar(
                     onDismiss = { if (canDismissDetails) onDismiss() },
                     dismissEnabled = canDismissDetails,
-                    title = { Text(detailDisplayName, style = MorpheTheme.typography.titleMedium) },
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(detailDisplayName, style = MorpheTheme.typography.titleMedium)
+                            // Only the currently resolved patch source may supply this metadata.
+                            FormFactorBadge(formFactor = supportedApp?.formFactor)
+                        }
+                    },
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
                 )
                 IdentityBand(record, state, deviceInfo, updateInfo, detailDisplayName)
