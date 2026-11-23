@@ -15,6 +15,7 @@ EXTRA = {
     "tools/test_public_preview_delivery_contract.py",
     "tools/require_monotonic_public_beta.py",
     "tools/test_home_scrolling_contract.py",
+    "tools/test_source_release_discovery_contract.py",
     ".github/workflows/build_pull_request.yml",
     ".github/workflows/public_preview_delivery.yml",
 }
