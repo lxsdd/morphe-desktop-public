@@ -154,6 +154,7 @@ class PublicPreviewDeliveryContractTest(unittest.TestCase):
         self.assertEqual(4, self.source.count("@{ Tag = 'custom-v2.2.0-beta."))
         self.assertIn("Cannot read release inventory before retirement", self.source)
         self.assertIn("Unexpected older full-beta release count", self.source)
+        self.assertIn("-[0-9a-f]{12}$' -and", self.source)
         self.assertIn("digest differs; refuse retirement", self.source)
         self.assertIn("Newly published beta.9 asset digest differs", self.source)
         self.assertIn("Latest verified beta.9 release not preserved", self.source)

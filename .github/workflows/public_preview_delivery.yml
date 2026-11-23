@@ -246,8 +246,7 @@ jobs:
               throw 'Newly published beta.9 asset digest differs from verified download'
             }
             $oldFull = @($live | Where-Object {
-              $_.tag_name -match '^custom-v\d+\.\d+\.\d+-(?:beta|rc)\.\d+-[0-9a-f]{12}
- -and
+              $_.tag_name -match '^custom-v\d+\.\d+\.\d+-(?:beta|rc)\.\d+-[0-9a-f]{12}$' -and
               $_.tag_name -ne $env:RELEASE_TAG
             })
             if ($oldFull.Count -ne $retire.Count) {
