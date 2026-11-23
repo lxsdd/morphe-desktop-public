@@ -11,6 +11,9 @@ import app.morphe.engine.model.PatchMetadata
 import app.morphe.engine.patches.PatchBundleLoader
 import app.morphe.engine.patches.PatchBundleSignerChangedException
 import app.morphe.engine.patches.PatchRepository
+import app.morphe.engine.patches.PullRequestPatchSource
+import app.morphe.engine.patches.SourceReleaseCandidates
+import app.morphe.engine.patches.additionalPublishedReleases
 import app.morphe.engine.patches.PatchResolver
 import app.morphe.engine.patches.SupportedAppCatalog.toMetadata
 import app.morphe.engine.util.Logger
@@ -44,6 +47,8 @@ object EnabledSourcesLoader {
         val isOffline: Boolean = false,
         val error: String? = null,
         val channel: PatchResolver.Channel = PatchResolver.Channel.UNKNOWN,
+        /** Unselected alternatives from an explicit online refresh, not app update proof. */
+        val otherPublishedReleases: SourceReleaseCandidates? = null,
         val errorRes: StringResource? = null,
         val errorArgs: List<Any> = emptyList(),
         val signingKey: String? = null,
@@ -230,7 +235,16 @@ object EnabledSourcesLoader {
                 }
             }
         }
-        engineResult.toResolvedSource(source, repo)
+        val selected = engineResult.toResolvedSource(source, repo)
+        // Preserve the manifest-selected, signed bundle. Explicit refresh only:
+        // audit alternative release tags without downloading or trusting them.
+        if (!forceRefresh || repo == null || selected.patchFile == null ||
+            selected.isOffline || repo.remoteSource is PullRequestPatchSource
+        ) return@withContext selected
+        val liveReleases = repo.auditPublishedReleases().getOrNull()
+            ?: return@withContext selected
+        selected.copy(otherPublishedReleases =
+            additionalPublishedReleases(selected.resolvedVersion, liveReleases))
     }
 
     private fun PatchResolver.ResolutionResult.toResolvedSource(
@@ -311,7 +325,13 @@ fun EnabledSourcesLoader.Result?.sourceUpdateMap(): Map<String, String> =
     this?.resolved?.mapNotNull { r ->
         val current = r.resolvedVersion ?: return@mapNotNull null
         val latest = r.latestAvailableVersion ?: return@mapNotNull null
-        if (latest != current) r.source.id to latest else null
+        if (isNewerVersion(latest, current)) r.source.id to latest else null
+    }?.toMap() ?: emptyMap()
+
+/** Published release tags are NOT confirmed app-specific patch updates. */
+fun EnabledSourcesLoader.Result?.sourceAdditionalReleaseMap(): Map<String, SourceReleaseCandidates> =
+    this?.resolved?.mapNotNull { result ->
+        result.otherPublishedReleases?.takeIf { it.hasCandidates }?.let { result.source.id to it }
     }?.toMap() ?: emptyMap()
 
 /** Maps source IDs to load-failure messages across resolve and load phases. */

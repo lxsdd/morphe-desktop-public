@@ -33,7 +33,9 @@ data class Release(
     fun isDevRelease(): Boolean {
         return isPrerelease || tagName.contains("dev", ignoreCase = true) ||
                 tagName.contains("alpha", ignoreCase = true) ||
-                tagName.contains("beta", ignoreCase = true)
+                tagName.contains("beta", ignoreCase = true) ||
+                Regex("""(?:^|[-._])(?:rc|preview)(?:[-._]?\d+)?$""",
+                    RegexOption.IGNORE_CASE).containsMatchIn(tagName)
     }
 }
 

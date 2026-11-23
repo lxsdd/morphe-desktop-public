@@ -72,6 +72,7 @@ import app.morphe.gui.util.sourceSignerChangedMap
 import app.morphe.gui.util.sourceSigningKeyFingerprintMap
 import app.morphe.gui.util.sourceSigningKeyMap
 import app.morphe.gui.util.sourceUpdateMap
+import app.morphe.gui.util.sourceAdditionalReleaseMap
 import app.morphe.gui.util.sourceVersionMap
 import app.morphe.gui.ui.screens.home.components.proceedToPatching
 import app.morphe.gui.ui.theme.Defaults
@@ -513,6 +514,7 @@ fun HomeScreenContent(
             sourceVersions = snapshot.sourceVersionMap(),
             sourceChannels = snapshot.sourceChannelMap(),
             sourceUpdates = snapshot.sourceUpdateMap(),
+            sourceAdditionalReleases = snapshot.sourceAdditionalReleaseMap(),
             sourceErrors = snapshot.sourceErrorMap(),
             sourceSigningKeyFingerprints = snapshot.sourceSigningKeyFingerprintMap(),
             sourceSigningKeys = snapshot.sourceSigningKeyMap(),
@@ -742,6 +744,7 @@ fun HomeScreenContent(
                                         sourceVersions = snapshot.sourceVersionMap(),
                                         sourceChannels = snapshot.sourceChannelMap(),
                                         sourceUpdates = snapshot.sourceUpdateMap(),
+            sourceAdditionalReleases = snapshot.sourceAdditionalReleaseMap(),
                                         sourceErrors = snapshot.sourceErrorMap(),
                                         sourceSigningKeyFingerprints = snapshot.sourceSigningKeyFingerprintMap(),
                                         sourceSigningKeys = snapshot.sourceSigningKeyMap(),

@@ -522,6 +522,10 @@
     <string name="source_error_patcher_unknown">Quelle ist mit Patcher %1$s inkompatibel. Unterstützte Version prüfen; Kompatibilitäts- und Signaturprüfungen nicht umgehen.</string>
     <string name="version_label_local">Lokal</string>
     <string name="version_label_unknown">Kanal ungeprüft</string>
+    <string name="source_release_discovery_manual_hint">Quellen aktualisieren, um weitere veröffentlichte stabile und experimentelle Versionen zu suchen. Keine automatische Umstellung.</string>
+    <string name="source_additional_stable_release">Weitere stabile Quellversion: %1$s</string>
+    <string name="source_additional_experimental_release">Weitere experimentelle Quellversion: %1$s</string>
+    <string name="source_additional_release_warning">Nicht ausgewählt – Kompatibilität, Patches und Signatur für deine Apps noch ungeprüft.</string>
     <string name="home_update_checks_incomplete_intro">%1$d Einträge im Patchverlauf noch nicht vollständig geprüft:</string>
     <string name="home_update_checks_count_only_confirmed">Gezählt werden nur bestätigte Updates.</string>
     <string name="source_sheet_remote_label">Remote</string>
