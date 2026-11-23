@@ -206,7 +206,7 @@ jobs:
             'Full application source parity and exact current version must be qualified before distribution.',
             "Source SHA: $env:EXACT_SHA", "JAR SHA256: $jarHash", "ZIP SHA256: $zipHash",
             'Exact public 3-OS native CI and Windows regression were required before publishing.',
-            'Old public full betas are retired only under the one-time approved beta.9 cleanup after ZIP verification; private rollback/drafts remain untouched.'
+            'Only the previously released full public beta.9 is retired under the owner-approved beta.10 cleanup after ZIP readback; private rollback/drafts and historic source-only tags remain untouched.'
           ) | Set-Content -LiteralPath $notes -Encoding utf8
           & gh release create $env:RELEASE_TAG $zip (Join-Path $dist 'SHA256SUMS.txt') --repo $repo --target $env:EXACT_SHA --title "Morphe Desktop Custom full - $env:RELEASE_VERSION ($env:SHORT_SHA)" --notes-file $notes --prerelease
           if ($LASTEXITCODE -ne 0) { throw 'Owner-approved public release creation failed' }
@@ -221,40 +221,48 @@ jobs:
           $sums = Get-Content -LiteralPath (Join-Path $readback 'SHA256SUMS.txt') -Raw
           if (-not $sums.Contains("$actual  $zipName")) { throw 'Published checksum manifest mismatch' }
           Write-Host "PUBLIC_PREVIEW=PASS SOURCE_SHA=$env:EXACT_SHA ZIP_SHA256=$actual JAR_SHA256=$jarHash READBACK=PASS"
-          # ONE-TIME owner's beta.9 authorization: retire only four exact pre-existing
-          # public full-beta releases AFTER published beta.9 bytes passed readback.
-          # No implicit cleanup on future betas or in private repositories.
-          if ($env:RELEASE_VERSION -eq '2.2.0-beta.9') {
+          # ONE-TIME owner's beta.10 approval: retire ONLY the one exact
+          # previously published public beta.9 release AFTER downloaded beta.10
+          # ZIP, its manifest, and GitHub asset digest are verified.
+          # No automatic cleanup on subsequent releases; no private state touched.
+          if ($env:RELEASE_VERSION -eq '2.2.0-beta.10') {
             $retire = @(
-              @{ Tag = 'custom-v2.2.0-beta.8-c3e37e60b13f'; Id = 455203424; Digest = 'sha256:8ddb2e9cb8ebe776c76b009b303f985a78218962c8db18a3647dcf361bdf3dda' },
-              @{ Tag = 'custom-v2.2.0-beta.7-b0e088c87e47'; Id = 454709279; Digest = 'sha256:be7cb871ba152cb832277af13efdbcaeeb249fd0ed668a1baab6133117cd6b0c' },
-              @{ Tag = 'custom-v2.2.0-beta.6-ca06be0b78a0'; Id = 454693672; Digest = 'sha256:bf880ad39cb3fd4e5242d4e2d0cd774eddfc9fd663bd0f9568ec247b338ac067' },
-              @{ Tag = 'custom-v2.2.0-beta.6-81fff4b45b94'; Id = 447733005; Digest = 'sha256:5c17d6e3a8d6dbe7830fae087481d8e64555dfd4e940fafe7a4affb9af93d4b4' }
+              @{ Tag = 'custom-v2.2.0-beta.9-1be9ee4280bc'; Id = 455839531; Source = '1be9ee4280bc49892e3ed3d350e8a09c97bf63de'; Digest = 'sha256:f64d6ac0536e8fcf5648216bd32697be8cde867a7afc78636985aba85b12ca34' }
             )
             $liveJson = & gh api "repos/$repo/releases?per_page=100"
             if ($LASTEXITCODE -ne 0) { throw 'Cannot read release inventory before retirement' }
             $live = @($liveJson | ConvertFrom-Json)
-            if ($live.Count -ge 100) { throw 'Release inventory paginated; refuse retirement' }
+            if ($live.Count -ne 2) {
+              throw 'Unexpected total public release inventory; refuse retirement'
+            }
+            $currentPr = & gh api "repos/$repo/pulls/$env:PR_NUMBER" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or
+                $currentPr.state -ne 'open' -or
+                $currentPr.head.sha -ne $env:EXACT_SHA -or
+                @($currentPr.labels | ForEach-Object { $_.name }) -notcontains $env:APPROVAL_LABEL) {
+              throw 'Beta.10 owner label or PR SHA changed before retirement'
+            }
             $newRelease = @($live | Where-Object { $_.tag_name -eq $env:RELEASE_TAG })
             if ($newRelease.Count -ne 1 -or $newRelease[0].draft -or
                 -not $newRelease[0].prerelease -or
                 $newRelease[0].target_commitish -ne $env:EXACT_SHA) {
-              throw 'Verified beta.9 release missing or its exact source changed; refuse retirement'
+              throw 'Verified beta.10 release missing or its exact source changed; refuse retirement'
             }
             $newZip = @($newRelease[0].assets | Where-Object { $_.name -eq $zipName })
             if ($newZip.Count -ne 1 -or $newZip[0].digest -ne "sha256:$actual") {
-              throw 'Newly published beta.9 asset digest differs from verified download'
+              throw 'Newly published beta.10 asset digest differs from verified download'
             }
             $oldFull = @($live | Where-Object {
               $_.tag_name -match '^custom-v\d+\.\d+\.\d+-(?:beta|rc)\.\d+-[0-9a-f]{12}$' -and
               $_.tag_name -ne $env:RELEASE_TAG
             })
             if ($oldFull.Count -ne $retire.Count) {
-              throw 'Unexpected older full-beta release count; refuse partial/unknown retirement'
+              throw 'Unexpected older full-beta release count; refuse unknown retirement'
             }
             foreach ($item in $retire) {
               $record = @($oldFull | Where-Object { $_.tag_name -eq $item.Tag })
               if ($record.Count -ne 1 -or $record[0].id -ne $item.Id -or
+                  $record[0].target_commitish -ne $item.Source -or
                   $record[0].draft -or -not $record[0].prerelease) {
                 throw "Unexpected identity/status for prior release $($item.Tag); refuse retirement"
               }
@@ -263,8 +271,8 @@ jobs:
                 throw "Prior release $($item.Tag) digest differs; refuse retirement"
               }
             }
-            # All checks complete before the FIRST deletion. Do not touch private
-            # rollback commits, PR branches, CI records or any other public tags.
+            # The exact new release and old release are both fully verified.
+            # Do not delete on a failed build, download, SHA, or changed inventory.
             foreach ($item in $retire) {
               & gh release delete $item.Tag --repo $repo --cleanup-tag --yes
               if ($LASTEXITCODE -ne 0) { throw "Could not retire old public release $($item.Tag)" }
@@ -272,13 +280,17 @@ jobs:
             $afterJson = & gh api "repos/$repo/releases?per_page=100"
             if ($LASTEXITCODE -ne 0) { throw 'Could not verify retirement readback' }
             $after = @($afterJson | ConvertFrom-Json)
-            if (@($after | Where-Object { $_.tag_name -in @($retire | ForEach-Object { $_.Tag }) }).Count -ne 0) {
-              throw 'At least one old public release remains after retirement'
+            if ($after.Count -ne 1 -or
+                @($after | Where-Object { $_.tag_name -eq $retire[0].Tag }).Count -ne 0) {
+              throw 'Unexpected remaining public release after retirement'
             }
             $kept = @($after | Where-Object { $_.tag_name -eq $env:RELEASE_TAG })
             if ($kept.Count -ne 1 -or
-                @($kept[0].assets | Where-Object { $_.name -eq $zipName -and $_.digest -eq "sha256:$actual" }).Count -ne 1) {
-              throw 'Latest verified beta.9 release not preserved during retirement'
+                $kept[0].target_commitish -ne $env:EXACT_SHA -or
+                @($kept[0].assets | Where-Object {
+                  $_.name -eq $zipName -and $_.digest -eq "sha256:$actual"
+                }).Count -ne 1) {
+              throw 'Latest verified beta.10 release not preserved during retirement'
             }
             Write-Host "PUBLIC_OLDER_RELEASE_RETIREMENT=PASS COUNT=$($retire.Count) LATEST=$env:RELEASE_TAG"
           }

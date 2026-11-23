@@ -127,14 +127,16 @@ class PublicPreviewDeliveryContractTest(unittest.TestCase):
         self.assertIn("experimentalReleasesAreSearchableFromTheStableTab", tests)
         self.assertIn("missingPinnedReleaseIsNotSilentlyReplaced", tests)
 
-    def test_beta9_zip_checksum_readback_precedes_one_time_retirement(self):
+    def test_beta10_zip_checksum_readback_precedes_one_time_retirement(self):
         self.assertIn("gh release create", self.source)
         self.assertIn("--prerelease", self.source)
         self.assertIn("gh release download", self.source)
         self.assertIn("Published ZIP bytes do not match", self.source)
         self.assertIn("Published checksum manifest mismatch", self.source)
-        self.assertIn("if ($env:RELEASE_VERSION -eq '2.2.0-beta.9')", self.source)
+        self.assertIn("if ($env:RELEASE_VERSION -eq '2.2.0-beta.10')", self.source)
+        self.assertNotIn("if ($env:RELEASE_VERSION -eq '2.2.0-beta.9')", self.source)
         self.assertIn("gh release delete $item.Tag --repo $repo --cleanup-tag --yes", self.source)
+        self.assertEqual(1, self.source.count("gh release delete $item.Tag"))
         self.assertLess(self.source.index('Published checksum manifest mismatch'),
                         self.source.index('gh release delete $item.Tag'))
         self.assertLess(self.source.index('PUBLIC_PREVIEW=PASS'),
@@ -143,24 +145,23 @@ class PublicPreviewDeliveryContractTest(unittest.TestCase):
         self.assertNotIn("git push", self.source)
         self.assertNotIn("gh pr merge", self.source)
 
-    def test_explicit_retirement_approves_only_exact_published_full_beta_releases(self):
-        for tag in (
-            "custom-v2.2.0-beta.8-c3e37e60b13f",
-            "custom-v2.2.0-beta.7-b0e088c87e47",
-            "custom-v2.2.0-beta.6-ca06be0b78a0",
-            "custom-v2.2.0-beta.6-81fff4b45b94",
-        ):
-            self.assertIn(tag, self.source)
-        self.assertEqual(4, self.source.count("@{ Tag = 'custom-v2.2.0-beta."))
-        self.assertIn("Cannot read release inventory before retirement", self.source)
+    def test_beta10_retirement_is_exact_beta9_only_and_fails_closed(self):
+        self.assertIn("custom-v2.2.0-beta.9-1be9ee4280bc", self.source)
+        self.assertIn("Id = 455839531", self.source)
+        self.assertIn("Source = '1be9ee4280bc49892e3ed3d350e8a09c97bf63de'", self.source)
+        self.assertIn("Digest = 'sha256:f64d6ac0536e8fcf5648216bd32697be8cde867a7afc78636985aba85b12ca34'", self.source)
+        self.assertEqual(1, self.source.count("@{ Tag = 'custom-v2.2.0-beta."))
+        self.assertIn("Unexpected total public release inventory", self.source)
+        self.assertIn("Beta.10 owner label or PR SHA changed before retirement", self.source)
+        self.assertIn("Verified beta.10 release missing or its exact source changed", self.source)
+        self.assertIn("Newly published beta.10 asset digest differs", self.source)
         self.assertIn("Unexpected older full-beta release count", self.source)
         self.assertIn("-[0-9a-f]{12}$' -and", self.source)
+        self.assertIn("$record[0].target_commitish -ne $item.Source", self.source)
         self.assertIn("digest differs; refuse retirement", self.source)
-        self.assertIn("Newly published beta.9 asset digest differs", self.source)
-        self.assertIn("Latest verified beta.9 release not preserved", self.source)
+        self.assertIn("Latest verified beta.10 release not preserved", self.source)
         self.assertIn("github.actor == github.repository_owner", self.source)
         self.assertIn("gh release delete $item.Tag --repo $repo --cleanup-tag --yes", self.source)
-
 
     def test_public_ci_real_mpp_fixtures_remain_sha_pinned_and_do_not_bypass_removed_sources(self):
         # A retired 404 repository and a GitHub ToS-blocked repository cannot
