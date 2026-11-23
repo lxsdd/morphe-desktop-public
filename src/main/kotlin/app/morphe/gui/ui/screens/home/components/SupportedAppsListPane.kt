@@ -17,9 +17,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -91,6 +91,8 @@ internal fun SupportedAppsListPane(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var expandedPackage by remember { mutableStateOf<String?>(null) }
+    var showIncompleteDetails by remember { mutableStateOf(false) }
+    var diagnosticHeightPx by remember { mutableIntStateOf(0) }
     var showCommunityNotice by remember { mutableStateOf(false) }
     val communityCardEnabled = LocalShowMoreAppsCard.current.value
     val configRepository: ConfigRepository = koinInject()
@@ -181,10 +183,10 @@ internal fun SupportedAppsListPane(
             deviceCount = verifiedDeviceInventoryCount(deviceInstalledPackages.size, deviceInventorySerial),
             modifier = Modifier.fillMaxWidth(),
         )
-        if (!isLoading && uncheckedAppCount > 0) {
-            // Explain the first missing proof for each app, not just a list of
-            // names suggesting that a pending check is itself a new update.
-            val uncheckedDescriptions = uncheckedEntries.map { item ->
+        if (uncheckedAppCount > 0) {
+            // Reuse the real historical provenance and update evidence. The
+            // collapsed notice does not classify these as available updates.
+            val descriptions = uncheckedEntries.map { item ->
                 val reason = item.sourceIssue?.let { historicalSourceIssueText(it) } ?: when (item.reason) {
                     IncompleteUpdateReason.METADATA_UNAVAILABLE ->
                         stringResource(Res.string.home_update_reason_metadata_unavailable)
@@ -195,70 +197,27 @@ internal fun SupportedAppsListPane(
                     IncompleteUpdateReason.CHANGE_PROOF_UNAVAILABLE ->
                         stringResource(Res.string.home_update_reason_change_unverified)
                 }
-                val source = item.sourceName?.let { "$it: " } ?: ""
-                "${item.appName} ($source$reason)"
+                IncompleteCheckDescription(
+                    appName = item.appName,
+                    sourceName = item.sourceName,
+                    reason = reason,
+                )
             }
-            // Every reason must be readable, including on a narrow split layout.
-            // The reasons scroll independently when they exceed the available
-            // space; the actions cannot compress or truncate the explanation.
-            val uncheckedScrollState = rememberScrollState()
-            Spacer(modifier = Modifier.height(4.dp))
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+            Box(
+                modifier = Modifier.fillMaxWidth()
+                    .onSizeChanged { diagnosticHeightPx = it.height }
+                    .padding(start = 8.dp, end = 12.dp, top = 6.dp),
             ) {
-                Text(
-                    text = stringResource(Res.string.home_update_checks_incomplete_intro, uncheckedAppCount),
-                    style = MorpheTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Box(modifier = Modifier.fillMaxWidth().heightIn(max = 144.dp)) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
-                            .verticalScroll(uncheckedScrollState)
-                            .padding(end = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp),
-                    ) {
-                        uncheckedDescriptions.forEach { description ->
-                            Text(
-                                text = "• $description",
-                                style = MorpheTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                softWrap = true,
-                            )
-                        }
-                    }
-                    VerticalScrollbar(
-                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
-                        adapter = rememberScrollbarAdapter(uncheckedScrollState),
-                        style = MorpheScrollbarStyle(),
-                    )
-                }
-                Text(
-                    text = stringResource(Res.string.home_update_checks_count_only_confirmed),
-                    style = MorpheTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
+                IncompleteChecksNotice(
+                    entries = descriptions,
+                    expanded = showIncompleteDetails,
+                    onToggleExpanded = { showIncompleteDetails = !showIncompleteDetails },
+                    isLoading = isLoading,
+                    showManageSources = shouldOfferSourceManagement(uncheckedEntries),
+                    onRetry = onRetry,
+                    onManageSources = onManageSources,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (uncheckedEntries.any { it.sourceIssue in setOf(
-                            app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_UNMATCHED,
-                            app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_DISABLED,
-                            app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE,
-                            app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_POLICY_BLOCKED,
-                            app.morphe.gui.ui.screens.home.HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED,
-                        ) }) {
-                        TextButton(onClick = onManageSources) {
-                            Text(stringResource(Res.string.home_header_manage_sources_button))
-                        }
-                    }
-                    TextButton(onClick = onRetry, enabled = !isLoading) {
-                        Text(stringResource(Res.string.home_update_retry_check))
-                    }
-                }
+                )
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
@@ -288,9 +247,11 @@ internal fun SupportedAppsListPane(
         }
         Spacer(modifier = Modifier.height(10.dp))
 
-        // The expanded diagnostics header owns its height; leave more room
-        // below the fixed search row for the independently scrollable app list.
-        val diagnosticHeightAllowance = if (!isLoading && uncheckedAppCount > 0) 170.dp else 0.dp
+        // Allocate only the measured compact/expanded notice height. Never
+        // reserve a fixed 170dp when the panel is collapsed or absent.
+        val diagnosticHeightAllowance = if (uncheckedAppCount > 0) {
+            with(LocalDensity.current) { diagnosticHeightPx.toDp() }
+        } else 0.dp
         if (filter == AppListFilter.DEVICE) {
             DeviceInventoryPane(
                 installedPackages = deviceInstalledPackages,

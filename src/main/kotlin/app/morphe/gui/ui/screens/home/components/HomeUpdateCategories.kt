@@ -109,6 +109,16 @@ internal fun incompleteAppChecks(
     )
 }.distinctBy { it.appName }.sortedBy { it.appName.lowercase() }.toList()
 
+/** Source-management access is offered only for actual unresolved provenance/access. */
+internal fun shouldOfferSourceManagement(entries: List<IncompleteAppCheck>): Boolean =
+    entries.any { it.sourceIssue in setOf(
+        HistoricalSourceIssue.SOURCE_UNMATCHED,
+        HistoricalSourceIssue.SOURCE_DISABLED,
+        HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE,
+        HistoricalSourceIssue.SOURCE_POLICY_BLOCKED,
+        HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED,
+    ) }
+
 /** Only a successfully captured device inventory may display a numeric count. */
 internal fun verifiedDeviceInventoryCount(installedCount: Int, inventorySerial: String?): Int? =
     installedCount.takeIf { inventorySerial != null }

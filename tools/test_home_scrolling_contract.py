@@ -12,6 +12,7 @@ SUPPORTED = ROOT / "SupportedAppsListPane.kt"
 YOURS = ROOT / "YourAppsPane.kt"
 DEVICE = ROOT / "DeviceInventoryPane.kt"
 SOURCE_SHEET = Path("src/main/kotlin/app/morphe/gui/ui/components/SourceManagementSheet.kt")
+NOTICE = ROOT / "IncompleteChecksNotice.kt"
 STRINGS = Path("src/main/composeResources/values/strings.xml")
 STRINGS_DE = Path("src/main/composeResources/values-de-rDE/strings.xml")
 
@@ -20,6 +21,7 @@ class HomeScrollingContractTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.supported = SUPPORTED.read_text(encoding="utf-8")
+        cls.notice = NOTICE.read_text(encoding="utf-8")
         cls.yours = YOURS.read_text(encoding="utf-8")
         cls.device = DEVICE.read_text(encoding="utf-8")
         cls.source_sheet = SOURCE_SHEET.read_text(encoding="utf-8")
@@ -66,26 +68,65 @@ class HomeScrollingContractTest(unittest.TestCase):
         self.assertIn("device_overview_signer_review_hint", self.device)
         self.assertNotIn("PatchEngine.patch(", self.device)
 
-    def test_incomplete_history_reasons_are_fully_readable_not_ellipsized(self):
-        banner = self.supported.split("if (!isLoading && uncheckedAppCount > 0) {", 1)[1]
-        banner = banner.split("val searchVisible = true", 1)[0]
-        self.assertIn('Res.string.home_update_checks_incomplete_intro', banner)
-        self.assertIn('uncheckedDescriptions.forEach { description ->', banner)
-        self.assertIn('text = "• $description"', banner)
-        self.assertIn("softWrap = true", banner)
-        self.assertIn(".verticalScroll(uncheckedScrollState)", banner)
-        self.assertIn("rememberScrollbarAdapter(uncheckedScrollState)", banner)
-        self.assertIn("home_update_checks_count_only_confirmed", banner)
-        self.assertIn("onClick = onRetry", banner)
-        self.assertIn("onClick = onManageSources", banner)
-        self.assertNotIn("maxLines = 3", banner)
-        self.assertNotIn("overflow = TextOverflow.Ellipsis", banner)
-        self.assertNotIn("uncheckedDescriptions.joinToString", banner)
+    def test_incomplete_history_is_collapsed_by_default_and_details_show_all_evidence(self):
+        self.assertIn("var showIncompleteDetails by remember { mutableStateOf(false) }", self.supported)
+        self.assertIn("if (uncheckedAppCount > 0) {", self.supported)
+        self.assertIn("IncompleteChecksNotice(", self.supported)
+        self.assertIn("expanded = showIncompleteDetails", self.supported)
+        self.assertIn("onToggleExpanded = { showIncompleteDetails = !showIncompleteDetails }", self.supported)
+        self.assertIn("val descriptions = uncheckedEntries.map { item ->", self.supported)
+        self.assertIn("sourceIssue?.let { historicalSourceIssueText(it) }", self.supported)
+        self.assertIn("appName = item.appName", self.supported)
+        self.assertIn("sourceName = item.sourceName", self.supported)
+        self.assertIn("reason = reason", self.supported)
+        self.assertIn("entries.forEachIndexed { index, entry ->", self.notice)
+        self.assertIn("text = entry.appName", self.notice)
+        self.assertIn("text = entry.sourceName", self.notice)
+        self.assertIn("text = entry.reason", self.notice)
+        self.assertIn("softWrap = true", self.notice)
+        self.assertNotIn("maxLines = 3", self.notice)
+        details = self.notice.split("entries.forEachIndexed { index, entry ->", 1)[1]
+        self.assertNotIn("TextOverflow.Ellipsis", details)
 
-    def test_expanded_reasons_preserve_bounded_app_lists(self):
-        self.assertIn("val diagnosticHeightAllowance = if (!isLoading && uncheckedAppCount > 0) 170.dp else 0.dp", self.supported)
+    def test_summary_ellipsis_does_not_truncate_full_reasons(self):
+        # Only the one-line collapsed name summary may elide; detailed reasons scroll.
+        self.assertIn("maxLines = 1", self.notice)
+        self.assertEqual(1, self.notice.count("overflow = TextOverflow.Ellipsis"))
+        self.assertIn("if (expanded) {", self.notice)
+        self.assertIn(".heightIn(max = 224.dp)", self.notice)
+        self.assertIn(".verticalScroll(detailScrollState)", self.notice)
+        self.assertIn("if (detailScrollState.maxValue > 0)", self.notice)
+        self.assertIn("rememberScrollbarAdapter(detailScrollState)", self.notice)
+        self.assertIn("home_update_checks_count_only_confirmed", self.notice)
+        self.assertIn("onClick = onRetry", self.notice)
+        self.assertIn("onClick = onManageSources", self.notice)
+        self.assertIn("shouldOfferSourceManagement(uncheckedEntries)", self.supported)
+
+    def test_compact_and_expanded_heights_are_measured_in_all_three_app_views(self):
+        self.assertIn(".onSizeChanged { diagnosticHeightPx = it.height }", self.supported)
+        self.assertIn("with(LocalDensity.current) { diagnosticHeightPx.toDp() }", self.supported)
+        self.assertIn("if (uncheckedAppCount > 0)", self.supported)
+        self.assertNotIn("diagnosticHeightAllowance = if (!isLoading && uncheckedAppCount > 0) 170.dp", self.supported)
         self.assertEqual(2, self.supported.count("paneMaxHeight = paneMaxHeight - diagnosticHeightAllowance"))
         self.assertIn("150.dp + diagnosticHeightAllowance", self.supported)
+        self.assertIn("val narrow = maxWidth < 540.dp", self.notice)
+        self.assertIn("if (narrow && expanded && showManageSources)", self.notice)
+        self.assertIn("showManageSources = shouldOfferSourceManagement(uncheckedEntries)", self.supported)
+
+    def test_unchanged_retry_wiring_and_in_progress_feedback(self):
+        self.assertIn("onRetry = onRetry", self.supported)
+        self.assertIn("onManageSources = onManageSources", self.supported)
+        self.assertIn("isLoading = isLoading", self.supported)
+        self.assertIn("if (isLoading) {", self.notice)
+        self.assertIn("CircularProgressIndicator(", self.notice)
+        self.assertIn("home_update_checks_checking", self.notice)
+        for resources in (self.strings, self.strings_de):
+            for key in (
+                "home_update_checks_show_details", "home_update_checks_hide_details",
+                "home_update_checks_checking", "home_update_checks_incomplete_intro",
+            ):
+                self.assertIn('name="' + key + '"', resources)
+        self.assertNotIn("PatchEngine.patch(", self.notice)
 
     def test_unknown_source_channel_is_not_mislabeled_stable(self):
         badge = self.source_sheet.split("private fun ChannelBadge(", 1)[1].split(

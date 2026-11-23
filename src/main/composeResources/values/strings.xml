@@ -547,7 +547,10 @@
     <string name="source_additional_stable_release">Other stable source release: %1$s</string>
     <string name="source_additional_experimental_release">Other experimental source release: %1$s</string>
     <string name="source_additional_release_warning">Unselected release – compatibility, patches and signing have not been verified for your apps.</string>
-    <string name="home_update_checks_incomplete_intro">%1$d patch-history entries not fully checked:</string>
+    <string name="home_update_checks_incomplete_intro">%1$d patch-history checks still open</string>
+    <string name="home_update_checks_show_details">Details</string>
+    <string name="home_update_checks_hide_details">Hide details</string>
+    <string name="home_update_checks_checking">Checking…</string>
     <string name="home_update_checks_count_only_confirmed">Only confirmed updates are counted.</string>
     <string name="source_sheet_remote_label">Remote</string>
     <string name="add_source">Add source</string>

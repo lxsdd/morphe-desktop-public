@@ -327,4 +327,28 @@ class HomeUpdateCategoriesTest {
         assertFalse(hasConfirmedPatchUpdate(infoByPackage["pkg.third"]))
     }
 
+    @Test
+    fun `source-management action follows real provenance blockers only`() {
+        val sourceIssues = listOf(
+            HistoricalSourceIssue.SOURCE_UNMATCHED,
+            HistoricalSourceIssue.SOURCE_DISABLED,
+            HistoricalSourceIssue.SOURCE_NOT_ACCESSIBLE,
+            HistoricalSourceIssue.SOURCE_POLICY_BLOCKED,
+            HistoricalSourceIssue.SOURCE_ACCESS_RESTRICTED,
+        )
+        sourceIssues.forEach { issue ->
+            assertTrue(shouldOfferSourceManagement(listOf(IncompleteAppCheck(
+                appName = "Example", sourceName = "Real provider",
+                reason = IncompleteUpdateReason.SOURCE_UNAVAILABLE,
+                sourceIssue = issue,
+            ))))
+        }
+        assertFalse(shouldOfferSourceManagement(emptyList()))
+        assertFalse(shouldOfferSourceManagement(listOf(IncompleteAppCheck(
+            appName = "Example", sourceName = null,
+            reason = IncompleteUpdateReason.METADATA_UNAVAILABLE,
+        ))))
+    }
+
+
 }
